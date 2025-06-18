@@ -1,0 +1,32 @@
+template_vm_id: 1936
+proxmox_vm_vlan_tag: 10
+proxmox_storage: ci-geek-cookbook
+proxmox_nfs_storage: ns1-proxmox-backup
+proxmox_host_name: proxmox
+proxmox_vm_ram: 32768
+proxmox_vm_cores: 24
+proxmox_vm_network_bridge: vmbr0
+proxmox_vm_disk0_size: 50G
+proxmox_vm_disk1_size: 50G
+proxmox_vm_topolvm_disk_size: 200G
+proxmox_vlan_gateway: 192.168.40.1
+proxmox_host_username: root@pam
+terraform_dir: ~/.terraform/elfhosted-ci
+proxmox_node: proxmox # all CI VMs go to the host named "proxmox" by default
+cluster_nic_class_c: 192.168.41
+dns_domain: ci-elfhosted.com
+k8s_ha_api_ip: 192.168.40.4
+k8s_ha_api_port: 8443
+flux_repo_branch: ci
+authentik_login_background: https://images.unsplash.com/photo-1608096275202-85fd2fc2e4d9?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&dl=karsten-winegeart-W9c6YicHKyE-unsplash.jpg
+
+pod_cidr_v4: 10.3.0.0/15
+service_cidr_v4: 10.44.0.0/16
+pod_cidr_v6: fd01::/104  
+k3s_node_taint: node-role.kubernetes.io/control-plane=true:NoSchedule
+
+firewall:
+  admin_source: 
+  - 192.168.29.0/24 # admin LAN
+  - 172.16.34.36    # source routed via tailscale exit node fphq
+  cluster_source: "{{ vault_cluster_source }}"  

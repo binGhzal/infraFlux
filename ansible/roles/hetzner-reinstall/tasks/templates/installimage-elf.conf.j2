@@ -1,0 +1,20 @@
+DRIVE1 /dev/nvme0n1
+DRIVE2 /dev/nvme1n1
+
+SWRAID 1
+
+SWRAIDLEVEL 0
+
+HOSTNAME {{ inventory_hostname_short}}
+
+
+USE_KERNEL_MODE_SETTING yes
+
+PART /boot/efi esp 256
+PART /boot  ext3     2048M
+PART lvm    vg0       all
+
+LV vg0   root   /        ext4         64G
+LV vg0   var-lib   /var/lib    xfs          500G
+
+IMAGE /root/.oldroot/nfs/install/../images/Ubuntu-2404-noble-amd64-base.tar.gz
