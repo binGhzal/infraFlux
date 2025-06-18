@@ -1,16 +1,70 @@
-# Deployment Flowchart
+# InfraFlux Deployment Flow
+
+## Overview
+
+This document describes the complete deployment flow for InfraFlux - an automated Kubernetes cluster deployment system for Proxmox.
+
+## Deployment Flow Diagram
 
 ```mermaid
 flowchart TD
-  A["Start: ./configure.sh"] --> B["Generate config/cluster-config.yaml"]
-  B --> C["Run: ./deploy.sh [phase]"]
-  C --> D["Ansible Master Playbook: deploy.yml"]
-  D --> E1["Phase 1: Infrastructure\nplaybooks/infrastructure.yml"]
-  E1 --> E2["Phase 2: Node Preparation\nplaybooks/node-preparation.yml"]
-  E2 --> E3["Phase 3: K3s Cluster\nplaybooks/k3s-cluster.yml"]
-  E3 --> E4["Phase 4: Applications\nplaybooks/applications.yml"]
-  E4 --> F["Cluster Ready & Applications Deployed"]
-  F --> G["Fetch kubeconfig & access services"]
+    A[Start: ./configure.sh] --> B{Config Exists?}
+    B -->|No| C[Interactive Configuration Wizard]
+    B -->|Yes| D[Load Existing Config]
+
+    C --> E[Save config/cluster-config.yaml]
+    D --> E
+
+    E --> F[Run: ./deploy.sh]
+    F --> G[Parse Configuration]
+    G --> H[Check Prerequisites]
+
+    H --> I{All Tools Available?}
+    I -->|No| J[Install Missing Tools]
+    I -->|Yes| K[Start Deployment]
+    J --> K
+
+    K --> L[Phase 1: Infrastructure]
+    L --> M[Generate Terraform Plans]
+    M --> N[Create Proxmox VMs via Terraform]
+    N --> O[Wait for VM Boot & SSH Ready]
+
+    O --> P[Phase 2: Node Preparation]
+    P --> Q[Update System Packages]
+    Q --> R[Configure SSH Keys]
+    R --> S[Install Docker/Containerd]
+    S --> T[Configure Networking]
+    T --> U[Disable Swap & Configure Kernel]
+
+    U --> V[Phase 3: K3s Cluster Setup]
+    V --> W[Install K3s on First Master]
+    W --> X[Extract Cluster Token]
+    X --> Y[Join Additional Masters]
+    Y --> Z[Join Worker Nodes]
+    Z --> AA[Configure kubectl Access]
+
+    AA --> BB[Phase 4: Applications]
+    BB --> CC{Install Cilium?}
+    CC -->|Yes| DD[Deploy Cilium CNI]
+    CC -->|No| EE[Use Flannel CNI]
+    DD --> FF
+    EE --> FF[Configure Traefik Ingress]
+
+    FF --> GG{Install MetalLB?}
+    GG -->|Yes| HH[Deploy MetalLB Load Balancer]
+    GG -->|No| II
+    HH --> II{Install Monitoring?}
+
+    II -->|Yes| JJ[Deploy Prometheus Stack]
+    II -->|No| KK
+    JJ --> KK{Install Backup?}
+
+    KK -->|Yes| LL[Deploy Velero Backup]
+    KK -->|No| MM
+    LL --> MM[Deployment Complete ✅]
+
+    MM --> NN[Generate kubeconfig]
+    NN --> OO[Display Access Information]
 ```
 
 ## Detailed Steps

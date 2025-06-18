@@ -1,5 +1,5 @@
 ---
-- name: Create Proxmox VMs for Kubernetes Cluster
+- name: Deploy Infrastructure using Terraform and Proxmox
   hosts: localhost
   connection: local
   gather_facts: yes
@@ -14,87 +14,95 @@
 
     # VM configuration with smart defaults
     vm_base_name: "{{ cluster_name | default('k3s') }}"
-    vm_memory: "{{ vm_memory | default('4096') }}"
-    vm_cores: "{{ vm_cores | default('2') }}"
-    vm_disk_size: "{{ vm_disk_size | default('20G') }}"
-
-    # Generate IP range automatically
-    network_base: "{{ network_cidr | ipaddr('network') }}"
-    network_prefix: "{{ network_cidr | ipaddr('prefix') }}"
-    start_ip: "{{ network_base | ipaddr('10') | ipaddr('address') }}"
+    terraform_dir: "/tmp/infraflux-terraform"
 
   tasks:
     - name: Display deployment information
       debug:
         msg:
-          - "🌟 Starting Infrastructure Deployment"
+          - "🌟 Starting Infrastructure Deployment with Terraform"
           - "Cluster: {{ vm_base_name }}"
           - "Network: {{ network_cidr }}"
           - "Gateway: {{ gateway_ip }}"
           - "Controllers: {{ controller_count | default(3) }}"
           - "Workers: {{ worker_count | default(3) }}"
 
-    - name: Create controller VMs
-      community.general.proxmox_kvm:
-        api_host: "{{ proxmox_host }}"
-        api_user: "{{ proxmox_user | default('root@pam') }}"
-        api_password: "{{ proxmox_password }}"
-        node: "{{ proxmox_node | default('pve') }}"
-        vmid: "{{ 100 + item }}"
-        name: "{{ vm_base_name }}-controller-{{ item }}"
-        clone: "{{ vm_template_name | default('ubuntu-template') }}"
-        full: yes
-        storage: "{{ proxmox_storage | default('local-lvm') }}"
-        memory: "{{ vm_memory }}"
-        cores: "{{ vm_cores }}"
-        net:
-          net0: "virtio,bridge=vmbr0"
-        ipconfig:
-          ipconfig0: "ip={{ start_ip | ipmath(item) }}/{{ network_prefix }},gw={{ gateway_ip }}"
-        sshkeys: "{{ lookup('file', ssh_key_path | default('~/.ssh/id_rsa.pub')) }}"
-        state: present
-        timeout: 300
-      loop: "{{ range(1, (controller_count | int) + 1) | list }}"
-      register: controller_vms
+    - name: Create Terraform working directory
+      file:
+        path: "{{ terraform_dir }}"
+        state: directory
+        mode: '0755'
 
-    - name: Create worker VMs
-      community.general.proxmox_kvm:
-        api_host: "{{ proxmox_host }}"
-        api_user: "{{ proxmox_user | default('root@pam') }}"
-        api_password: "{{ proxmox_password }}"
-        node: "{{ proxmox_node | default('pve') }}"
-        vmid: "{{ 200 + item }}"
-        name: "{{ vm_base_name }}-worker-{{ item }}"
-        clone: "{{ vm_template_name | default('ubuntu-template') }}"
-        full: yes
-        storage: "{{ proxmox_storage | default('local-lvm') }}"
-        memory: "{{ vm_memory }}"
-        cores: "{{ vm_cores }}"
-        net:
-          net0: "virtio,bridge=vmbr0"
-        ipconfig:
-          ipconfig0: "ip={{ start_ip | ipmath((controller_count | int) + item) }}/{{ network_prefix }},gw={{ gateway_ip }}"
-        sshkeys: "{{ lookup('file', ssh_key_path | default('~/.ssh/id_rsa.pub')) }}"
+    - name: Copy Terraform templates
+      copy:
+        src: "{{ item }}"
+        dest: "{{ terraform_dir }}/"
+      loop:
+        - "ansible/templates/terraform/main.tf"
+        - "ansible/templates/terraform/variables.tf"
+        - "ansible/templates/terraform/outputs.tf"
+
+    - name: Create Terraform variables file
+      template:
+        src: "ansible/templates/terraform.tfvars.j2"
+        dest: "{{ terraform_dir }}/terraform.tfvars"
+      vars:
+        tf_proxmox_host: "{{ proxmox_host }}"
+        tf_proxmox_user: "{{ proxmox_user | default('root@pam') }}"
+        tf_proxmox_password: "{{ proxmox_password }}"
+        tf_proxmox_node: "{{ proxmox_node | default('pve') }}"
+        tf_proxmox_storage: "{{ proxmox_storage | default('local-lvm') }}"
+        tf_cluster_name: "{{ vm_base_name }}"
+        tf_controller_count: "{{ controller_count | default(3) }}"
+        tf_worker_count: "{{ worker_count | default(3) }}"
+        tf_vm_template_name: "{{ vm_template_name | default('ubuntu-24.04-template') }}"
+        tf_vm_cores: "{{ vm_cores | default(2) }}"
+        tf_vm_memory: "{{ vm_memory | default(4096) }}"
+        tf_vm_disk_size: "{{ vm_disk_size | default('20G') }}"
+        tf_network_cidr: "{{ network_cidr }}"
+        tf_gateway_ip: "{{ gateway_ip }}"
+        tf_ssh_key_path: "{{ ssh_key_path | default('~/.ssh/id_rsa.pub') }}"
+
+    - name: Initialize Terraform
+      terraform:
+        project_path: "{{ terraform_dir }}"
         state: present
-        timeout: 300
-      loop: "{{ range(1, (worker_count | int) + 1) | list }}"
-      register: worker_vms
+        force_init: true
+
+    - name: Plan Terraform deployment
+      terraform:
+        project_path: "{{ terraform_dir }}"
+        state: planned
+        plan_file: "infraflux.plan"
+
+    - name: Apply Terraform configuration
+      terraform:
+        project_path: "{{ terraform_dir }}"
+        state: present
+        plan_file: "infraflux.plan"
+      register: terraform_output
+
+    - name: Extract Terraform outputs
+      set_fact:
+        controller_ips: "{{ terraform_output.outputs.controller_ips.value }}"
+        worker_ips: "{{ terraform_output.outputs.worker_ips.value }}"
+        all_ips: "{{ terraform_output.outputs.all_ips.value }}"
 
     - name: Wait for VMs to be ready
       wait_for:
-        host: "{{ start_ip | ipmath(item) }}"
+        host: "{{ item }}"
         port: 22
         delay: 30
         timeout: 300
-      loop: "{{ range(1, ((controller_count | int) + (worker_count | int)) + 1) | list }}"
+      loop: "{{ all_ips }}"
 
-    - name: Generate dynamic inventory
+    - name: Generate dynamic inventory for Ansible
       template:
         src: templates/inventory.ini.j2
-        dest: inventory/hosts
+        dest: /tmp/inventory.ini
       vars:
-        controllers: "{{ range(1, (controller_count | int) + 1) | list }}"
-        workers: "{{ range(1, (worker_count | int) + 1) | list }}"
+        controllers_with_ips: "{{ controller_ips | zip(range(1, (controller_count | int) + 1)) | list }}"
+        workers_with_ips: "{{ worker_ips | zip(range(1, (worker_count | int) + 1)) | list }}"
 
     - name: Infrastructure deployment complete
       debug:

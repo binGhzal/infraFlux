@@ -1,19 +1,23 @@
 ---
 # InfraFlux Main Deployment Playbook
-# This playbook orchestrates the complete deployment of a Kubernetes cluster
+# Unified deployment using Terraform + Ansible with native K3s features
 
-- name: "🚀 InfraFlux Deployment - Phase 1: Infrastructure"
+- name: "🏗️ InfraFlux Deployment - Phase 1: Infrastructure"
   import_playbook: playbooks/infrastructure.yml
   when: phase is not defined or phase == "infrastructure" or phase == "all"
+  tags: infrastructure
 
 - name: "⚙️ InfraFlux Deployment - Phase 2: Node Preparation"
   import_playbook: playbooks/node-preparation.yml
   when: phase is not defined or phase == "nodes" or phase == "all"
+  tags: nodes
 
-- name: "🔧 InfraFlux Deployment - Phase 3: K3s Cluster"
+- name: "🔧 InfraFlux Deployment - Phase 3: K3s Cluster (with Native Traefik)"
   import_playbook: playbooks/k3s-cluster.yml
   when: phase is not defined or phase == "k3s" or phase == "all"
+  tags: k3s
 
-- name: "📦 InfraFlux Deployment - Phase 4: Applications"
+- name: "📦 InfraFlux Deployment - Phase 4: Applications (Native K3s Features)"
   import_playbook: playbooks/applications.yml
   when: phase is not defined or phase == "apps" or phase == "all"
+  tags: applications

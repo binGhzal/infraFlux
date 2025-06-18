@@ -1,15 +1,16 @@
 # InfraFlux
 
-🚀 **Zero-Config Kubernetes Deployment** - Automatically deploy production-ready Kubernetes clusters on Proxmox with just a few simple commands.
+🚀 **Zero-Config Kubernetes Deployment** - Automatically deploy production-ready Kubernetes clusters on Proxmox with native K3s features and simplified management.
 
 ## ✨ Features
 
 - **Fully Automated**: One command deployment from Proxmox VMs to running Kubernetes cluster
+- **Native K3s Features**: Uses built-in Traefik ingress and ServiceLB (no external dependencies)
 - **Network Auto-Detection**: Automatically detects and configures network settings
-- **Flexible IP Ranges**: Works with any network configuration (192.168.x.x, 10.x.x.x, 172.x.x.x)
+- **Terraform Integration**: Robust VM creation with Infrastructure as Code
+- **Simplified Structure**: Single deployment path, easy to debug and maintain
 - **Production Ready**: Includes monitoring, ingress, load balancing, and backup solutions
 - **User Friendly**: Interactive configuration wizard for beginners
-- **Modular Design**: Deploy infrastructure, K3s, and applications independently
 
 ## 🚀 Quick Start
 
@@ -27,27 +28,33 @@ This interactive wizard will help you set up your cluster configuration.
 ./deploy.sh
 ```
 
-That's it! Your Kubernetes cluster will be automatically deployed.
+That's it! Your Kubernetes cluster will be automatically deployed with native K3s features.
 
 ## 📋 What Gets Deployed
 
-### Infrastructure
+### Infrastructure (Terraform + Proxmox)
 
-- ✅ Proxmox VMs (Controllers + Workers)
+- ✅ Proxmox VMs via Terraform (Controllers + Workers)
 - ✅ Automatic IP assignment and network configuration
 - ✅ SSH key distribution and security hardening
+- ✅ Cloud-init integration for rapid provisioning
 
-### Kubernetes (K3s)
+### Kubernetes (K3s with Native Features)
 
 - ✅ Multi-master K3s cluster with HA
+- ✅ **Native Traefik ingress** (no external NGINX needed)
+- ✅ **Native ServiceLB** for load balancing
 - ✅ Automatic cluster initialization and node joining
 - ✅ Kubeconfig generation and distribution
 
-### Applications (Optional)
+### Applications (Cloud-Native Stack)
 
 - ✅ Cilium CNI with Hubble observability
-- ✅ MetalLB load balancer with auto IP pool
-- ✅ Ingress NGINX controller
+- ✅ Native K3s Traefik with dashboard
+- ✅ Cert Manager for SSL certificates
+- ✅ Prometheus + Grafana monitoring stack
+- ✅ Velero backup solution (optional)
+- ✅ Sealed Secrets for secret management
 - ✅ Cert Manager for SSL certificates
 - ✅ Prometheus + Grafana monitoring stack
 - ✅ Velero backup solution
@@ -70,16 +77,37 @@ That's it! Your Kubernetes cluster will be automatically deployed.
 
 ## 📁 Project Structure
 
-```
+```text
 infraFlux/
-├── configure.sh              # Interactive configuration wizard
-├── deploy.sh                 # Main deployment script
+├── README.md                        # This file
+├── configure.sh                     # Interactive configuration wizard
+├── deploy.sh                        # Unified deployment script
+├── deploy.yml                       # Main Ansible playbook
+├── ansible.cfg                      # Ansible configuration
 ├── config/
-│   └── cluster-config.yaml   # Your cluster configuration
-└── deployments/
-    ├── 01-infrastructure/     # VM creation playbooks
-    ├── 02-k3s-cluster/       # K3s installation playbooks
-    └── 03-applications/      # Application deployment playbooks
+│   └── cluster-config.yaml          # Your cluster configuration
+├── docs/                            # All documentation
+│   ├── ARCHITECTURE.md
+│   ├── DEPLOYMENT_FLOW.md
+│   ├── DEPLOYMENT_FLOWCHART.md
+│   ├── REORGANIZATION_PLAN.md
+│   └── QUICKSTART.md
+├── playbooks/                       # Ansible playbooks
+│   ├── infrastructure.yml           # VM creation with Terraform
+│   ├── node-preparation.yml         # Node setup
+│   ├── k3s-cluster.yml             # K3s with native features
+│   └── applications.yml             # Applications deployment
+├── roles/                           # Ansible roles
+│   ├── node/                        # Node configuration
+│   └── proxmox/                     # Proxmox integration
+├── templates/                       # Template files
+│   ├── terraform/                   # Terraform templates
+│   │   ├── main.tf                  # VM creation
+│   │   ├── variables.tf             # Terraform variables
+│   │   └── outputs.tf               # Output definitions
+│   ├── inventory.ini.j2             # Dynamic inventory
+│   └── terraform.tfvars.j2          # Terraform vars template
+└── trash/                           # Unused/legacy files
 ```
 
 ## 🎯 Usage Examples

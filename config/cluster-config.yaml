@@ -37,8 +37,8 @@ data:
   # K3s Configuration
   k3s_version: "v1.28.5+k3s1"
   k3s_cluster_init: "true"
-  k3s_disable_servicelb: "true"
-  k3s_disable_traefik: "true"
+  k3s_disable_servicelb: "false"
+  k3s_disable_traefik: "false"
 
   # Security Configuration
   disable_swap: "true"
@@ -47,11 +47,17 @@ data:
 
   # Application Configuration
   install_cilium: "true"
-  install_metallb: "true"
-  install_ingress_nginx: "true"
+  install_metallb: "false"
+  install_ingress_nginx: "false"
   install_cert_manager: "true"
   install_monitoring: "true"
   install_logging: "false"
+
+  # Traefik Configuration (Native K3s)
+  traefik_dashboard_enabled: "true"
+  traefik_api_insecure: "false"
+  traefik_log_level: "INFO"
+  traefik_pilot_token: ""
 
   # Advanced Configuration
   enable_backup: "true"

@@ -37,7 +37,6 @@
         sh /tmp/k3s-install.sh server \
         --cluster-init \
         --disable servicelb \
-        --disable traefik \
         --cluster-cidr="{{ cluster_cidr | default('10.244.0.0/16') }}" \
         --service-cidr="{{ service_cidr | default('10.96.0.0/12') }}" \
         --cluster-dns="{{ cluster_dns | default('10.96.0.10') }}" \
@@ -79,7 +78,6 @@
         sh /tmp/k3s-install.sh server \
         --server https://{{ k3s_server_ip }}:6443 \
         --disable servicelb \
-        --disable traefik \
         --write-kubeconfig-mode=644
       args:
         creates: /etc/systemd/system/k3s.service

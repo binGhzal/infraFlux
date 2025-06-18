@@ -13,8 +13,8 @@
         msg:
           - "📦 Installing core applications"
           - "Cilium CNI: {{ install_cilium | default(true) }}"
-          - "MetalLB: {{ install_metallb | default(true) }}"
-          - "Ingress NGINX: {{ install_ingress_nginx | default(true) }}"
+          - "Traefik Ingress: Native K3s (enabled)"
+          - "MetalLB: {{ install_metallb | default(false) }}"
           - "Cert Manager: {{ install_cert_manager | default(true) }}"
           - "Monitoring: {{ install_monitoring | default(true) }}"
 
@@ -66,7 +66,51 @@
       shell: kubectl wait --for=condition=ready pods -n kube-system -l app.kubernetes.io/name=cilium-operator --timeout=300s
       when: install_cilium | default(true) | bool
 
-    - name: Install MetalLB Load Balancer
+    - name: Configure Traefik Dashboard (Native K3s)
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: traefik-dashboard
+            namespace: kube-system
+            labels:
+              app.kubernetes.io/name: traefik-dashboard
+          spec:
+            type: ClusterIP
+            ports:
+              - port: 80
+                targetPort: 9000
+                protocol: TCP
+                name: dashboard
+            selector:
+              app.kubernetes.io/name: traefik
+        wait: true
+        wait_timeout: 60
+      when: traefik_dashboard_enabled | default(true) | bool
+
+    - name: Create Traefik Dashboard IngressRoute
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: traefik.containo.us/v1alpha1
+          kind: IngressRoute
+          metadata:
+            name: traefik-dashboard
+            namespace: kube-system
+          spec:
+            entryPoints:
+              - web
+            routes:
+              - match: Host(`traefik.{{ cluster_domain | default('cluster.local') }}`)
+                kind: Rule
+                services:
+                  - name: api@internal
+                    kind: TraefikService
+        wait: true
+        wait_timeout: 60
+      when: traefik_dashboard_enabled | default(true) | bool
+
+    - name: Install MetalLB Load Balancer (Optional)
       kubernetes.core.helm:
         name: metallb
         chart_ref: metallb/metallb
@@ -75,11 +119,11 @@
         create_namespace: yes
         wait: true
         wait_timeout: 300s
-      when: install_metallb | default(true) | bool
+      when: install_metallb | default(false) | bool
 
     - name: Wait for MetalLB to be ready
       shell: kubectl wait --for=condition=ready pods -n metallb-system -l app.kubernetes.io/name=metallb --timeout=300s
-      when: install_metallb | default(true) | bool
+      when: install_metallb | default(false) | bool
 
     - name: Configure MetalLB IP Pool
       kubernetes.core.k8s:
@@ -94,7 +138,7 @@
               - "{{ metallb_ip_range }}"
         wait: true
         wait_timeout: 60
-      when: install_metallb | default(true) | bool
+      when: install_metallb | default(false) | bool
 
     - name: Configure MetalLB L2Advertisement
       kubernetes.core.k8s:
@@ -109,27 +153,7 @@
               - main-pool
         wait: true
         wait_timeout: 60
-      when: install_metallb | default(true) | bool
-
-    - name: Install Ingress NGINX
-      kubernetes.core.helm:
-        name: ingress-nginx
-        chart_ref: ingress-nginx/ingress-nginx
-        chart_version: "4.8.3"
-        release_namespace: ingress-nginx
-        create_namespace: yes
-        wait: true
-        wait_timeout: 600s
-        values:
-          controller:
-            service:
-              type: LoadBalancer
-            metrics:
-              enabled: true
-            config:
-              use-forwarded-headers: "true"
-              compute-full-forwarded-for: "true"
-      when: install_ingress_nginx | default(true) | bool
+      when: install_metallb | default(false) | bool
 
     - name: Install Cert Manager
       kubernetes.core.helm:

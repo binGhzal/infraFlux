@@ -3,56 +3,63 @@
 ## Prerequisites
 
 1. **Proxmox Environment**
-
    - One or more Proxmox hosts
    - Ubuntu 24.04 LTS template VM
-   - Network VLANs configured
+   - Network access to Proxmox API
    - Sufficient storage and compute resources
 
 2. **Control Machine**
-   - Ansible 2.9+
-   - Python 3.8+
-   - SSH access to Proxmox hosts
-   - Git access to configuration repositories
+   - macOS or Linux workstation
+   - Internet access for downloading tools
+   - SSH key pair for VM access (`~/.ssh/id_rsa.pub`)
 
-## Quick Start
+## 🚀 Quick Start
 
 ### 1. Clone Repository
 
 ```bash
 git clone https://github.com/your-org/infraFlux.git
-cd infraFlux/ansible
+cd infraFlux
 ```
 
-### 2. Configure Environment
-
-Copy and edit the inventory file for your environment:
+### 2. Configure Your Cluster
 
 ```bash
-cp hosts.ci hosts.your-env
-# Edit hosts.your-env with your infrastructure details
+./configure.sh
 ```
 
-### 3. Configure Variables
+This interactive wizard will help you set up your cluster configuration with:
+- Auto-detected network settings
+- Proxmox connection details
+- VM specifications
+- Native K3s features
 
-Edit the group variables:
+### 3. Deploy Everything
 
 ```bash
-# Edit group_vars/all/main.yml for global settings
-# Edit group_vars/your-env/main.yml for environment-specific settings
+./deploy.sh
 ```
 
-### 4. Deploy Infrastructure
+That's it! Your Kubernetes cluster will be automatically deployed with:
+- **Native Traefik ingress** (no external NGINX)
+- **Native ServiceLB** for load balancing
+- **Terraform-managed VMs** on Proxmox
+- **Cilium CNI** with Hubble observability
+- **Monitoring stack** with Prometheus + Grafana
 
-Use the deployment script:
+## 🎯 Deployment Phases
+
+You can also deploy specific phases:
 
 ```bash
-# Full deployment
-./deploy.sh -e your-env
+# Create VMs only
+./deploy.sh config/cluster-config.yaml infrastructure
 
-# Or specific phases
-./deploy.sh -e your-env -p playbooks/infrastructure.yml
-./deploy.sh -e your-env -p playbooks/k3s-cluster.yml
+# Setup K3s cluster only
+./deploy.sh config/cluster-config.yaml k3s
+
+# Install applications only
+./deploy.sh config/cluster-config.yaml apps
 ```
 
 ### 5. Verify Deployment
