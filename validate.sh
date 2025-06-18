@@ -47,7 +47,7 @@ else
 fi
 
 # Check if yq is available
-if ! command -v yq &> /dev/null; then
+if ! command -v yq &>/dev/null; then
     print_warning "yq not found - installing..."
     if [[ "$OSTYPE" == "darwin"* ]]; then
         brew install yq
@@ -150,7 +150,7 @@ fi
 
 # Check Proxmox connectivity
 print_header "🔌 Connectivity Tests"
-if ping -c 1 -W 3 "$PROXMOX_HOST" &> /dev/null; then
+if ping -c 1 -W 3 "$PROXMOX_HOST" &>/dev/null; then
     print_success "Proxmox host is reachable: $PROXMOX_HOST"
 else
     print_error "Cannot reach Proxmox host: $PROXMOX_HOST"
@@ -161,7 +161,7 @@ fi
 print_header "🛠️  Required Tools"
 tools=("ansible" "ansible-playbook" "kubectl")
 for tool in "${tools[@]}"; do
-    if command -v "$tool" &> /dev/null; then
+    if command -v "$tool" &>/dev/null; then
         print_success "$tool is installed"
     else
         print_warning "$tool is not installed (will be auto-installed)"

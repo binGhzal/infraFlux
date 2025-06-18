@@ -33,27 +33,27 @@ print_error() {
 # Check prerequisites
 check_prerequisites() {
     print_step "Checking prerequisites..."
-    
+
     local missing_tools=()
-    
+
     # Check for required tools
     for tool in ansible yq kubectl; do
-        if ! command -v "$tool" &> /dev/null; then
+        if ! command -v "$tool" &>/dev/null; then
             missing_tools+=("$tool")
         fi
     done
-    
+
     if [ ${#missing_tools[@]} -ne 0 ]; then
         print_error "Missing required tools: ${missing_tools[*]}"
         print_step "Installing missing tools..."
-        
+
         # Install missing tools
         if [[ "$OSTYPE" == "darwin"* ]]; then
             # macOS
             brew install ansible yq kubectl
         elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
             # Linux
-            if command -v apt-get &> /dev/null; then
+            if command -v apt-get &>/dev/null; then
                 sudo apt-get update
                 sudo apt-get install -y ansible
                 # Install yq and kubectl separately
@@ -64,22 +64,22 @@ check_prerequisites() {
             fi
         fi
     fi
-    
+
     print_success "Prerequisites checked"
 }
 
 # Parse configuration
 parse_config() {
     print_step "Parsing configuration from $CONFIG_FILE..."
-    
+
     if [[ ! -f "$CONFIG_FILE" ]]; then
         print_error "Configuration file not found: $CONFIG_FILE"
         exit 1
     fi
-    
+
     # Create work directory
     mkdir -p "$WORK_DIR"
-    
+
     # Extract configuration values using yq
     export CLUSTER_NAME=$(yq eval '.data.cluster_name' "$CONFIG_FILE")
     export PROXMOX_HOST=$(yq eval '.data.proxmox_host' "$CONFIG_FILE")
@@ -88,16 +88,16 @@ parse_config() {
     export CONTROLLER_COUNT=$(yq eval '.data.controller_count' "$CONFIG_FILE")
     export WORKER_COUNT=$(yq eval '.data.worker_count' "$CONFIG_FILE")
     export NETWORK_CIDR=$(yq eval '.data.network_cidr' "$CONFIG_FILE")
-    
+
     # Auto-detect network if set to "auto"
     if [[ "$NETWORK_CIDR" == "auto" ]]; then
         print_step "Auto-detecting network configuration..."
         NETWORK_CIDR=$(ip route | grep -E "192\.168\.|10\.|172\." | head -1 | awk '{print $1}' || echo "192.168.1.0/24")
         print_success "Detected network: $NETWORK_CIDR"
     fi
-    
+
     # Create ansible extra vars file
-    cat > "$WORK_DIR/extra_vars.yml" << EOF
+    cat >"$WORK_DIR/extra_vars.yml" <<EOF
 cluster_name: "$CLUSTER_NAME"
 proxmox_host: "$PROXMOX_HOST"
 proxmox_user: "$PROXMOX_USER"
@@ -116,56 +116,56 @@ install_cert_manager: $(yq eval '.data.install_cert_manager' "$CONFIG_FILE")
 install_monitoring: $(yq eval '.data.install_monitoring' "$CONFIG_FILE")
 enable_backup: $(yq eval '.data.enable_backup' "$CONFIG_FILE")
 EOF
-    
+
     print_success "Configuration parsed successfully"
 }
 
 # Deploy infrastructure
 deploy_infrastructure() {
     print_step "Phase 1: Creating VMs on Proxmox..."
-    
+
     # Prompt for Proxmox password if not set
     if [[ -z "${PROXMOX_PASSWORD:-}" ]]; then
         read -s -p "Enter Proxmox password: " PROXMOX_PASSWORD
         echo
         export PROXMOX_PASSWORD
     fi
-    
+
     ansible-playbook \
         -i localhost, \
         -e @"$WORK_DIR/extra_vars.yml" \
         -e proxmox_password="$PROXMOX_PASSWORD" \
         deployments/01-infrastructure/create-vms.yml
-    
+
     print_success "VMs created successfully"
 }
 
 # Setup K3s cluster
 setup_k3s() {
     print_step "Phase 2: Setting up K3s cluster..."
-    
+
     # Use the generated inventory
     ansible-playbook \
         -i /tmp/inventory.ini \
         -e @"$WORK_DIR/extra_vars.yml" \
         deployments/02-k3s-cluster/setup-k3s.yml
-    
+
     print_success "K3s cluster setup complete"
 }
 
 # Install applications
 install_applications() {
     print_step "Phase 3: Installing applications..."
-    
+
     # Install required Ansible collections
     ansible-galaxy collection install kubernetes.core community.general
-    
+
     # Install Helm if not present
-    if ! command -v helm &> /dev/null; then
+    if ! command -v helm &>/dev/null; then
         print_step "Installing Helm..."
         curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
     fi
-    
+
     # Add required Helm repositories
     helm repo add cilium https://helm.cilium.io/
     helm repo add metallb https://metallb.github.io/metallb
@@ -175,15 +175,15 @@ install_applications() {
     helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
     helm repo add vmware-tanzu https://vmware-tanzu.github.io/helm-charts
     helm repo update
-    
+
     # Set kubeconfig
     export KUBECONFIG=/tmp/kubeconfig
-    
+
     ansible-playbook \
         -i /tmp/inventory.ini \
         -e @"$WORK_DIR/extra_vars.yml" \
         deployments/03-applications/install-apps.yml
-    
+
     print_success "Applications installed successfully"
 }
 
@@ -220,7 +220,7 @@ main() {
     echo "🚀 InfraFlux Automatic Deployment"
     echo "=================================="
     echo
-    
+
     check_prerequisites
     parse_config
     deploy_infrastructure
@@ -231,35 +231,35 @@ main() {
 
 # Handle script arguments
 case "${1:-deploy}" in
-    "deploy")
-        main
-        ;;
-    "infrastructure")
-        check_prerequisites
-        parse_config
-        deploy_infrastructure
-        ;;
-    "k3s")
-        check_prerequisites
-        parse_config
-        setup_k3s
-        ;;
-    "apps")
-        check_prerequisites
-        parse_config
-        install_applications
-        ;;
-    "config")
-        parse_config
-        cat "$WORK_DIR/extra_vars.yml"
-        ;;
-    *)
-        echo "Usage: $0 [deploy|infrastructure|k3s|apps|config]"
-        echo "  deploy         - Full deployment (default)"
-        echo "  infrastructure - Create VMs only"
-        echo "  k3s           - Setup K3s cluster only"
-        echo "  apps          - Install applications only"
-        echo "  config        - Show parsed configuration"
-        exit 1
-        ;;
+"deploy")
+    main
+    ;;
+"infrastructure")
+    check_prerequisites
+    parse_config
+    deploy_infrastructure
+    ;;
+"k3s")
+    check_prerequisites
+    parse_config
+    setup_k3s
+    ;;
+"apps")
+    check_prerequisites
+    parse_config
+    install_applications
+    ;;
+"config")
+    parse_config
+    cat "$WORK_DIR/extra_vars.yml"
+    ;;
+*)
+    echo "Usage: $0 [deploy|infrastructure|k3s|apps|config]"
+    echo "  deploy         - Full deployment (default)"
+    echo "  infrastructure - Create VMs only"
+    echo "  k3s           - Setup K3s cluster only"
+    echo "  apps          - Install applications only"
+    echo "  config        - Show parsed configuration"
+    exit 1
+    ;;
 esac

@@ -116,7 +116,7 @@ echo
 # Generate configuration file
 print_header "📄 Generating Configuration"
 
-cat > "$CONFIG_FILE" << EOF
+cat >"$CONFIG_FILE" <<EOF
 # InfraFlux Cluster Configuration
 # This file defines your entire infrastructure deployment
 # Edit the values below and run ./deploy.sh to deploy your cluster
@@ -130,40 +130,40 @@ data:
   # Cluster Configuration
   cluster_name: "$CLUSTER_NAME"
   cluster_domain: "cluster.local"
-  
+
   # Network Configuration
   network_cidr: "$NETWORK_CIDR"
   service_cidr: "10.96.0.0/12"
   pod_cidr: "10.244.0.0/16"
-  
+
   # Proxmox Configuration
   proxmox_host: "$PROXMOX_HOST"
   proxmox_user: "$PROXMOX_USER"
   proxmox_node: "$PROXMOX_NODE"
   proxmox_storage: "$PROXMOX_STORAGE"
-  
+
   # VM Template Configuration
   vm_template_id: "9000"
   vm_template_name: "ubuntu-24.04-template"
-  
+
   # Node Configuration
   controller_count: "$CONTROLLER_COUNT"
   worker_count: "$WORKER_COUNT"
   vm_memory: "$VM_MEMORY"
   vm_cores: "$VM_CORES"
   vm_disk_size: "$VM_DISK_SIZE"
-  
+
   # K3s Configuration
   k3s_version: "v1.28.5+k3s1"
   k3s_cluster_init: "true"
   k3s_disable_servicelb: "true"
   k3s_disable_traefik: "true"
-  
+
   # Security Configuration
   disable_swap: "true"
   enable_firewall: "true"
   ssh_key_path: "~/.ssh/id_rsa.pub"
-  
+
   # Application Configuration
   install_cilium: "$INSTALL_CILIUM"
   install_metallb: "$INSTALL_METALLB"
@@ -171,7 +171,7 @@ data:
   install_cert_manager: "$INSTALL_CERT_MANAGER"
   install_monitoring: "$INSTALL_MONITORING"
   install_logging: "false"
-  
+
   # Advanced Configuration
   enable_backup: "$ENABLE_BACKUP"
   backup_schedule: "0 2 * * *"

@@ -15,6 +15,7 @@ ansible-playbook -i hosts.ci deploy.yml
 Each playbook can be run independently for targeted deployments:
 
 ### 1. Infrastructure (`playbooks/infrastructure.yml`)
+
 - Creates VMs in Proxmox
 - Handles VM templates and initial setup
 - **Target hosts**: `proxmox_servers`, `proxmox_vms`
@@ -24,6 +25,7 @@ ansible-playbook -i hosts.ci playbooks/infrastructure.yml
 ```
 
 ### 2. Node Preparation (`playbooks/node-preparation.yml`)
+
 - Basic node configuration and hardening
 - Network setup and firewall rules
 - Provider-specific setup (CrunchBits, standard)
@@ -34,6 +36,7 @@ ansible-playbook -i hosts.ci playbooks/node-preparation.yml
 ```
 
 ### 3. K3s Cluster (`playbooks/k3s-cluster.yml`)
+
 - K3s master nodes installation
 - HAProxy and Keepalived for HA
 - OIDC and backup setup
@@ -44,6 +47,7 @@ ansible-playbook -i hosts.ci playbooks/k3s-cluster.yml
 ```
 
 ### 4. Controllers (`playbooks/controllers.yml`)
+
 - Controller node setup
 - Cilium CNI pre-installation
 - **Target hosts**: `controllers`
@@ -53,6 +57,7 @@ ansible-playbook -i hosts.ci playbooks/controllers.yml
 ```
 
 ### 5. Workers (`playbooks/workers.yml`)
+
 - K3s agent installation
 - Worker-specific services
 - **Target hosts**: `k3s_agents`, `k3s_contended`, `k3s_dedicated`
@@ -62,6 +67,7 @@ ansible-playbook -i hosts.ci playbooks/workers.yml
 ```
 
 ### 6. Applications (`playbooks/applications.yml`)
+
 - Kubernetes applications and services
 - Flux GitOps, Authentik, monitoring
 - **Target hosts**: `controllers`
@@ -71,6 +77,7 @@ ansible-playbook -i hosts.ci playbooks/applications.yml
 ```
 
 ### 7. Speedtesters (`playbooks/speedtesters.yml`)
+
 - Special deployment for speedtester nodes
 - Nginx and SSL certificate setup
 - **Target hosts**: `speedtesters`
@@ -90,6 +97,7 @@ The playbooks automatically detect the environment based on inventory groups:
 ## Legacy Files
 
 Old deployment files have been moved to the `legacy/` directory:
+
 - `legacy/deploy-ci.yml`
 - `legacy/deploy-crunchbits.yml`
 - `legacy/deploy-speedtesters.yml`
@@ -121,6 +129,7 @@ The complete deployment workflow:
 6. **Applications**: Deploy GitOps and applications
 
 This modular approach allows for:
+
 - Easier debugging and maintenance
 - Selective deployment of components
 - Better separation of concerns
