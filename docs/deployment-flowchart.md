@@ -10,7 +10,7 @@ flowchart TD
     E -->|No| F[Fix configuration issues]
     F --> D
     E -->|Yes| G[Run ./deploy.sh]
-    
+
     G --> H[Phase 1: Infrastructure]
     H --> H1[Auto-detect network settings]
     H1 --> H2[Connect to Proxmox]
@@ -21,7 +21,7 @@ flowchart TD
     I -->|No| I1[Check Proxmox connectivity/credentials]
     I1 --> H2
     I -->|Yes| J[Phase 2: Node Preparation]
-    
+
     J --> J1[Update system packages]
     J1 --> J2[Install essential packages]
     J2 --> J3[Configure kernel modules]
@@ -32,7 +32,7 @@ flowchart TD
     K -->|No| K1[Check node connectivity/SSH]
     K1 --> J1
     K -->|Yes| L[Phase 3: K3s Cluster Setup]
-    
+
     L --> L1[Install K3s on first controller]
     L1 --> L2[Wait for API server ready]
     L2 --> L3[Install K3s on additional controllers]
@@ -43,7 +43,7 @@ flowchart TD
     M -->|No| M1[Check K3s logs and network]
     M1 --> L1
     M -->|Yes| N[Phase 4: Applications]
-    
+
     N --> N1[Add Helm repositories]
     N1 --> N2[Install Cilium CNI]
     N2 --> N3[Install MetalLB]
@@ -56,7 +56,7 @@ flowchart TD
     O -->|No| O1[Check application logs]
     O1 --> N2
     O -->|Yes| P[Deployment Complete ✅]
-    
+
     P --> P1[Display cluster information]
     P1 --> P2[Show access instructions]
     P2 --> P3[Show next steps]
@@ -75,24 +75,28 @@ flowchart TD
 ## Deployment Phases Explained
 
 ### Phase 1: Infrastructure (Proxmox VMs)
+
 - **Input**: Configuration from `config/cluster-config.yaml`
 - **Process**: Creates VMs on Proxmox using the Proxmox API
 - **Output**: Running VMs with proper network configuration
 - **Duration**: ~5-10 minutes
 
-### Phase 2: Node Preparation  
+### Phase 2: Node Preparation
+
 - **Input**: Dynamic inventory of created VMs
 - **Process**: Configures all nodes for Kubernetes
 - **Output**: Nodes ready for K3s installation
 - **Duration**: ~10-15 minutes
 
 ### Phase 3: K3s Cluster Setup
+
 - **Input**: Prepared nodes
 - **Process**: Installs K3s in HA configuration
 - **Output**: Functional Kubernetes cluster
 - **Duration**: ~5-10 minutes
 
 ### Phase 4: Applications
+
 - **Input**: Running K3s cluster
 - **Process**: Installs core platform applications
 - **Output**: Production-ready cluster with monitoring, ingress, etc.
@@ -101,8 +105,9 @@ flowchart TD
 ## Error Handling & Recovery
 
 Each phase includes:
+
 - ✅ Validation checks before proceeding
-- ✅ Retry mechanisms for transient failures  
+- ✅ Retry mechanisms for transient failures
 - ✅ Clear error messages with troubleshooting hints
 - ✅ Ability to run individual phases for debugging
 
