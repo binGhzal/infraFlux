@@ -34,6 +34,10 @@ This file provides an overview of the InfraFlux architecture, including the depl
 
 this file provides a concise guide to getting started with InfraFlux, including essential commands and deployment steps.
 
+## Personal Approach
+
+- deeply think and analyze every todo before doing it
+
 ## Project Overview
 
 InfraFlux is an **enterprise-grade Kubernetes homelab platform** that automates the deployment of production-ready infrastructure with 245+ Kubernetes resources, complete security stack, AI/ML capabilities, and advanced monitoring - all while maintaining zero-configuration simplicity. It combines Terraform (VM provisioning), Ansible (configuration management), K3s (lightweight Kubernetes), Flux GitOps, and enterprise security into a unified platform.

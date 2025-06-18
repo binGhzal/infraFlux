@@ -1,0 +1,89 @@
+---
+# Staging: Allow all versions including pre-releases
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: nginx-staging
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: nginx
+  policy:
+    semver:
+      range: ">=1.0.0"  # Allow all versions including alpha/beta
+
+---
+# Production: Stable versions only
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: nginx-production
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: nginx
+  policy:
+    semver:
+      range: ">=1.0.0 <2.0.0"  # Stable versions only, no pre-release
+
+---
+# Homepage image policy (latest tag)
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: homepage-latest
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: ghcr-homepage
+  policy:
+    alphabetical:
+      order: asc
+  filterTags:
+    pattern: '^latest$'
+
+---
+# Authentik stable policy
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: authentik-stable
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: authentik
+  policy:
+    semver:
+      range: ">=2024.1.0"  # Recent stable versions only
+
+---
+# Ollama latest policy (AI/ML updates more carefully)
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: ollama-latest
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: ollama
+  policy:
+    alphabetical:
+      order: asc
+  filterTags:
+    pattern: '^latest$'
+
+---
+# Open WebUI main branch policy
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: open-webui-main
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: open-webui
+  policy:
+    alphabetical:
+      order: asc
+  filterTags:
+    pattern: '^main$'

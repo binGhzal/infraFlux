@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: apps-staging
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Staging environment overlay for Flux-managed applications
+namespace: flux-system
+
+resources:
+  - ../base
+
+patchesStrategicMerge:
+  - example-app-patch.yaml
+
+commonLabels:
+  environment: staging
+  app.kubernetes.io/managed-by: flux
+
+# Staging-specific image policies (allow pre-release versions)
+images:
+  - name: nginx
+    newTag: "1.25-alpha"

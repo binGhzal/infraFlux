@@ -1,0 +1,124 @@
+---
+# Alert for Flux GitRepository failures
+apiVersion: notification.toolkit.fluxcd.io/v1beta2
+kind: Alert
+metadata:
+  name: flux-gitrepository-alerts
+  namespace: flux-system
+spec:
+  providerRef:
+    name: discord
+  eventSeverity: error
+  eventSources:
+    - kind: GitRepository
+      name: '*'
+  summary: "🚨 GitRepository {{.InvolvedObject.name}} in {{.InvolvedObject.namespace}} is failing"
+  eventMetadata:
+    env: "{{.InvolvedObject.namespace}}"
+    cluster: "infraflux"
+
+---
+# Alert for Kustomization failures
+apiVersion: notification.toolkit.fluxcd.io/v1beta2
+kind: Alert
+metadata:
+  name: flux-kustomization-alerts
+  namespace: flux-system
+spec:
+  providerRef:
+    name: discord
+  eventSeverity: error
+  eventSources:
+    - kind: Kustomization
+      name: '*'
+  summary: "🔧 Kustomization {{.InvolvedObject.name}} deployment failed"
+  eventMetadata:
+    env: "{{.InvolvedObject.namespace}}"
+    revision: "{{.Revision}}"
+
+---
+# Alert for HelmRelease failures
+apiVersion: notification.toolkit.fluxcd.io/v1beta2
+kind: Alert
+metadata:
+  name: flux-helmrelease-alerts
+  namespace: flux-system
+spec:
+  providerRef:
+    name: discord
+  eventSeverity: error
+  eventSources:
+    - kind: HelmRelease
+      name: '*'
+      namespace: '*'
+  summary: "📦 HelmRelease {{.InvolvedObject.name}} in {{.InvolvedObject.namespace}} failed"
+  eventMetadata:
+    chart: "{{.ChartName}}"
+    version: "{{.ChartVersion}}"
+
+---
+# Success notifications for production deployments
+apiVersion: notification.toolkit.fluxcd.io/v1beta2
+kind: Alert
+metadata:
+  name: production-success-alerts
+  namespace: flux-system
+spec:
+  providerRef:
+    name: slack
+  eventSeverity: info
+  eventSources:
+    - kind: Kustomization
+      name: 'apps'
+      namespace: 'flux-system'
+    - kind: HelmRelease
+      name: '*'
+      namespace: '*'
+  inclusionList:
+    - ".*succeeded.*"
+    - ".*healthy.*"
+  summary: "✅ Production deployment successful: {{.InvolvedObject.name}}"
+  eventMetadata:
+    environment: "production"
+    timestamp: "{{.Timestamp}}"
+
+---
+# Critical infrastructure alerts (Slack for immediate attention)
+apiVersion: notification.toolkit.fluxcd.io/v1beta2
+kind: Alert
+metadata:
+  name: critical-infrastructure-alerts
+  namespace: flux-system
+spec:
+  providerRef:
+    name: slack
+  eventSeverity: error
+  eventSources:
+    - kind: Kustomization
+      name: 'infra-controllers'
+    - kind: Kustomization
+      name: 'infra-configs'
+  summary: "🚨 CRITICAL: Infrastructure component {{.InvolvedObject.name}} is failing"
+  eventMetadata:
+    priority: "critical"
+    oncall: "required"
+
+---
+# Image automation alerts
+apiVersion: notification.toolkit.fluxcd.io/v1beta2
+kind: Alert
+metadata:
+  name: image-automation-alerts
+  namespace: flux-system
+spec:
+  providerRef:
+    name: discord
+  eventSeverity: info
+  eventSources:
+    - kind: ImageUpdateAutomation
+      name: '*'
+  inclusionList:
+    - ".*committed.*"
+  summary: "🔄 Image update: {{.InvolvedObject.name}} committed new version"
+  eventMetadata:
+    automation: "image-update"

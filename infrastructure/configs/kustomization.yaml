@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: infrastructure-configs
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Flux-managed infrastructure configurations
+# Note: Core configs are deployed by Ansible in cluster/base/
+# This directory is for configurations that benefit from Flux GitOps
+
+resources:
+  # Flux notification system
+  - notifications/
+  
+  # Flux image automation policies
+  - image-policies/
+  
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/managed-by: flux
+      app.kubernetes.io/part-of: infraflux
+      
+# Note: This is intentionally minimal to avoid duplicating
+# the sophisticated configurations already in cluster/base/

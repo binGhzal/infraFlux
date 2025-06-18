@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: apps-base
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Base applications managed by Flux GitOps
+# These are NEW applications, separate from cluster/base/ (Ansible-managed)
+
+resources:
+  # HelmRepository definitions for external charts
+  - repositories/
+  
+  # Example applications - add more as needed
+  - example-app/
+
+commonLabels:
+  app.kubernetes.io/managed-by: flux
+  app.kubernetes.io/part-of: infraflux
+  
+# Note: Applications are added here as they are migrated from cluster/base/
+# or created new for Flux GitOps management

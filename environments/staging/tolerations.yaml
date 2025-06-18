@@ -1,0 +1,16 @@
+---
+# Staging tolerations for experimental workloads
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: staging-tolerations
+  namespace: flux-system
+data:
+  tolerations.yaml: |
+    tolerations:
+      # Allow scheduling on any nodes in staging
+      - operator: "Exists"
+        effect: "NoSchedule"
+      - operator: "Exists" 
+        effect: "NoExecute"
+        tolerationSeconds: 300

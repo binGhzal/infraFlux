@@ -1,0 +1,70 @@
+---
+# Image update automation for staging environment
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageUpdateAutomation
+metadata:
+  name: infraflux-staging-updates
+  namespace: flux-system
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: flux@infraflux.local
+        name: Flux Image Automation
+      messageTemplate: |
+        [staging] Update image tags
+        
+        Updates:
+        {{range .Updated.Images}}
+        - {{.}} 
+        {{end}}
+    push:
+      branch: main
+  update:
+    path: "./apps/staging"
+    strategy: Setters
+
+---
+# Image update automation for production environment (more conservative)
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageUpdateAutomation
+metadata:
+  name: infraflux-production-updates
+  namespace: flux-system
+spec:
+  interval: 24h  # Daily updates for production
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: flux@infraflux.local
+        name: Flux Image Automation (Production)
+      messageTemplate: |
+        [production] Update image tags
+        
+        🔄 Automated image updates for production environment
+        
+        Updates:
+        {{range .Updated.Images}}
+        - {{.}} 
+        {{end}}
+        
+        ⚠️ Production deployment - verify before merge
+    push:
+      branch: main
+  update:
+    path: "./apps/production"
+    strategy: Setters
+  suspend: false  # Can be suspended if manual approval is preferred

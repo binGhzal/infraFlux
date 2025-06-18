@@ -1,0 +1,51 @@
+---
+# Flux Integration for Hybrid Ansible + GitOps Architecture
+# This configures Flux to work alongside Ansible-deployed infrastructure
+
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: flux-system
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/name: flux-system
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  interval: 5m
+  ref:
+    branch: main
+  url: https://github.com/USER/REPO  # Will be updated by bootstrap script
+
+---
+# Health check for the GitRepository
+apiVersion: notification.toolkit.fluxcd.io/v1beta2
+kind: Alert
+metadata:
+  name: flux-system-repo
+  namespace: flux-system
+spec:
+  providerRef:
+    name: slack  # Will be configured in notification providers
+  eventSeverity: error
+  eventSources:
+    - kind: GitRepository
+      name: flux-system
+  summary: "Flux GitRepository {{.InvolvedObject.name}} is failing"
+
+---
+# Kustomization for monitoring Flux health
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: flux-monitoring
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./cluster/base/gitops
+  prune: false  # Don't prune Ansible-managed resources
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  validation: client
+  timeout: 5m

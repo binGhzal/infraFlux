@@ -1,0 +1,59 @@
+---
+# Docker Hub public registry scanning
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: nginx
+  namespace: flux-system
+spec:
+  image: nginx
+  interval: 1h
+  provider: generic
+
+---
+# GitHub Container Registry scanning
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: ghcr-homepage
+  namespace: flux-system
+spec:
+  image: ghcr.io/gethomepage/homepage
+  interval: 1h
+  provider: generic
+
+---
+# Authentik image repository
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: authentik
+  namespace: flux-system
+spec:
+  image: ghcr.io/goauthentik/server
+  interval: 6h  # Less frequent for stable apps
+  provider: generic
+
+---
+# Ollama AI/ML image repository
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: ollama
+  namespace: flux-system
+spec:
+  image: ollama/ollama
+  interval: 12h  # Even less frequent for AI models
+  provider: generic
+
+---
+# Open WebUI image repository
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: open-webui
+  namespace: flux-system
+spec:
+  image: ghcr.io/open-webui/open-webui
+  interval: 6h
+  provider: generic

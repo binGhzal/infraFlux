@@ -1,0 +1,35 @@
+---
+# Production Environment Policies
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: production-policies
+  namespace: flux-system
+spec:
+  interval: 1h  # Conservative updates for stability
+  path: ./environments/production
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 10m
+  validation: client
+  
+  # Production-specific settings
+  patches:
+    - patch: |
+        - op: replace
+          path: /spec/interval
+          value: 1h
+      target:
+        kind: Kustomization
+        
+  # Strict validation in production
+  force: false
+  
+  # Health checks before deployment
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      namespace: flux-system
+      name: source-controller

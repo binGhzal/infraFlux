@@ -1,0 +1,27 @@
+---
+# Production Environment Policies
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: production-policies
+  namespace: flux-system
+data:
+  update-policy: "conservative"
+  validation-policy: "strict"
+  rollback-policy: "manual"
+  pre-release-policy: "deny"
+  
+---
+# Resource quotas for production (strict)
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: production-quota
+  namespace: default
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16" 
+    limits.memory: 32Gi
+    persistentvolumeclaims: "20"
