@@ -1,0 +1,303 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: velero
+  labels:
+    app.kubernetes.io/name: velero
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: velero
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: velero
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: velero
+  labels:
+    app.kubernetes.io/name: velero
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+- nonResourceURLs: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: velero
+  labels:
+    app.kubernetes.io/name: velero
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: velero
+subjects:
+- kind: ServiceAccount
+  name: velero
+  namespace: velero
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-credentials
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: velero
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+type: Opaque
+stringData:
+  cloud: |
+    [default]
+    aws_access_key_id=CHANGE_ME_ACCESS_KEY
+    aws_secret_access_key=CHANGE_ME_SECRET_KEY
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: velero-config
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: velero
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+data:
+  velero-server.yaml: |
+    features: EnableCSI
+    backupStorageLocation:
+      name: default
+      provider: aws
+      bucket: infraflux-velero-backups
+      config:
+        region: us-west-2
+        s3ForcePathStyle: "true"
+        s3Url: https://s3.us-west-2.amazonaws.com
+    volumeSnapshotLocation:
+      name: default
+      provider: aws
+      config:
+        region: us-west-2
+    defaultBackupStorageLocation: default
+    defaultVolumeSnapshotLocations:
+      aws: default
+    defaultBackupTTL: 720h0m0s
+    defaultVolumesToRestic: true
+    garbageCollectionFrequency: 1h
+    logLevel: info
+    logFormat: text
+    pluginDir: /plugins
+    disableControllers: []
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: velero
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: velero
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: velero
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: velero
+    spec:
+      serviceAccountName: velero
+      containers:
+      - name: velero
+        image: velero/velero:v1.12.1
+        command:
+        - /velero
+        args:
+        - server
+        - --uploader-type=restic
+        env:
+        - name: VELERO_SCRATCH_DIR
+          value: /scratch
+        - name: VELERO_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LD_LIBRARY_PATH
+          value: /plugins
+        - name: AWS_SHARED_CREDENTIALS_FILE
+          value: /credentials/cloud
+        ports:
+        - name: http-monitoring
+          containerPort: 8085
+        - name: http-metrics
+          containerPort: 8086
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: http-monitoring
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: http-monitoring
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          limits:
+            memory: 1Gi
+            cpu: 500m
+          requests:
+            memory: 512Mi
+            cpu: 250m
+        volumeMounts:
+        - name: cloud-credentials
+          mountPath: /credentials
+        - name: plugins
+          mountPath: /plugins
+        - name: scratch
+          mountPath: /scratch
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsGroup: 65534
+          runAsNonRoot: true
+          runAsUser: 65534
+      initContainers:
+      - name: velero-plugin-for-aws
+        image: velero/velero-plugin-for-aws:v1.8.2
+        volumeMounts:
+        - name: plugins
+          mountPath: /target
+      volumes:
+      - name: cloud-credentials
+        secret:
+          secretName: cloud-credentials
+      - name: plugins
+        emptyDir: {}
+      - name: scratch
+        emptyDir: {}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: restic
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: restic
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: restic
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: restic
+    spec:
+      serviceAccountName: velero
+      securityContext:
+        runAsUser: 0
+      containers:
+      - name: restic
+        image: velero/velero:v1.12.1
+        command:
+        - /velero
+        args:
+        - restic
+        - server
+        - --uploader-type=restic
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: VELERO_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: VELERO_SCRATCH_DIR
+          value: /scratch
+        - name: AWS_SHARED_CREDENTIALS_FILE
+          value: /credentials/cloud
+        ports:
+        - name: http-metrics
+          containerPort: 8085
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: http-metrics
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: http-metrics
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          limits:
+            memory: 1Gi
+            cpu: 500m
+          requests:
+            memory: 512Mi
+            cpu: 250m
+        volumeMounts:
+        - name: cloud-credentials
+          mountPath: /credentials
+        - name: host-pods
+          mountPath: /host_pods
+          mountPropagation: HostToContainer
+        - name: scratch
+          mountPath: /scratch
+        securityContext:
+          privileged: false
+          runAsUser: 0
+      volumes:
+      - name: cloud-credentials
+        secret:
+          secretName: cloud-credentials
+      - name: host-pods
+        hostPath:
+          path: /var/lib/kubelet/pods
+      - name: scratch
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: velero
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: velero
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  type: ClusterIP
+  ports:
+  - name: http-monitoring
+    port: 8085
+    targetPort: http-monitoring
+  - name: http-metrics
+    port: 8086
+    targetPort: http-metrics
+  selector:
+    app.kubernetes.io/name: velero

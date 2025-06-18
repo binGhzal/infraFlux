@@ -29,9 +29,15 @@ resources:
   # GitOps Components
   - gitops
   
+  # Backup & Recovery
+  - backup/velero
+  
   # Application Templates
   - applications/authelia.yaml
   - applications/homepage-enhanced.yaml
+  - applications/nextcloud
+  - applications/vaultwarden
+  - applications/gitea
 
 labels:
   - includeSelectors: true
