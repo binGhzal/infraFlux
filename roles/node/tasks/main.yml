@@ -96,7 +96,7 @@
         - '6443'      # API server
         - '2379:2380' # etcd
         - '10250'     # kubelet
-        - '10251'     # kube-scheduler  
+        - '10251'     # kube-scheduler
         - '10252'     # kube-controller-manager
         - '30000:32767' # NodePort range
       when: inventory_hostname in groups['controllers']
