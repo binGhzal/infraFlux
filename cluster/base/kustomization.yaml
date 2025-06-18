@@ -14,18 +14,26 @@ resources:
   # Security Components
   - security/sealed-secrets.yaml
   - security/rbac.yaml
+  - security/authentik
   
   # Monitoring Stack
   - monitoring/prometheus.yaml
   - monitoring/grafana.yaml
+  - monitoring/loki.yaml
+  - monitoring/alertmanager.yaml
+  
+  # GitOps Components
+  - gitops
   
   # Application Templates
   - applications/authelia.yaml
   - applications/homepage.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: infraflux
-  app.kubernetes.io/managed-by: flux
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: infraflux
+      app.kubernetes.io/managed-by: flux
 
 commonAnnotations:
   config.kubernetes.io/origin: |
@@ -42,16 +50,16 @@ images:
   - name: ghcr.io/gethomepage/homepage
     newTag: "latest"
 
-patchesStrategicMerge:
-  - patches/resource-limits.yaml
+# patchesStrategicMerge:
+#   - patches/resource-limits.yaml
 
-replacements:
-  - source:
-      kind: ConfigMap
-      name: cluster-config
-      fieldPath: data.cluster_domain
-    targets:
-      - select:
-          kind: Ingress
-        fieldPaths:
-          - spec.rules.[name=*.local.cluster].host
+# replacements:
+#   - source:
+#       kind: ConfigMap
+#       name: cluster-config
+#       fieldPath: data.cluster_domain
+#     targets:
+#       - select:
+#           kind: Ingress
+#         fieldPaths:
+#           - spec.rules.[name=*.local.cluster].host

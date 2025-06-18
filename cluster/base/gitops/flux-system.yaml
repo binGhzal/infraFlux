@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flux-system
+  labels:
+    app.kubernetes.io/name: flux-system
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: infraflux-repo
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/name: infraflux-repo
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  interval: 1m0s
+  ref:
+    branch: main
+  url: https://github.com/infraflux/infraflux
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: infraflux-base
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/name: infraflux-base
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  interval: 10m0s
+  path: "./cluster/base"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: infraflux-repo
+  validation: client
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: prometheus
+      namespace: monitoring
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: grafana
+      namespace: monitoring
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: infraflux-production
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/name: infraflux-production
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  interval: 10m0s
+  path: "./cluster/overlays/production"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: infraflux-repo
+  validation: client
+  dependsOn:
+    - name: infraflux-base
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: authentik-images
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/name: authentik-images
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  image: ghcr.io/goauthentik/server
+  interval: 5m0s
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: authentik-policy
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/name: authentik-policy
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  imageRepositoryRef:
+    name: authentik-images
+  policy:
+    semver:
+      range: '>=2024.0.0 <2025.0.0'
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageUpdateAutomation
+metadata:
+  name: infraflux-automation
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/name: infraflux-automation
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: infraflux-repo
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: fluxcdbot@users.noreply.github.com
+        name: fluxcdbot
+      messageTemplate: |
+        Automated image update
+        
+        Automation name: {{ .AutomationObject }}
+        
+        Files:
+        {{ range $filename, $_ := .Updated.Files -}}
+        - {{ $filename }}
+        {{ end -}}
+        
+        Objects:
+        {{ range $resource, $_ := .Updated.Objects -}}
+        - {{ $resource.Kind }} {{ $resource.Name }}
+        {{ end -}}
+        
+        Images:
+        {{ range .Updated.Images -}}
+        - {{.}}
+        {{ end -}}
+    push:
+      branch: main
+  update:
+    path: "./cluster"
+    strategy: Setters

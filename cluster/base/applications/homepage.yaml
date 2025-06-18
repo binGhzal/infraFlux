@@ -1,0 +1,269 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-config
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: homepage
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+data:
+  settings.yaml: |
+    ---
+    title: InfraFlux Dashboard
+    subtitle: Homelab Management
+    logo: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/heimdall.png
+    theme: dark
+    color: slate
+    headerStyle: clean
+    layout:
+      Infrastructure:
+        style: row
+        columns: 4
+      Monitoring:
+        style: row
+        columns: 3
+      Applications:
+        style: row
+        columns: 4
+    providers:
+      longhorn:
+        url: http://longhorn-frontend.longhorn-system
+      unifi:
+        url: https://unifi.local.cluster
+        username: admin
+        password: password
+    quicklaunch:
+      searchDescriptions: true
+      hideInternetSearch: true
+      showSearchSuggestions: true
+      hideVisitURL: true
+  
+  services.yaml: |
+    ---
+    - Infrastructure:
+        - Proxmox:
+            icon: proxmox.png
+            href: http://10.0.0.69:8006
+            description: Virtualization Platform
+            widget:
+              type: proxmox
+              url: http://10.0.0.69:8006
+              username: root@pam
+              password: password
+        
+        - Traefik:
+            icon: traefik.png
+            href: http://traefik.local.cluster
+            description: Reverse Proxy & Load Balancer
+            widget:
+              type: traefik
+              url: http://traefik.local.cluster
+        
+        - Cilium:
+            icon: cilium.png
+            href: http://hubble.local.cluster
+            description: Network Security & Observability
+    
+    - Monitoring:
+        - Prometheus:
+            icon: prometheus.png
+            href: http://prometheus.local.cluster
+            description: Metrics Collection
+            widget:
+              type: prometheus
+              url: http://prometheus.local.cluster
+        
+        - Grafana:
+            icon: grafana.png
+            href: http://grafana.local.cluster
+            description: Metrics Visualization
+            widget:
+              type: grafana
+              url: http://grafana.local.cluster
+              username: admin
+              password: admin
+        
+        - Loki:
+            icon: loki.png
+            href: http://loki.local.cluster
+            description: Log Aggregation
+    
+    - Applications:
+        - Authentik:
+            icon: authentik.png
+            href: http://authentik.local.cluster
+            description: Identity & Access Management
+        
+        - Nextcloud:
+            icon: nextcloud.png
+            href: http://nextcloud.local.cluster
+            description: Personal Cloud Storage
+        
+        - Vaultwarden:
+            icon: vaultwarden.png
+            href: http://vaultwarden.local.cluster
+            description: Password Manager
+        
+        - Gitea:
+            icon: gitea.png
+            href: http://gitea.local.cluster
+            description: Git Repository Manager
+  
+  bookmarks.yaml: |
+    ---
+    - Developer:
+        - Github:
+            - Github:
+                icon: github.png
+                href: https://github.com/
+            - InfraFlux:
+                icon: github.png
+                href: https://github.com/infraflux/infraflux
+    
+    - Homelab:
+        - Awesome Homelab:
+            - Awesome Homelab:
+                icon: github.png
+                href: https://github.com/awesome-selfhosted/awesome-selfhosted
+            - Homelab OS:
+                icon: github.png
+                href: https://github.com/homelab-os/homelab-os
+    
+    - Documentation:
+        - Kubernetes:
+            - K3s:
+                icon: kubernetes.png
+                href: https://k3s.io/
+            - Kubernetes Docs:
+                icon: kubernetes.png
+                href: https://kubernetes.io/docs/
+        
+        - Tools:
+            - Flux:
+                icon: flux.png
+                href: https://fluxcd.io/
+            - Authentik:
+                icon: authentik.png
+                href: https://goauthentik.io/
+  
+  widgets.yaml: |
+    ---
+    - logo:
+        icon: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/infraflux.png
+    
+    - search:
+        provider: duckduckgo
+        target: _blank
+    
+    - datetime:
+        text_size: xl
+        format:
+          timeStyle: short
+          dateStyle: short
+    
+    - kubernetes:
+        cluster:
+          show: true
+          cpu: true
+          memory: true
+          showLabel: true
+          label: "cluster"
+        nodes:
+          show: true
+          cpu: true
+          memory: true
+          showLabel: true
+    
+    - resources:
+        backend: resources
+        expanded: true
+        cpu: true
+        memory: true
+    
+    - unifi_console:
+        url: https://unifi.local.cluster
+        username: admin
+        password: password
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homepage
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: homepage
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: homepage
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: homepage
+    spec:
+      containers:
+        - name: homepage
+          image: ghcr.io/gethomepage/homepage:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          volumeMounts:
+            - name: homepage-config
+              mountPath: /app/config
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: 200m
+            requests:
+              memory: 128Mi
+              cpu: 100m
+      volumes:
+        - name: homepage-config
+          configMap:
+            name: homepage-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: homepage
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: homepage
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+  selector:
+    app.kubernetes.io/name: homepage
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: homepage
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: homepage
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+    - host: homepage.local.cluster
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: homepage
+                port:
+                  number: 3000

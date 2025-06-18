@@ -6,10 +6,10 @@ metadata:
   annotations:
     config.kubernetes.io/local-config: "true"
 
-namespace: authentik
+namespace: security
 
 resources:
-  - namespace.yaml
+  # - namespace.yaml  # Namespace created by base infrastructure
   - postgresql.yaml
   - redis.yaml
   - authentik-server.yaml
@@ -18,29 +18,31 @@ resources:
   - ingress.yaml
   - configmap.yaml
 
-configMapGenerator:
-  - name: authentik-config
-    files:
-      - blueprints/default-authentication-flow.yaml
-      - blueprints/default-authorization-flow.yaml
-      - blueprints/default-invalidation-flow.yaml
-    options:
-      disableNameSuffixHash: true
+# configMapGenerator:
+#   - name: authentik-config
+#     files:
+#       - blueprints/default-authentication-flow.yaml
+#       - blueprints/default-authorization-flow.yaml
+#       - blueprints/default-invalidation-flow.yaml
+#     options:
+#       disableNameSuffixHash: true
 
-secretGenerator:
-  - name: authentik-secrets
-    literals:
-      - secret_key=generate-me-please
-      - postgres_password=change-me
-      - redis_password=change-me
-    type: Opaque
-    options:
-      disableNameSuffixHash: true
+# secretGenerator:
+#   - name: authentik-secrets
+#     literals:
+#       - secret_key=generate-me-please
+#       - postgres_password=change-me
+#       - redis_password=change-me
+#     type: Opaque
+#     options:
+#       disableNameSuffixHash: true
 
-commonLabels:
-  app.kubernetes.io/name: authentik
-  app.kubernetes.io/part-of: infraflux-security
-  app.kubernetes.io/managed-by: kustomize
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/name: authentik
+      app.kubernetes.io/part-of: infraflux
+      app.kubernetes.io/managed-by: flux
 
 images:
   - name: ghcr.io/goauthentik/server
@@ -50,17 +52,17 @@ images:
   - name: library/redis
     newTag: "alpine"
 
-patchesStrategicMerge:
-  - patches/resource-limits.yaml
+# patchesStrategicMerge:
+#   - patches/resource-limits.yaml
 
-replacements:
-  - source:
-      kind: ConfigMap
-      name: cluster-config
-      fieldPath: data.cluster_domain
-    targets:
-      - select:
-          kind: Ingress
-          name: authentik
-        fieldPaths:
-          - spec.rules.0.host
+# replacements:
+#   - source:
+#       kind: ConfigMap
+#       name: cluster-config
+#       fieldPath: data.cluster_domain
+#     targets:
+#       - select:
+#           kind: Ingress
+#           name: authentik
+#         fieldPaths:
+#           - spec.rules.0.host

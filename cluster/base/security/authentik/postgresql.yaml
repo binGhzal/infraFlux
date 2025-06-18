@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: authentik-postgresql
-  namespace: authentik
+  namespace: security
   labels:
     app.kubernetes.io/name: postgresql
     app.kubernetes.io/component: database
@@ -83,7 +83,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: authentik-postgresql-data
-  namespace: authentik
+  namespace: security
   labels:
     app.kubernetes.io/name: postgresql
     app.kubernetes.io/component: database
@@ -100,7 +100,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: authentik-postgresql
-  namespace: authentik
+  namespace: security
   labels:
     app.kubernetes.io/name: postgresql
     app.kubernetes.io/component: database
