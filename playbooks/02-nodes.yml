@@ -1,0 +1,23 @@
+---
+- name: "Phase 2: Prepare Nodes"
+  hosts: all
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../config/cluster-config.yaml
+
+  tasks:
+    - name: Display node preparation information
+      debug:
+        msg:
+          - "=== Preparing Node: {{ inventory_hostname }} ==="
+          - "IP: {{ ansible_host }}"
+          - "Role: {{ 'controller' if inventory_hostname in groups.controllers else 'worker' }}"
+
+    - name: Prepare node
+      include_role:
+        name: node
+
+    - name: Node preparation completed
+      debug:
+        msg: "✅ Node {{ inventory_hostname }} prepared successfully"

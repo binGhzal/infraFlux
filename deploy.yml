@@ -1,0 +1,19 @@
+---
+# InfraFlux Main Deployment Playbook
+# This playbook orchestrates the complete deployment of a Kubernetes cluster
+
+- name: "🚀 InfraFlux Deployment - Phase 1: Infrastructure"
+  import_playbook: playbooks/infrastructure.yml
+  when: phase is not defined or phase == "infrastructure" or phase == "all"
+
+- name: "⚙️ InfraFlux Deployment - Phase 2: Node Preparation"
+  import_playbook: playbooks/node-preparation.yml
+  when: phase is not defined or phase == "nodes" or phase == "all"
+
+- name: "🔧 InfraFlux Deployment - Phase 3: K3s Cluster"
+  import_playbook: playbooks/k3s-cluster.yml
+  when: phase is not defined or phase == "k3s" or phase == "all"
+
+- name: "📦 InfraFlux Deployment - Phase 4: Applications"
+  import_playbook: playbooks/applications.yml
+  when: phase is not defined or phase == "apps" or phase == "all"

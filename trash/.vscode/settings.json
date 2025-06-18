@@ -1,0 +1,7 @@
+{
+	"githubPullRequests.ignoredPullRequestBranches": ["main"],
+	"python-envs.defaultEnvManager": "ms-python.python:conda",
+	"python-envs.defaultPackageManager": "ms-python.python:conda",
+	"python-envs.pythonProjects": [],
+	"ansible.python.interpreterPath": "/opt/homebrew/bin/python3"
+}

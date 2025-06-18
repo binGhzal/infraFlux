@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # InfraFlux Deployment Script
-# This script reads the cluster-config.yaml and deploys everything automatically
+# Simplified deployment using Ansible playbooks
 
 CONFIG_FILE="${1:-config/cluster-config.yaml}"
-WORK_DIR="/tmp/infraflux-deploy"
+PHASE="${2:-all}"
 
 # Colors for output
 RED='\033[0;31m'

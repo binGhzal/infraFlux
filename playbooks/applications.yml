@@ -1,0 +1,223 @@
+---
+- name: Deploy Core Applications
+  hosts: controllers[0]
+  become: no
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  vars:
+    metallb_ip_range: "{{ metallb_ip_range | default(start_ip | ipmath(50) + '-' + start_ip | ipmath(60)) }}"
+
+  tasks:
+    - name: Display applications deployment information
+      debug:
+        msg:
+          - "📦 Installing core applications"
+          - "Cilium CNI: {{ install_cilium | default(true) }}"
+          - "MetalLB: {{ install_metallb | default(true) }}"
+          - "Ingress NGINX: {{ install_ingress_nginx | default(true) }}"
+          - "Cert Manager: {{ install_cert_manager | default(true) }}"
+          - "Monitoring: {{ install_monitoring | default(true) }}"
+
+    - name: Wait for cluster to be ready
+      shell: kubectl get nodes
+      register: nodes_status
+      until: nodes_status.rc == 0
+      retries: 30
+      delay: 10
+
+    - name: Add Helm repositories
+      kubernetes.core.helm_repository:
+        name: "{{ item.name }}"
+        repo_url: "{{ item.url }}"
+      loop:
+        - { name: 'cilium', url: 'https://helm.cilium.io/' }
+        - { name: 'metallb', url: 'https://metallb.github.io/metallb' }
+        - { name: 'ingress-nginx', url: 'https://kubernetes.github.io/ingress-nginx' }
+        - { name: 'jetstack', url: 'https://charts.jetstack.io' }
+        - { name: 'prometheus-community', url: 'https://prometheus-community.github.io/helm-charts' }
+        - { name: 'sealed-secrets', url: 'https://bitnami-labs.github.io/sealed-secrets' }
+
+    - name: Install Cilium CNI
+      kubernetes.core.helm:
+        name: cilium
+        chart_ref: cilium/cilium
+        chart_version: "1.14.5"
+        release_namespace: kube-system
+        create_namespace: yes
+        wait: true
+        wait_timeout: 600s
+        values:
+          operator:
+            replicas: 1
+          hubble:
+            enabled: true
+            relay:
+              enabled: true
+            ui:
+              enabled: true
+          cluster:
+            name: "{{ cluster_name | default('k3s-cluster') }}"
+            id: 1
+          k8sServiceHost: "{{ k3s_server_ip }}"
+          k8sServicePort: 6443
+      when: install_cilium | default(true) | bool
+
+    - name: Wait for Cilium to be ready
+      shell: kubectl wait --for=condition=ready pods -n kube-system -l app.kubernetes.io/name=cilium-operator --timeout=300s
+      when: install_cilium | default(true) | bool
+
+    - name: Install MetalLB Load Balancer
+      kubernetes.core.helm:
+        name: metallb
+        chart_ref: metallb/metallb
+        chart_version: "0.13.12"
+        release_namespace: metallb-system
+        create_namespace: yes
+        wait: true
+        wait_timeout: 300s
+      when: install_metallb | default(true) | bool
+
+    - name: Wait for MetalLB to be ready
+      shell: kubectl wait --for=condition=ready pods -n metallb-system -l app.kubernetes.io/name=metallb --timeout=300s
+      when: install_metallb | default(true) | bool
+
+    - name: Configure MetalLB IP Pool
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: metallb.io/v1beta1
+          kind: IPAddressPool
+          metadata:
+            name: main-pool
+            namespace: metallb-system
+          spec:
+            addresses:
+              - "{{ metallb_ip_range }}"
+        wait: true
+        wait_timeout: 60
+      when: install_metallb | default(true) | bool
+
+    - name: Configure MetalLB L2Advertisement
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: metallb.io/v1beta1
+          kind: L2Advertisement
+          metadata:
+            name: main-advertisement
+            namespace: metallb-system
+          spec:
+            ipAddressPools:
+              - main-pool
+        wait: true
+        wait_timeout: 60
+      when: install_metallb | default(true) | bool
+
+    - name: Install Ingress NGINX
+      kubernetes.core.helm:
+        name: ingress-nginx
+        chart_ref: ingress-nginx/ingress-nginx
+        chart_version: "4.8.3"
+        release_namespace: ingress-nginx
+        create_namespace: yes
+        wait: true
+        wait_timeout: 600s
+        values:
+          controller:
+            service:
+              type: LoadBalancer
+            metrics:
+              enabled: true
+            config:
+              use-forwarded-headers: "true"
+              compute-full-forwarded-for: "true"
+      when: install_ingress_nginx | default(true) | bool
+
+    - name: Install Cert Manager
+      kubernetes.core.helm:
+        name: cert-manager
+        chart_ref: jetstack/cert-manager
+        chart_version: "1.13.3"
+        release_namespace: cert-manager
+        create_namespace: yes
+        wait: true
+        wait_timeout: 600s
+        values:
+          installCRDs: true
+          prometheus:
+            enabled: true
+      when: install_cert_manager | default(true) | bool
+
+    - name: Install Prometheus Monitoring Stack
+      kubernetes.core.helm:
+        name: kube-prometheus-stack
+        chart_ref: prometheus-community/kube-prometheus-stack
+        chart_version: "55.5.0"
+        release_namespace: monitoring
+        create_namespace: yes
+        wait: true
+        wait_timeout: 900s
+        values:
+          prometheus:
+            prometheusSpec:
+              retention: "15d"
+              storageSpec:
+                volumeClaimTemplate:
+                  spec:
+                    storageClassName: local-path
+                    accessModes: ["ReadWriteOnce"]
+                    resources:
+                      requests:
+                        storage: 10Gi
+          grafana:
+            adminPassword: "{{ grafana_admin_password | default('admin123') }}"
+            service:
+              type: LoadBalancer
+            persistence:
+              enabled: true
+              storageClassName: local-path
+              size: 5Gi
+          alertmanager:
+            alertmanagerSpec:
+              storage:
+                volumeClaimTemplate:
+                  spec:
+                    storageClassName: local-path
+                    accessModes: ["ReadWriteOnce"]
+                    resources:
+                      requests:
+                        storage: 5Gi
+      when: install_monitoring | default(true) | bool
+
+    - name: Install Sealed Secrets
+      kubernetes.core.helm:
+        name: sealed-secrets
+        chart_ref: sealed-secrets/sealed-secrets
+        chart_version: "2.15.1"
+        release_namespace: kube-system
+        wait: true
+        wait_timeout: 300s
+      when: install_sealed_secrets | default(true) | bool
+
+    - name: Get application status
+      shell: |
+        echo "=== Deployed Applications ==="
+        kubectl get pods --all-namespaces | grep -E "(cilium|metallb|ingress|cert-manager|prometheus|grafana|sealed-secrets)"
+        echo ""
+        echo "=== Services with External IPs ==="
+        kubectl get svc --all-namespaces | grep LoadBalancer
+      register: apps_status
+
+    - name: Display deployment results
+      debug:
+        msg:
+          - "✅ Applications deployment complete!"
+          - "{{ apps_status.stdout_lines }}"
+          - ""
+          - "🔧 Access Information:"
+          - "• Kubeconfig: ./kubeconfig"
+          - "• Grafana: kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80"
+          - "• Hubble UI: kubectl port-forward -n kube-system svc/hubble-ui 12000:80"
+          - ""
+          - "📝 Next steps:"
+          - "1. Copy kubeconfig: cp ./kubeconfig ~/.kube/config"
+          - "2. Verify cluster: kubectl get nodes"
+          - "3. Check applications: kubectl get pods --all-namespaces"

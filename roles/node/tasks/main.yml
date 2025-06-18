@@ -1,0 +1,135 @@
+---
+# Role: Node Preparation
+# Purpose: Prepares all nodes for Kubernetes installation
+
+- name: Update system packages
+  apt:
+    update_cache: yes
+    upgrade: dist
+    autoremove: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: Install essential packages
+  apt:
+    name:
+      - curl
+      - wget
+      - git
+      - htop
+      - net-tools
+      - software-properties-common
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - lsb-release
+    state: present
+
+- name: Disable swap permanently
+  block:
+    - name: Turn off swap
+      shell: swapoff -a
+    - name: Remove swap from fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+        replace: '# \1'
+  when: disable_swap | default(true) | bool
+
+- name: Configure kernel modules for Kubernetes
+  block:
+    - name: Load kernel modules
+      modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - br_netfilter
+        - overlay
+        - ip_vs
+        - ip_vs_rr
+        - ip_vs_wrr
+        - ip_vs_sh
+
+    - name: Make kernel modules persistent
+      lineinfile:
+        path: /etc/modules-load.d/k8s.conf
+        line: "{{ item }}"
+        create: yes
+      loop:
+        - br_netfilter
+        - overlay
+        - ip_vs
+        - ip_vs_rr
+        - ip_vs_wrr
+        - ip_vs_sh
+
+- name: Configure sysctl for Kubernetes
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+    sysctl_file: /etc/sysctl.d/k8s.conf
+  loop:
+    - { key: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { key: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+    - { key: 'net.ipv4.ip_forward', value: '1' }
+    - { key: 'net.ipv4.conf.all.forwarding', value: '1' }
+    - { key: 'net.ipv6.conf.all.forwarding', value: '1' }
+    - { key: 'fs.inotify.max_user_watches', value: '524288' }
+    - { key: 'fs.inotify.max_user_instances', value: '512' }
+
+- name: Configure basic firewall (if enabled)
+  block:
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+
+    - name: Allow Kubernetes ports for controllers
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - '6443'      # API server
+        - '2379:2380' # etcd
+        - '10250'     # kubelet
+        - '10251'     # kube-scheduler  
+        - '10252'     # kube-controller-manager
+        - '30000:32767' # NodePort range
+      when: inventory_hostname in groups['controllers']
+
+    - name: Allow Kubernetes ports for workers
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - '10250'     # kubelet
+        - '30000:32767' # NodePort range
+      when: inventory_hostname in groups['workers']
+
+    - name: Enable firewall
+      ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+  when: enable_firewall | default(true) | bool
+
+- name: Configure automatic updates (if enabled)
+  block:
+    - name: Configure unattended-upgrades
+      template:
+        src: 50unattended-upgrades.j2
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+      when: false  # Disabled for now
+
+    - name: Enable unattended-upgrades
+      systemd:
+        name: unattended-upgrades
+        enabled: yes
+        state: started
+      when: false  # Disabled for now
+  when: enable_auto_updates | default(false) | bool

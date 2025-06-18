@@ -1,0 +1,47 @@
+---
+# Role: Proxmox VM Creation
+# Purpose: Creates VMs on Proxmox for the Kubernetes cluster
+
+- name: "Creating VM: {{ vm_name }}"
+  debug:
+    msg:
+      - "VM Name: {{ vm_name }}"
+      - "IP: {{ vm_ip }}"
+      - "Cores: {{ vm_cores }}"
+      - "Memory: {{ vm_memory }}MB"
+
+- name: Create VM on Proxmox
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_user | default('root@pam') }}"
+    api_password: "{{ proxmox_password }}"
+    node: "{{ proxmox_node | default('pve') }}"
+    vmid: "{{ vm_id }}"
+    name: "{{ vm_name }}"
+    clone: "{{ vm_template_name | default('ubuntu-template') }}"
+    full: yes
+    storage: "{{ proxmox_storage | default('local-lvm') }}"
+    memory: "{{ vm_memory }}"
+    cores: "{{ vm_cores }}"
+    net:
+      net0: "virtio,bridge=vmbr0"
+    ipconfig:
+      ipconfig0: "ip={{ vm_ip }}/{{ network_prefix }},gw={{ gateway_ip }}"
+    sshkeys: "{{ lookup('file', ssh_key_path | default('~/.ssh/id_rsa.pub')) }}"
+    state: present
+    timeout: 300
+  register: vm_result
+
+- name: Start VM
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_user | default('root@pam') }}"
+    api_password: "{{ proxmox_password }}"
+    node: "{{ proxmox_node | default('pve') }}"
+    vmid: "{{ vm_id }}"
+    state: started
+  when: vm_result.changed
+
+- name: "✅ VM {{ vm_name }} created successfully"
+  debug:
+    msg: "VM {{ vm_name }} is ready at {{ vm_ip }}"
