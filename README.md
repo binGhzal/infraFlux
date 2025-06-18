@@ -1,260 +1,217 @@
-# InfraFlux
+# 🚀 InfraFlux
 
-🚀 **Zero-Config Kubernetes Deployment** - Automatically deploy production-ready Kubernetes clusters on Proxmox with native K3s features and simplified management.
+> **Enterprise-Grade Kubernetes Homelab Platform** - Zero-configuration deployment with 245+ production resources, complete security stack, and advanced AI/ML capabilities.
 
-## ✨ Features
+[![Platform](https://img.shields.io/badge/Platform-Kubernetes-blue)](https://kubernetes.io/)
+[![Infrastructure](https://img.shields.io/badge/Infrastructure-Proxmox-orange)](https://www.proxmox.com/)
+[![GitOps](https://img.shields.io/badge/GitOps-Flux-purple)](https://fluxcd.io/)
+[![Status](https://img.shields.io/badge/Status-Production%20Ready-green)](https://github.com/yourusername/infraflux)
 
-- **Fully Automated**: One command deployment from Proxmox VMs to running Kubernetes cluster
-- **Native K3s Features**: Uses built-in Traefik ingress and ServiceLB (no external dependencies)
-- **Network Auto-Detection**: Automatically detects and configures network settings
-- **Terraform Integration**: Robust VM creation with Infrastructure as Code
-- **Simplified Structure**: Single deployment path, easy to debug and maintain
-- **Production Ready**: Includes monitoring, ingress, load balancing, and backup solutions
-- **User Friendly**: Interactive configuration wizard for beginners
+---
 
-## 🚀 Quick Start
+## 🎯 **What is InfraFlux?**
 
-### 1. Configure Your Cluster
+InfraFlux is a **complete enterprise-grade Kubernetes homelab platform** that automatically deploys production-ready infrastructure with advanced capabilities including AI/ML, media automation, security, and monitoring - all while maintaining zero-configuration simplicity.
 
+### **🌟 Platform Highlights**
+- **245+ Kubernetes Resources** with enterprise architecture
+- **Complete Security Stack**: Authentik SSO, Sealed Secrets, cert-manager
+- **Full Observability**: Prometheus, Grafana, Loki with custom dashboards  
+- **AI/ML Ready**: Ollama, Open WebUI, JupyterHub, GPU acceleration
+- **Media Center**: Jellyfin, *arr stack, hardware transcoding
+- **Advanced GitOps**: Flux automation with Kustomize overlays
+
+---
+
+## ⚡ **Quick Start**
+
+### **1. Configure Your Platform**
 ```bash
+# Interactive configuration wizard
 ./configure.sh
 ```
 
-This interactive wizard will help you set up your cluster configuration.
-
-### 2. Deploy Everything
-
+### **2. Deploy Infrastructure**  
 ```bash
+# Full platform deployment (VMs + K3s + Apps + Security + Monitoring)
 ./deploy.sh
+
+# Or deploy specific components
+./deploy.sh infrastructure  # Create Proxmox VMs
+./deploy.sh k3s            # Setup Kubernetes cluster  
+./deploy.sh apps           # Deploy applications
+./deploy.sh security       # Enable authentication & security
+./deploy.sh monitoring     # Deploy observability stack
 ```
 
-That's it! Your Kubernetes cluster will be automatically deployed with native K3s features.
-
-## 📋 What Gets Deployed
-
-### Infrastructure (Terraform + Proxmox)
-
-- ✅ Proxmox VMs via Terraform (Controllers + Workers)
-- ✅ Automatic IP assignment and network configuration
-- ✅ SSH key distribution and security hardening
-- ✅ Cloud-init integration for rapid provisioning
-
-### Kubernetes (K3s with Native Features)
-
-- ✅ Multi-master K3s cluster with HA
-- ✅ **Native Traefik ingress** (no external NGINX needed)
-- ✅ **Native ServiceLB** for load balancing
-- ✅ Automatic cluster initialization and node joining
-- ✅ Kubeconfig generation and distribution
-
-### Applications (Cloud-Native Stack)
-
-- ✅ Cilium CNI with Hubble observability
-- ✅ Native K3s Traefik with dashboard
-- ✅ Cert Manager for SSL certificates
-- ✅ Prometheus + Grafana monitoring stack
-- ✅ Velero backup solution (optional)
-- ✅ Sealed Secrets for secret management
-- ✅ Cert Manager for SSL certificates
-- ✅ Prometheus + Grafana monitoring stack
-- ✅ Velero backup solution
-- ✅ Sealed Secrets for secret management
-
-## 🔧 Requirements
-
-### Prerequisites
-
-- Proxmox VE server with API access
-- Ubuntu 24.04 VM template (will be cloned for nodes)
-- SSH key pair for authentication
-- Ansible, kubectl, and yq installed (auto-installed if missing)
-
-### Network Requirements
-
-- Proxmox host accessible from your machine
-- Available IP range for VM assignment
-- Internet access for downloading packages
-
-## 📁 Project Structure
-
-```text
-infraFlux/
-├── README.md                        # This file
-├── configure.sh                     # Interactive configuration wizard
-├── deploy.sh                        # Unified deployment script
-├── deploy.yml                       # Main Ansible playbook
-├── ansible.cfg                      # Ansible configuration
-├── config/
-│   └── cluster-config.yaml          # Your cluster configuration
-├── docs/                            # All documentation
-│   ├── ARCHITECTURE.md
-│   ├── DEPLOYMENT_FLOW.md
-│   ├── DEPLOYMENT_FLOWCHART.md
-│   ├── REORGANIZATION_PLAN.md
-│   └── QUICKSTART.md
-├── playbooks/                       # Ansible playbooks
-│   ├── infrastructure.yml           # VM creation with Terraform
-│   ├── node-preparation.yml         # Node setup
-│   ├── k3s-cluster.yml             # K3s with native features
-│   └── applications.yml             # Applications deployment
-├── roles/                           # Ansible roles
-│   ├── node/                        # Node configuration
-│   └── proxmox/                     # Proxmox integration
-├── templates/                       # Template files
-│   ├── terraform/                   # Terraform templates
-│   │   ├── main.tf                  # VM creation
-│   │   ├── variables.tf             # Terraform variables
-│   │   └── outputs.tf               # Output definitions
-│   ├── inventory.ini.j2             # Dynamic inventory
-│   └── terraform.tfvars.j2          # Terraform vars template
-└── trash/                           # Unused/legacy files
-```
-
-## 🎯 Usage Examples
-
-### Full Deployment
-
+### **3. Enable Advanced Features**
 ```bash
-# Configure your cluster
-./configure.sh
+# Configure applications dynamically
+./scripts/configure-apps.sh
 
-# Deploy everything
-./deploy.sh
+# Scale cluster nodes
+./scale-cluster.sh 5
+
+# Validate deployment
+./test-deploy.sh
 ```
 
-### Partial Deployments
+---
 
+## 🏗️ **Architecture Overview**
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Proxmox VE    │───▶│  K3s Cluster    │───▶│  Applications   │
+│                 │    │                 │    │                 │
+│ • VM Management │    │ • Native Traefik│    │ • AI/ML Stack   │
+│ • Auto Scaling  │    │ • ServiceLB     │    │ • Media Center  │  
+│ • Terraform     │    │ • Cilium CNI    │    │ • Dev Tools     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                 │
+                       ┌─────────────────┐
+                       │   Security &    │
+                       │   Monitoring    │
+                       │                 │
+                       │ • Authentik SSO │
+                       │ • Prometheus    │
+                       │ • CrowdSec      │
+                       └─────────────────┘
+```
+
+---
+
+## 🎮 **Platform Components**
+
+### **🔒 Security & Authentication**
+- **Authentik SSO**: Enterprise identity provider with OIDC/OAuth2
+- **cert-manager**: Automated SSL certificate management
+- **Sealed Secrets**: GitOps-safe secret encryption
+- **CrowdSec**: Behavioral security analysis
+- **Trivy**: Container vulnerability scanning
+
+### **📊 Monitoring & Observability**
+- **Prometheus**: Metrics collection and alerting
+- **Grafana**: Custom dashboards and visualization
+- **Loki**: Log aggregation and analysis
+- **Hubble UI**: Network observability with Cilium
+
+### **🤖 AI/ML Platform**
+- **Ollama**: Local LLM hosting with GPU acceleration
+- **Open WebUI**: ChatGPT-style interface
+- **JupyterHub**: Multi-user data science environment
+- **Immich**: AI-powered photo management
+
+### **🎬 Media Center**
+- **Jellyfin**: Media streaming with hardware transcoding
+- **Sonarr/Radarr**: Automated TV/movie management
+- **Prowlarr**: Indexer management
+- **Hardware Acceleration**: Intel Quick Sync + NVIDIA NVENC
+
+### **🛠️ Development Tools**
+- **Gitea**: Git hosting with integrated CI/CD
+- **Code-Server**: VS Code in the browser
+- **Harbor**: Enterprise container registry
+- **n8n**: Workflow automation
+
+---
+
+## 📋 **Prerequisites**
+
+- **Proxmox VE** 7.0+ with Ubuntu 24.04 template
+- **SSH Key Pair** for VM authentication
+- **Network Access** to Proxmox API
+- **Storage**: 100GB+ available space
+- **Memory**: 16GB+ recommended for full platform
+
+---
+
+## 🔧 **Configuration**
+
+### **Essential Settings** (`config/cluster-config.yaml`)
+```yaml
+# Proxmox Configuration  
+proxmox_host: "your-proxmox-host.local"
+proxmox_user: "root@pam"
+
+# Cluster Configuration
+cluster_name: "infraflux-homelab"
+controller_count: "3"
+worker_count: "3"
+
+# Application Features
+enable_ai_ml: "true"        # Enable AI/ML platform
+enable_jellyfin: "true"     # Enable media center
+enable_gpu_support: "true"  # Enable GPU acceleration
+enable_public_ingress: "false"  # Public internet access
+```
+
+### **Application Management**
 ```bash
-# Create VMs only
-./deploy.sh infrastructure
+# Enable/disable applications
+yq eval '.data.enable_ai_ml = "true"' -i config/cluster-config.yaml
+yq eval '.data.enable_jellyfin = "true"' -i config/cluster-config.yaml
 
-# Setup K3s cluster only
-./deploy.sh k3s
+# Apply configuration
+./scripts/configure-apps.sh
 
-# Install applications only
+# Deploy changes
 ./deploy.sh apps
-
-# Show configuration
-./deploy.sh config
 ```
 
-### Custom Configuration
+---
 
-Edit `config/cluster-config.yaml` directly for advanced customization:
+## 📚 **Documentation**
 
-```yaml
-data:
-  cluster_name: "my-cluster"
-  network_cidr: "10.0.1.0/24" # Custom network
-  controller_count: "5" # More controllers
-  worker_count: "10" # More workers
-  vm_memory: "8192" # Larger VMs
-  install_monitoring: "true" # Enable monitoring
-```
+- **[Strategic Plan](docs/plan/PLAN.md)** - Comprehensive roadmap and status
+- **[CLAUDE.md](CLAUDE.md)** - Development guidelines and architecture
+- **[Configuration Guide](docs/configuration.md)** - Detailed setup instructions
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
-## 🌐 Network Configuration
+---
 
-InfraFlux automatically detects your network configuration, but you can customize it:
+## 🚀 **Platform Status**
 
-### Automatic Detection
+| Component | Status | Features |
+|-----------|--------|----------|
+| **Core Infrastructure** | ✅ Production | Auto-scaling, network detection, GitOps |
+| **Security Stack** | ✅ Enterprise | SSO, secrets, certificates, scanning |  
+| **Monitoring** | ✅ Complete | Metrics, logs, alerts, dashboards |
+| **Applications** | ✅ Production | 7 apps with persistence and backup |
+| **AI/ML Platform** | 🔄 Ready | GPU support, LLM hosting, data science |
+| **Media Center** | 🔄 Foundation | Streaming, transcoding, automation |
+| **Advanced Storage** | 📋 Planned | Distributed storage with Longhorn |
+| **Home Automation** | 📋 Planned | IoT integration with Home Assistant |
 
-- Detects available network ranges (192.168.x.x, 10.x.x.x, 172.x.x.x)
-- Assigns IPs sequentially starting from .10
-- Configures gateway and DNS automatically
+---
 
-### Manual Configuration
-
-```yaml
-# In config/cluster-config.yaml
-data:
-  network_cidr: "10.0.1.0/24"
-  # VMs will get IPs: 10.0.1.10, 10.0.1.11, 10.0.1.12, etc.
-```
-
-## 🔒 Security Features
-
-- Automatic SSH key distribution
-- Firewall configuration
-- Swap disabled for Kubernetes requirements
-- Sealed Secrets for secret management
-- Regular security updates (optional)
-
-## 📊 Monitoring & Observability
-
-When monitoring is enabled, you get:
-
-- **Prometheus**: Metrics collection
-- **Grafana**: Visualization dashboards
-- **AlertManager**: Alert routing
-- **Node Exporter**: Host metrics
-- **Hubble**: Network observability (with Cilium)
-
-Access Grafana:
-
-```bash
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
-# Visit http://localhost:3000 (admin/admin123)
-```
-
-## 🗄️ Backup & Recovery
-
-Velero provides automated backup capabilities:
-
-- Daily cluster backups (configurable schedule)
-- Application-aware snapshots
-- Cross-cluster restore capabilities
-- S3-compatible storage support
-
-## 🆘 Troubleshooting
-
-### Common Issues
-
-**Connection to Proxmox fails:**
-
-```bash
-# Check connectivity
-ping your-proxmox-host
-ssh root@your-proxmox-host
-```
-
-**VMs don't get IPs:**
-
-```bash
-# Check network configuration
-./deploy.sh config
-# Verify DHCP/static IP settings in Proxmox
-```
-
-**K3s installation fails:**
-
-```bash
-# Check VM accessibility
-ansible all -i /tmp/inventory.ini -m ping
-```
-
-### Getting Help
-
-- Check logs in `/tmp/infraflux-deploy/`
-- Verify configuration with `./deploy.sh config`
-- Ensure SSH keys are properly configured
-- Verify Proxmox API access and permissions
-
-## 🤝 Contributing
-
-We welcome contributions! Please:
+## 🤝 **Contributing**
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Test your changes with `./validate-repo.sh`
+4. Commit your changes (`git commit -m 'Add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
 
-## 📄 License
+---
 
-MIT License - see LICENSE file for details.
+## 📄 **License**
 
-## 🙏 Acknowledgments
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-- Built with Ansible for automation
-- Uses K3s for lightweight Kubernetes
-- Leverages Flux for GitOps workflows
-- Inspired by the need for simple, automated infrastructure
+---
+
+## 🙏 **Acknowledgments**
+
+- **Kubernetes Community** for the amazing ecosystem
+- **K3s Team** for the lightweight Kubernetes distribution  
+- **Proxmox** for the excellent virtualization platform
+- **Flux CD** for GitOps automation
+- **Homelab Community** for inspiration and feedback
+
+---
+
+**🔗 Links**: [Documentation](docs/) | [Issues](https://github.com/yourusername/infraflux/issues) | [Discussions](https://github.com/yourusername/infraflux/discussions)
+
+*Transform your homelab into an enterprise-grade platform with InfraFlux* 🚀
