@@ -1,0 +1,70 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: infraflux-development
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+namespace: infraflux-dev
+
+resources:
+  - ../../base
+
+patchesStrategicMerge:
+  - patches/development-resources.yaml
+  - patches/development-ingress.yaml
+
+configMapGenerator:
+  - name: cluster-config
+    files:
+      - config=cluster-config-dev.yaml
+    options:
+      disableNameSuffixHash: true
+
+commonLabels:
+  environment: development
+  cluster: infraflux-dev
+
+replicas:
+  - name: prometheus
+    count: 1
+  - name: grafana
+    count: 1
+  - name: authelia
+    count: 1
+
+images:
+  - name: authelia/authelia
+    newTag: "4.38.0"
+  - name: grafana/grafana
+    newTag: "10.0.0"
+  - name: prom/prometheus
+    newTag: "v2.47.0"
+
+patches:
+  # Development resource limits (smaller)
+  - target:
+      kind: Deployment
+      name: grafana
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "100m"
+  
+  # Enable debug logging for development
+  - target:
+      kind: Deployment
+      name: authelia
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: AUTHELIA_LOG_LEVEL
+          value: "debug"

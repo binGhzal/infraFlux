@@ -18,6 +18,25 @@ for playbook in deploy.yml playbooks/*.yml; do
     fi
 done
 
+# Check Kustomize structure
+echo "🔧 Checking Kustomize structure..."
+if command -v kustomize &>/dev/null; then
+    for overlay in cluster/overlays/*/; do
+        if [[ -d "$overlay" ]]; then
+            overlay_name=$(basename "$overlay")
+            echo "  Checking overlay: $overlay_name"
+            kustomize build "$overlay" >/dev/null 2>&1 && echo "  ✅ $overlay_name overlay" || echo "  ⚠️ $overlay_name overlay (issues found)"
+        fi
+    done
+
+    if [[ -d "cluster/base" ]]; then
+        echo "  Checking base configuration..."
+        kustomize build cluster/base >/dev/null 2>&1 && echo "  ✅ base configuration" || echo "  ⚠️ base configuration (issues found)"
+    fi
+else
+    echo "  ⚠️ kustomize not found - skipping Kustomize validation"
+fi
+
 # Check configuration
 echo "🔧 Checking configuration..."
 yq eval . config/cluster-config.yaml >/dev/null && echo "  ✅ cluster-config.yaml" || echo "  ❌ cluster-config.yaml"

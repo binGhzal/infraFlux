@@ -1,6 +1,6 @@
 # InfraFlux Cluster Configuration
 # This file defines your entire infrastructure deployment
-# Edit the values below and Flux will automatically deploy your cluster
+# Edit the values below and InfraFlux will automatically deploy your cluster
 
 apiVersion: v1
 kind: ConfigMap
@@ -27,40 +27,106 @@ data:
   vm_template_id: "9000"
   vm_template_name: "ubuntu-24.04-template"
 
-  # Node Configuration
-  controller_count: "3"
-  worker_count: "3"
-  vm_memory: "4096"
-  vm_cores: "2"
-  vm_disk_size: "20G"
+  # Node Configuration (Dynamic VM Scaling)
+  controller_count: "3"          # Number of controller nodes (HA: 3, Single: 1)
+  worker_count: "3"              # Number of worker nodes (can be scaled up/down)
+  vm_memory: "4096"              # Memory per VM in MB
+  vm_cores: "2"                  # CPU cores per VM
+  vm_disk_size: "20G"            # Disk size per VM
+  
+  # VM Scaling Configuration
+  enable_vm_scaling: "true"      # Enable automatic VM scaling
+  min_worker_count: "1"          # Minimum number of worker nodes
+  max_worker_count: "10"         # Maximum number of worker nodes
+  scale_threshold_cpu: "80"      # CPU threshold for scaling up (%)
+  scale_threshold_memory: "80"   # Memory threshold for scaling up (%)
+  scale_cooldown_minutes: "10"   # Cooldown period between scaling operations
 
-  # K3s Configuration
+  # K3s Configuration (Native Features Enabled)
   k3s_version: "v1.28.5+k3s1"
   k3s_cluster_init: "true"
-  k3s_disable_servicelb: "false"
-  k3s_disable_traefik: "false"
+  k3s_disable_servicelb: "false"  # Use native ServiceLB
+  k3s_disable_traefik: "false"    # Use native Traefik ingress
 
   # Security Configuration
   disable_swap: "true"
   enable_firewall: "true"
   ssh_key_path: "~/.ssh/id_rsa.pub"
 
-  # Application Configuration
+  # Core Application Configuration
   install_cilium: "true"
-  install_metallb: "false"
-  install_ingress_nginx: "false"
+  install_metallb: "false"         # Use native K3s ServiceLB instead
+  install_ingress_nginx: "false"   # Use native K3s Traefik instead
   install_cert_manager: "true"
   install_monitoring: "true"
   install_logging: "false"
 
-  # Traefik Configuration (Native K3s)
+  # Native K3s Traefik Configuration
   traefik_dashboard_enabled: "true"
   traefik_api_insecure: "false"
   traefik_log_level: "INFO"
   traefik_pilot_token: ""
+  traefik_enable_dashboard_ingress: "true"
+
+  # Enhanced Monitoring Stack
+  monitoring_stack: "full"          # Options: basic, full, minimal
+  enable_log_aggregation: "false"   # Enable Loki + Promtail
+  enable_hubble_ui: "true"          # Cilium network observability
+  monitoring_retention_days: "30"
+
+  # Authentication & Security (Enhanced Features)
+  auth_provider: "none"             # Options: none, authelia, authentik
+  enable_sso: "false"
+  enable_2fa: "false"
+  enable_crowdsec: "false"          # Behavioral security analysis
+  forward_auth_domains: "*.local"
+
+  # Backup & Recovery
+  enable_backup: "true"
+  backup_provider: "velero"         # Primary backup system
+  backup_schedule: "0 2 * * *"      # Daily at 2 AM
+  backup_retention_days: "30"
+  enable_volume_backup: "false"     # Additional restic volume backup
+
+  # Network & VPN Integration
+  enable_vpn: "false"               # Enable VPN solution
+  vpn_provider: "tailscale"         # Options: tailscale, wireguard, headscale
+  enable_pihole: "false"            # Network-wide ad blocking
+  enable_external_dns: "false"      # Automatic DNS record management
+
+  # Application Catalog
+  enable_app_catalog: "false"       # Enable application templates
+  default_app_categories: "security,monitoring"
+  auto_create_ingress: "true"       # Automatically create ingress for apps
+
+  # Development & DevOps Tools
+  enable_gitops: "false"            # Enable ArgoCD/Flux
+  enable_container_registry: "false" # Internal container registry
+  enable_ci_cd: "false"             # Woodpecker CI or similar
+
+  # Productivity Applications
+  enable_nextcloud: "false"         # File storage and collaboration
+  enable_vaultwarden: "false"       # Password management
+  enable_homepage: "false"          # Centralized dashboard
+
+  # Media & Entertainment
+  enable_jellyfin: "false"          # Media streaming server
+  enable_transmission: "false"      # BitTorrent client with VPN
 
   # Advanced Configuration
-  enable_backup: "true"
-  backup_schedule: "0 2 * * *"
   enable_auto_updates: "true"
   enable_sealed_secrets: "true"
+  cluster_timezone: "UTC"
+  
+  # Resource Management
+  enable_resource_quotas: "false"
+  default_storage_class: "local-path"
+  enable_pod_security_policies: "true"
+
+  # Alerting & Notifications
+  enable_alerting: "true"
+  alert_channels: "webhook"         # Options: webhook, discord, slack, email
+  discord_webhook_url: ""
+  slack_webhook_url: ""
+  smtp_server: ""
+  smtp_username: ""

@@ -4,7 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-InfraFlux is a zero-configuration Kubernetes deployment platform that automates the creation of production-ready K3s clusters on Proxmox infrastructure. It combines Terraform (VM provisioning), Ansible (configuration management), and K3s (lightweight Kubernetes) into a unified deployment pipeline.
+InfraFlux is a zero-configuration Kubernetes deployment platform that automates the creation of production-ready K3s clusters on Proxmox infrastructure. It combines Terraform (VM provisioning), Ansible (configuration management), K3s (lightweight Kubernetes), Flux CLI (GitOps), and enterprise-grade security (Authentik SSO) into a unified deployment pipeline.
+
+## Major Recent Updates (2025-01-18)
+
+### New Features Added
+- **Authentik SSO Integration**: Production-ready authentication with PostgreSQL backend
+- **GitOps with Flux CLI**: Complete GitOps automation with Kustomize overlays
+- **VM Scaling**: Dynamic worker node scaling with scale-cluster.sh
+- **Enhanced Security**: Sealed Secrets, network policies, RBAC
+- **Comprehensive Monitoring**: Prometheus, Grafana, Loki, Hubble UI
+- **Application Templates**: Kustomize-based application deployment
+- **Test Framework**: Automated testing with secrets file integration
 
 ## Essential Commands
 
@@ -13,14 +24,24 @@ InfraFlux is a zero-configuration Kubernetes deployment platform that automates 
 # Configure cluster (interactive wizard)
 ./configure.sh
 
-# Full deployment (VMs + K3s + applications)
+# Full deployment (VMs + K3s + applications + security + monitoring + gitops)
 ./deploy.sh
 
 # Phase-specific deployments
 ./deploy.sh infrastructure  # Create VMs only
 ./deploy.sh k3s            # Setup K3s cluster only
-./deploy.sh apps           # Install applications only
-./deploy.sh config         # Show current configuration
+./deploy.sh apps           # Install core applications only
+./deploy.sh security       # Deploy Authentik SSO and security
+./deploy.sh monitoring     # Deploy Prometheus, Grafana, Loki stack
+./deploy.sh gitops         # Setup Flux CLI and GitOps automation
+
+# VM Scaling
+./scale-cluster.sh 5       # Scale to 5 worker nodes
+./scale-cluster.sh 1       # Scale down to 1 worker node
+
+# Testing and Validation
+./test-deploy.sh           # Test deployment with secrets file
+./validate-repo.sh         # Validate repository structure and syntax
 ```
 
 ### Validation & Testing

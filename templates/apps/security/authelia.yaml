@@ -1,0 +1,134 @@
+---
+# Authelia Authentication Template
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: authelia
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authelia-config
+  namespace: authelia
+data:
+  configuration.yml: |
+    theme: light
+    jwt_secret: "{{ jwt_secret | default('change-me-jwt-secret') }}"
+    default_redirection_url: "https://auth.{{ cluster_domain | default('local.cluster') }}"
+
+    server:
+      host: 0.0.0.0
+      port: 9091
+
+    log:
+      level: info
+
+    authentication_backend:
+      file:
+        path: /config/users_database.yml
+
+    access_control:
+      default_policy: deny
+      rules:
+        - domain: "*.{{ cluster_domain | default('local.cluster') }}"
+          policy: one_factor
+
+    session:
+      name: authelia_session
+      secret: "{{ session_secret | default('change-me-session-secret') }}"
+      expiration: 3600
+      inactivity: 300
+      domain: "{{ cluster_domain | default('local.cluster') }}"
+
+    regulation:
+      max_retries: 3
+      find_time: 120
+      ban_time: 300
+
+    storage:
+      local:
+        path: /config/db.sqlite3
+
+    notifier:
+      filesystem:
+        filename: /config/notification.txt
+
+  users_database.yml: |
+    users:
+      admin:
+        displayname: "Admin User"
+        password: "$argon2id$v=19$m=65536,t=3,p=2$BjLa2TTjdAWN3QLzz1QKpA$rm3jaiTQtQm1gJBNk4cG7D+Tt4W8qg6A8Q5ySiBqWxY"  # Password: password123
+        email: "admin@{{ cluster_domain | default('local.cluster') }}"
+        groups:
+          - admins
+          - dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authelia
+  namespace: authelia
+  labels:
+    app: authelia
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authelia
+  template:
+    metadata:
+      labels:
+        app: authelia
+    spec:
+      containers:
+      - name: authelia
+        image: authelia/authelia:4.38.0
+        ports:
+        - containerPort: 9091
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: config
+        configMap:
+          name: authelia-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authelia
+  namespace: authelia
+spec:
+  selector:
+    app: authelia
+  ports:
+  - name: http
+    port: 80
+    targetPort: 9091
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: authelia
+  namespace: authelia
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - host: "auth.{{ cluster_domain | default('local.cluster') }}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: authelia
+            port:
+              number: 80

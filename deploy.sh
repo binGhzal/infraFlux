@@ -193,6 +193,15 @@ deploy() {
     "apps")
         run_phase "apps"
         ;;
+    "security")
+        run_phase "security"
+        ;;
+    "monitoring")
+        run_phase "monitoring"
+        ;;
+    "gitops")
+        run_phase "gitops"
+        ;;
     *)
         print_error "Invalid phase: $PHASE"
         show_help
@@ -263,17 +272,24 @@ show_help() {
     echo "  infrastructure - Create VMs only"
     echo "  k3s            - Setup K3s cluster only"
     echo "  apps           - Install applications only"
+    echo "  security       - Deploy authentication & security"
+    echo "  monitoring     - Deploy enhanced monitoring stack"
+    echo "  gitops         - Setup GitOps with Flux CLI"
     echo
     echo "Examples:"
     echo "  $0                                    # Full deployment with default config"
     echo "  $0 config/cluster-config.yaml        # Full deployment with custom config"
     echo "  $0 config/cluster-config.yaml k3s    # Only setup K3s cluster"
+    echo "  $0 config/cluster-config.yaml security # Deploy Authentik SSO"
     echo
     echo "Features:"
     echo "  ✅ Native K3s Traefik (no external NGINX)"
     echo "  ✅ Terraform + Ansible integration"
     echo "  ✅ Auto network detection"
-    echo "  ✅ Simplified folder structure"
+    echo "  ✅ GitOps with Flux CLI and Kustomize"
+    echo "  ✅ Authentik SSO integration"
+    echo "  ✅ Sealed Secrets for GitOps"
+    echo "  ✅ VM scaling capability"
     echo "  ✅ One-command deployment"
     echo
 }

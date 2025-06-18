@@ -1,0 +1,248 @@
+---
+# InfraFlux VM Scaling Playbook
+# Automatically scales worker VMs up or down based on configuration
+
+- name: InfraFlux VM Scaling Operations
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  vars:
+    current_worker_count: "{{ worker_count | default(3) | int }}"
+    desired_worker_count: "{{ target_worker_count | default(current_worker_count) | int }}"
+    min_worker_count: "{{ min_worker_count | default(1) | int }}"
+    max_worker_count: "{{ max_worker_count | default(10) | int }}"
+    enable_vm_scaling: "{{ enable_vm_scaling | default(true) | bool }}"
+    scale_operation: "{{ scale_operation | default('auto') }}"  # auto, scale-up, scale-down
+    
+    # VM configuration
+    cluster_name: "{{ cluster_name | default('infraflux-cluster') }}"
+    vm_memory: "{{ vm_memory | default(4096) | int }}"
+    vm_cores: "{{ vm_cores | default(2) | int }}"
+    vm_disk_size: "{{ vm_disk_size | default('20G') }}"
+    network_cidr: "{{ network_cidr | default('192.168.1.0/24') }}"
+    
+    # Terraform configuration
+    terraform_dir: "/tmp/infraflux-terraform"
+
+  tasks:
+    - name: Display scaling operation information
+      debug:
+        msg:
+          - "📈 InfraFlux VM Scaling Operation"
+          - "Current Workers: {{ current_worker_count }}"
+          - "Desired Workers: {{ desired_worker_count }}"
+          - "Min Workers: {{ min_worker_count }}"
+          - "Max Workers: {{ max_worker_count }}"
+          - "Scale Operation: {{ scale_operation }}"
+          - "VM Scaling Enabled: {{ enable_vm_scaling }}"
+
+    - name: Validate scaling parameters
+      assert:
+        that:
+          - desired_worker_count >= min_worker_count
+          - desired_worker_count <= max_worker_count
+          - enable_vm_scaling | bool
+        fail_msg: "Invalid scaling parameters. Check min/max worker counts and scaling enablement."
+
+    - name: Determine scaling action
+      set_fact:
+        scaling_action: >-
+          {%- if desired_worker_count > current_worker_count -%}
+          scale-up
+          {%- elif desired_worker_count < current_worker_count -%}
+          scale-down
+          {%- else -%}
+          no-change
+          {%- endif -%}
+        workers_to_add: "{{ [desired_worker_count - current_worker_count, 0] | max }}"
+        workers_to_remove: "{{ [current_worker_count - desired_worker_count, 0] | max }}"
+
+    - name: Display scaling action
+      debug:
+        msg:
+          - "🎯 Scaling Action: {{ scaling_action }}"
+          - "Workers to Add: {{ workers_to_add }}"
+          - "Workers to Remove: {{ workers_to_remove }}"
+
+    # Scale Up Operations
+    - name: Scale up worker nodes
+      when: scaling_action == "scale-up"
+      block:
+        - name: Create additional worker VMs
+          block:
+            - name: Update Terraform variables for scale up
+              template:
+                src: "ansible/templates/terraform.tfvars.j2"
+                dest: "{{ terraform_dir }}/terraform.tfvars"
+              vars:
+                tf_proxmox_host: "{{ proxmox_host }}"
+                tf_proxmox_user: "{{ proxmox_user | default('root@pam') }}"
+                tf_proxmox_password: "{{ proxmox_password }}"
+                tf_proxmox_node: "{{ proxmox_node | default('pve') }}"
+                tf_proxmox_storage: "{{ proxmox_storage | default('local-lvm') }}"
+                tf_cluster_name: "{{ cluster_name }}"
+                tf_controller_count: "{{ controller_count | default(3) }}"
+                tf_worker_count: "{{ desired_worker_count }}"
+                tf_vm_template_name: "{{ vm_template_name | default('ubuntu-24.04-template') }}"
+                tf_vm_cores: "{{ vm_cores }}"
+                tf_vm_memory: "{{ vm_memory }}"
+                tf_vm_disk_size: "{{ vm_disk_size }}"
+                tf_network_cidr: "{{ network_cidr }}"
+                tf_gateway_ip: "{{ gateway_ip | default(ansible_default_ipv4.gateway) }}"
+                tf_ssh_key_path: "{{ ssh_key_path | default('~/.ssh/id_rsa.pub') }}"
+
+            - name: Apply Terraform changes for new workers
+              terraform:
+                project_path: "{{ terraform_dir }}"
+                state: present
+              register: terraform_scale_up
+
+            - name: Extract new worker IPs
+              set_fact:
+                new_worker_ips: "{{ terraform_scale_up.outputs.worker_ips.value[-workers_to_add | int:] }}"
+
+            - name: Wait for new worker VMs to be ready
+              wait_for:
+                host: "{{ item }}"
+                port: 22
+                delay: 30
+                timeout: 300
+              loop: "{{ new_worker_ips }}"
+
+            - name: Add new workers to K3s cluster
+              shell: |
+                K3S_URL="https://{{ hostvars[groups['controllers'][0]]['ansible_host'] }}:6443" \
+                K3S_TOKEN="{{ k3s_token }}" \
+                curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version | default('') }}" sh -s - agent
+              delegate_to: "{{ item }}"
+              loop: "{{ new_worker_ips }}"
+              vars:
+                ansible_host: "{{ item }}"
+                ansible_user: ubuntu
+                ansible_ssh_private_key_file: "{{ ssh_key_path | default('~/.ssh/id_rsa') }}"
+
+            - name: Update dynamic inventory with new workers
+              template:
+                src: templates/inventory.ini.j2
+                dest: /tmp/inventory.ini
+              vars:
+                controllers_with_ips: "{{ terraform_scale_up.outputs.controller_ips.value | zip(range(1, (controller_count | int) + 1)) | list }}"
+                workers_with_ips: "{{ terraform_scale_up.outputs.worker_ips.value | zip(range(1, (desired_worker_count | int) + 1)) | list }}"
+
+        - name: Scale up complete
+          debug:
+            msg:
+              - "✅ Scale Up Operation Complete!"
+              - "Added {{ workers_to_add }} worker nodes"
+              - "Total workers: {{ desired_worker_count }}"
+              - "New worker IPs: {{ new_worker_ips }}"
+
+    # Scale Down Operations
+    - name: Scale down worker nodes
+      when: scaling_action == "scale-down"
+      block:
+        - name: Get current cluster nodes
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Node
+            label_selectors:
+              - "node-role.kubernetes.io/worker"
+          register: worker_nodes
+
+        - name: Select workers to remove (newest first)
+          set_fact:
+            workers_to_drain: "{{ worker_nodes.resources | sort(attribute='metadata.creationTimestamp', reverse=true) | map(attribute='metadata.name') | list[:workers_to_remove | int] }}"
+
+        - name: Cordon and drain workers to be removed
+          kubernetes.core.k8s_drain:
+            name: "{{ item }}"
+            state: present
+            delete_options:
+              ignore_daemonsets: true
+              force: true
+              grace_period: 30
+          loop: "{{ workers_to_drain }}"
+          ignore_errors: yes
+
+        - name: Remove workers from K3s cluster
+          kubernetes.core.k8s:
+            state: absent
+            api_version: v1
+            kind: Node
+            name: "{{ item }}"
+          loop: "{{ workers_to_drain }}"
+
+        - name: Update Terraform variables for scale down
+          template:
+            src: "ansible/templates/terraform.tfvars.j2"
+            dest: "{{ terraform_dir }}/terraform.tfvars"
+          vars:
+            tf_proxmox_host: "{{ proxmox_host }}"
+            tf_proxmox_user: "{{ proxmox_user | default('root@pam') }}"
+            tf_proxmox_password: "{{ proxmox_password }}"
+            tf_proxmox_node: "{{ proxmox_node | default('pve') }}"
+            tf_proxmox_storage: "{{ proxmox_storage | default('local-lvm') }}"
+            tf_cluster_name: "{{ cluster_name }}"
+            tf_controller_count: "{{ controller_count | default(3) }}"
+            tf_worker_count: "{{ desired_worker_count }}"
+            tf_vm_template_name: "{{ vm_template_name | default('ubuntu-24.04-template') }}"
+            tf_vm_cores: "{{ vm_cores }}"
+            tf_vm_memory: "{{ vm_memory }}"
+            tf_vm_disk_size: "{{ vm_disk_size }}"
+            tf_network_cidr: "{{ network_cidr }}"
+            tf_gateway_ip: "{{ gateway_ip | default(ansible_default_ipv4.gateway) }}"
+            tf_ssh_key_path: "{{ ssh_key_path | default('~/.ssh/id_rsa.pub') }}"
+
+        - name: Apply Terraform changes to remove VMs
+          terraform:
+            project_path: "{{ terraform_dir }}"
+            state: present
+          register: terraform_scale_down
+
+        - name: Update dynamic inventory after scale down
+          template:
+            src: templates/inventory.ini.j2
+            dest: /tmp/inventory.ini
+          vars:
+            controllers_with_ips: "{{ terraform_scale_down.outputs.controller_ips.value | zip(range(1, (controller_count | int) + 1)) | list }}"
+            workers_with_ips: "{{ terraform_scale_down.outputs.worker_ips.value | zip(range(1, (desired_worker_count | int) + 1)) | list }}"
+
+        - name: Scale down complete
+          debug:
+            msg:
+              - "✅ Scale Down Operation Complete!"
+              - "Removed {{ workers_to_remove }} worker nodes"
+              - "Drained workers: {{ workers_to_drain }}"
+              - "Total workers: {{ desired_worker_count }}"
+
+    # No Change
+    - name: No scaling required
+      when: scaling_action == "no-change"
+      debug:
+        msg:
+          - "ℹ️ No scaling operation required"
+          - "Current worker count ({{ current_worker_count }}) matches desired count ({{ desired_worker_count }})"
+
+    # Update cluster configuration
+    - name: Update cluster configuration with new worker count
+      when: scaling_action in ["scale-up", "scale-down"]
+      block:
+        - name: Update cluster-config.yaml with new worker count
+          replace:
+            path: "config/cluster-config.yaml"
+            regexp: 'worker_count: "{{ current_worker_count }}"'
+            replace: 'worker_count: "{{ desired_worker_count }}"'
+
+        - name: Commit configuration changes (if git repository)
+          shell: |
+            git add config/cluster-config.yaml
+            git commit -m "Auto-scale: Update worker_count to {{ desired_worker_count }}"
+          ignore_errors: yes
+
+    - name: VM scaling operation complete
+      debug:
+        msg:
+          - "✅ VM Scaling Operation Complete!"
+          - "Operation: {{ scaling_action }}"
+          - "Final worker count: {{ desired_worker_count }}"
+          - "Cluster health: Check with 'kubectl get nodes'"

@@ -1,0 +1,112 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authentik-config
+  namespace: authentik
+  labels:
+    app.kubernetes.io/name: authentik
+    app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: authentik
+data:
+  # Default Authentication Flow Blueprint
+  default-authentication-flow.yaml: |
+    version: 1
+    metadata:
+      name: Default Authentication Flow
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+    - model: authentik_flows.flow
+      identifiers:
+        slug: default-authentication-flow
+      attrs:
+        name: Default Authentication Flow
+        title: Welcome to InfraFlux!
+        designation: authentication
+        background: /static/dist/assets/images/flow_background.jpg
+    - model: authentik_stages_identification.identificationstage
+      identifiers:
+        name: default-authentication-identification
+      attrs:
+        user_fields:
+          - username
+          - email
+        password_stage: !KeyOf default-authentication-password
+        case_insensitive_matching: true
+        show_matched_user: true
+        enrollment_flow: !KeyOf default-enrollment-flow
+        recovery_flow: !KeyOf default-recovery-flow
+    - model: authentik_stages_password.passwordstage
+      identifiers:
+        name: default-authentication-password
+      attrs:
+        backends:
+          - authentik.core.auth.InbuiltBackend
+          - authentik.sources.ldap.auth.LDAPBackend
+        configure_flow: !KeyOf default-password-change
+        failed_attempts_before_cancel: 5
+    - model: authentik_stages_user_login.userloginstage
+      identifiers:
+        name: default-authentication-login
+      attrs:
+        session_duration: seconds=0
+        remember_me_offset: seconds=2592000
+    - model: authentik_flows.flowstagebinding
+      identifiers:
+        target: !KeyOf default-authentication-flow
+        stage: !KeyOf default-authentication-identification
+        order: 10
+    - model: authentik_flows.flowstagebinding
+      identifiers:
+        target: !KeyOf default-authentication-flow
+        stage: !KeyOf default-authentication-password
+        order: 20
+    - model: authentik_flows.flowstagebinding
+      identifiers:
+        target: !KeyOf default-authentication-flow
+        stage: !KeyOf default-authentication-login
+        order: 100
+
+  # Default Authorization Flow Blueprint  
+  default-authorization-flow.yaml: |
+    version: 1
+    metadata:
+      name: Default Authorization Flow
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+    - model: authentik_flows.flow
+      identifiers:
+        slug: default-provider-authorization-implicit-consent
+      attrs:
+        name: Authorize Application
+        title: Redirecting to %(app)s
+        designation: authorization
+        authentication: require_authenticated
+        background: /static/dist/assets/images/flow_background.jpg
+
+  # Default Invalidation Flow Blueprint
+  default-invalidation-flow.yaml: |
+    version: 1
+    metadata:
+      name: Default Invalidation Flow
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+    - model: authentik_flows.flow
+      identifiers:
+        slug: default-invalidation-flow
+      attrs:
+        name: Default Invalidation Flow
+        title: Logging out of %(app)s
+        designation: invalidation
+        background: /static/dist/assets/images/flow_background.jpg
+    - model: authentik_stages_user_logout.userlogoutstage
+      identifiers:
+        name: default-invalidation-logout
+    - model: authentik_flows.flowstagebinding
+      identifiers:
+        target: !KeyOf default-invalidation-flow
+        stage: !KeyOf default-invalidation-logout
+        order: 100

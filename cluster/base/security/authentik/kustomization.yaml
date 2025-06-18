@@ -1,0 +1,66 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: authentik-base
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+namespace: authentik
+
+resources:
+  - namespace.yaml
+  - postgresql.yaml
+  - redis.yaml
+  - authentik-server.yaml
+  - authentik-worker.yaml
+  - service.yaml
+  - ingress.yaml
+  - configmap.yaml
+
+configMapGenerator:
+  - name: authentik-config
+    files:
+      - blueprints/default-authentication-flow.yaml
+      - blueprints/default-authorization-flow.yaml
+      - blueprints/default-invalidation-flow.yaml
+    options:
+      disableNameSuffixHash: true
+
+secretGenerator:
+  - name: authentik-secrets
+    literals:
+      - secret_key=generate-me-please
+      - postgres_password=change-me
+      - redis_password=change-me
+    type: Opaque
+    options:
+      disableNameSuffixHash: true
+
+commonLabels:
+  app.kubernetes.io/name: authentik
+  app.kubernetes.io/part-of: infraflux-security
+  app.kubernetes.io/managed-by: kustomize
+
+images:
+  - name: ghcr.io/goauthentik/server
+    newTag: "2024.2.2"
+  - name: library/postgres
+    newTag: "15-alpine"
+  - name: library/redis
+    newTag: "alpine"
+
+patchesStrategicMerge:
+  - patches/resource-limits.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: cluster-config
+      fieldPath: data.cluster_domain
+    targets:
+      - select:
+          kind: Ingress
+          name: authentik
+        fieldPaths:
+          - spec.rules.0.host
