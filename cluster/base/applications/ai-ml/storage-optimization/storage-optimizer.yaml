@@ -1,0 +1,289 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-storage-optimizer
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: ai-storage-optimizer
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+    app.kubernetes.io/component: ai-ml
+spec:
+  # Run every 6 hours to optimize storage
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: ai-storage-optimizer
+        spec:
+          serviceAccountName: ai-model-manager
+          restartPolicy: OnFailure
+          containers:
+            - name: storage-optimizer
+              image: alpine:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache curl jq
+                  
+                  echo "🗂️ Starting AI storage optimization..."
+                  
+                  # Storage optimization configuration
+                  STORAGE_THRESHOLD_PERCENT=${STORAGE_THRESHOLD_PERCENT:-80}
+                  MAX_MODELS=${MAX_MODELS:-10}
+                  KEEP_RECENT_DAYS=${KEEP_RECENT_DAYS:-7}
+                  
+                  # Function to get storage usage
+                  get_storage_usage() {
+                    df /data/ollama | awk 'NR==2 {print $5}' | sed 's/%//'
+                  }
+                  
+                  # Function to get storage size in GB
+                  get_storage_size_gb() {
+                    df -BG /data/ollama | awk 'NR==2 {print $2}' | sed 's/G//'
+                  }
+                  
+                  # Function to get available storage in GB
+                  get_available_storage_gb() {
+                    df -BG /data/ollama | awk 'NR==2 {print $4}' | sed 's/G//'
+                  }
+                  
+                  # Function to list models with metadata
+                  list_models_with_metadata() {
+                    echo "📋 Current models and their sizes:"
+                    if [ -d "/data/ollama/models" ]; then
+                      find /data/ollama/models -name "*.bin" -o -name "*.gguf" | while read -r model_file; do
+                        if [ -f "$model_file" ]; then
+                          model_size=$(du -h "$model_file" | cut -f1)
+                          model_date=$(stat -c %Y "$model_file")
+                          model_name=$(basename "$model_file")
+                          echo "  📦 $model_name: $model_size ($(date -d @$model_date '+%Y-%m-%d %H:%M'))"
+                        fi
+                      done
+                    fi
+                  }
+                  
+                  # Function to compress old model files
+                  compress_old_models() {
+                    echo "🗜️ Compressing old model files..."
+                    if [ -d "/data/ollama/models" ]; then
+                      find /data/ollama/models -name "*.bin" -o -name "*.gguf" | while read -r model_file; do
+                        if [ -f "$model_file" ] && [ ! -f "${model_file}.gz" ]; then
+                          model_date=$(stat -c %Y "$model_file")
+                          current_date=$(date +%s)
+                          age_days=$(( (current_date - model_date) / 86400 ))
+                          
+                          if [ $age_days -gt $KEEP_RECENT_DAYS ]; then
+                            echo "🗜️ Compressing old model: $(basename "$model_file") (${age_days} days old)"
+                            gzip "$model_file" && echo "✅ Compressed $(basename "$model_file")"
+                          fi
+                        fi
+                      done
+                    fi
+                  }
+                  
+                  # Function to clean up temporary files
+                  cleanup_temp_files() {
+                    echo "🧹 Cleaning up temporary files..."
+                    
+                    # Clean Ollama temporary files
+                    if [ -d "/data/ollama/tmp" ]; then
+                      find /data/ollama/tmp -type f -mtime +1 -delete 2>/dev/null || true
+                      echo "✅ Cleaned temporary files"
+                    fi
+                    
+                    # Clean log files older than 7 days
+                    if [ -d "/data/ollama/logs" ]; then
+                      find /data/ollama/logs -name "*.log" -mtime +7 -delete 2>/dev/null || true
+                      echo "✅ Cleaned old log files"
+                    fi
+                    
+                    # Clean unused model layers
+                    if [ -d "/data/ollama/models/blobs" ]; then
+                      # Find and remove orphaned blobs (this is a safe operation)
+                      echo "🔄 Checking for orphaned model blobs..."
+                      blob_count_before=$(find /data/ollama/models/blobs -type f | wc -l)
+                      
+                      # This would require Ollama API to identify orphaned blobs safely
+                      # For now, just report the count
+                      echo "📊 Current blob count: $blob_count_before"
+                    fi
+                  }
+                  
+                  # Function to optimize model storage layout
+                  optimize_storage_layout() {
+                    echo "🎯 Optimizing storage layout..."
+                    
+                    # Defragment if possible (depends on filesystem)
+                    if command -v e4defrag >/dev/null 2>&1; then
+                      echo "🔧 Running filesystem defragmentation..."
+                      e4defrag /data/ollama/ 2>/dev/null || echo "⚠️ Defragmentation not supported or failed"
+                    fi
+                    
+                    # Sync filesystem
+                    sync
+                    echo "✅ Filesystem sync completed"
+                  }
+                  
+                  # Function to generate storage report
+                  generate_storage_report() {
+                    echo "📊 Generating storage report..."
+                    
+                    local total_storage=$(get_storage_size_gb)
+                    local available_storage=$(get_available_storage_gb)
+                    local used_storage=$((total_storage - available_storage))
+                    local usage_percent=$(get_storage_usage)
+                    
+                    cat > /tmp/storage-report.json << 'EOFJSON'
+                  {
+                    "timestamp": "$(date -Iseconds)",
+                    "storage": {
+                      "total_gb": $total_storage,
+                      "used_gb": $used_storage,
+                      "available_gb": $available_storage,
+                      "usage_percent": $usage_percent
+                    },
+                    "optimization": {
+                      "threshold_percent": $STORAGE_THRESHOLD_PERCENT,
+                      "max_models": $MAX_MODELS,
+                      "keep_recent_days": $KEEP_RECENT_DAYS
+                    }
+                  }
+                  EOFJSON
+                    
+                    echo "💾 Storage Report:"
+                    echo "   Total: ${total_storage}GB"
+                    echo "   Used: ${used_storage}GB (${usage_percent}%)"
+                    echo "   Available: ${available_storage}GB"
+                    
+                    # Send metrics to Prometheus pushgateway if available
+                    if command -v curl >/dev/null 2>&1 && [ -n "${PUSHGATEWAY_URL:-}" ]; then
+                      echo "📈 Sending metrics to Prometheus..."
+                      cat << 'EOFMETRICS' | curl -X POST "${PUSHGATEWAY_URL}/metrics/job/ai-storage-optimizer" --data-binary @-
+                  # TYPE ai_storage_total_bytes gauge
+                  ai_storage_total_bytes $((total_storage * 1024 * 1024 * 1024))
+                  # TYPE ai_storage_used_bytes gauge
+                  ai_storage_used_bytes $((used_storage * 1024 * 1024 * 1024))
+                  # TYPE ai_storage_usage_percent gauge
+                  ai_storage_usage_percent $usage_percent
+                  EOFMETRICS
+                    fi
+                  }
+                  
+                  # Main optimization logic
+                  main() {
+                    echo "🚀 Starting AI storage optimization..."
+                    
+                    # Check if storage directory exists
+                    if [ ! -d "/data/ollama" ]; then
+                      echo "⚠️ Ollama data directory not found, creating..."
+                      mkdir -p /data/ollama
+                    fi
+                    
+                    # Get current storage usage
+                    local current_usage=$(get_storage_usage)
+                    echo "📊 Current storage usage: ${current_usage}%"
+                    
+                    # List current models
+                    list_models_with_metadata
+                    
+                    # Always run cleanup tasks
+                    cleanup_temp_files
+                    
+                    # Compress old models if storage is getting full
+                    if [ "$current_usage" -gt 60 ]; then
+                      echo "⚠️ Storage usage above 60%, compressing old models..."
+                      compress_old_models
+                    fi
+                    
+                    # Optimize storage layout if usage is high
+                    if [ "$current_usage" -gt "$STORAGE_THRESHOLD_PERCENT" ]; then
+                      echo "🚨 Storage usage above threshold (${STORAGE_THRESHOLD_PERCENT}%), optimizing..."
+                      optimize_storage_layout
+                    fi
+                    
+                    # Generate final report
+                    generate_storage_report
+                    
+                    echo "✅ Storage optimization completed!"
+                  }
+                  
+                  # Run main function
+                  main
+              env:
+                - name: STORAGE_THRESHOLD_PERCENT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: ai-model-config
+                      key: cleanup_threshold_gb
+                      optional: true
+                - name: MAX_MODELS
+                  valueFrom:
+                    configMapKeyRef:
+                      name: ai-model-config
+                      key: max_models
+                      optional: true
+                - name: KEEP_RECENT_DAYS
+                  value: "7"
+                - name: PUSHGATEWAY_URL
+                  value: "http://prometheus-pushgateway:9091"
+              volumeMounts:
+                - name: ollama-data
+                  mountPath: /data/ollama
+                - name: temp-storage
+                  mountPath: /tmp
+              resources:
+                limits:
+                  memory: 256Mi
+                  cpu: 200m
+                requests:
+                  memory: 128Mi
+                  cpu: 100m
+              securityContext:
+                runAsUser: 1000
+                runAsGroup: 1000
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+          volumes:
+            - name: ollama-data
+              persistentVolumeClaim:
+                claimName: ollama-data
+            - name: temp-storage
+              emptyDir:
+                sizeLimit: 1Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: storage-optimization-config
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: storage-optimization
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+data:
+  # Storage optimization settings
+  optimization_enabled: "true"
+  cleanup_schedule: "0 */6 * * *"
+  compression_enabled: "true"
+  
+  # Performance tuning
+  io_scheduler: "mq-deadline"
+  readahead_kb: "128"
+  
+  # Monitoring settings
+  metrics_enabled: "true"
+  alert_threshold_percent: "85"
+  
+  # Advanced optimization
+  defrag_enabled: "false"  # Enable with caution
+  dedupe_enabled: "false"  # Requires filesystem support

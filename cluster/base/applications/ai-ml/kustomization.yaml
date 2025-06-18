@@ -9,6 +9,8 @@ metadata:
 resources:
   - ollama/ollama.yaml
   - open-webui/open-webui.yaml
+  - model-management/model-manager.yaml
+  - storage-optimization/storage-optimizer.yaml
 
 labels:
   - includeSelectors: true

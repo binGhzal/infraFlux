@@ -115,6 +115,9 @@ data:
   enable_open_webui: "false"        # ChatGPT-style interface
   enable_jupyterhub: "false"        # Multi-user data science environment
   ai_model_storage_size: "100Gi"    # Storage for AI models
+  ai_model_category: "essential"    # Model category: essential, development, full
+  ai_max_models: "10"               # Maximum number of models to keep
+  ai_auto_update: "true"            # Enable automatic model updates
   
   # Development & DevOps Tools
   enable_gitops: "false"            # Enable ArgoCD/Flux
