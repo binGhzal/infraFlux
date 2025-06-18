@@ -101,6 +101,8 @@ data:
   public_domain: "example.com"      # Your public domain
   enable_public_ingress: "false"    # Enable public internet access via Cloudflare
   enable_local_ingress: "true"      # Enable local cluster access
+  enable_cloudflare_automation: "false"  # Enable automated Cloudflare management
+  cloudflare_security_level: "medium"    # Cloudflare security level (off, low, medium, high, under_attack)
 
   # Application Catalog
   enable_app_catalog: "false"       # Enable application templates

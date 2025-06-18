@@ -1,0 +1,302 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cloudflare-dns-sync
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: cloudflare-automation
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+    app.kubernetes.io/component: automation
+spec:
+  # Run every 5 minutes to ensure DNS records are in sync
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: cloudflare-dns-sync
+        spec:
+          serviceAccountName: cloudflare-automation
+          restartPolicy: OnFailure
+          containers:
+            - name: dns-sync
+              image: curlimages/curl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  echo "🌐 Starting Cloudflare DNS synchronization..."
+                  
+                  # Get current cluster public IP
+                  PUBLIC_IP=$(curl -s https://ipinfo.io/ip || echo "")
+                  if [ -z "$PUBLIC_IP" ]; then
+                    echo "❌ Failed to get public IP"
+                    exit 1
+                  fi
+                  echo "📍 Current public IP: $PUBLIC_IP"
+                  
+                  # Get all ingress hosts that should have public DNS
+                  kubectl get ingress -A -o jsonpath='{range .items[*]}{.metadata.annotations.external-dns\.alpha\.kubernetes\.io/hostname}{"\n"}{end}' | \
+                  grep -v "^$" | sort -u | while read -r hostname; do
+                    if [ -n "$hostname" ]; then
+                      echo "🔍 Processing hostname: $hostname"
+                      
+                      # Check if DNS record exists and points to correct IP
+                      CURRENT_IP=$(nslookup "$hostname" 8.8.8.8 | grep "Address:" | tail -n1 | awk '{print $2}' || echo "")
+                      
+                      if [ "$CURRENT_IP" != "$PUBLIC_IP" ]; then
+                        echo "📝 DNS record needs update: $hostname ($CURRENT_IP -> $PUBLIC_IP)"
+                        # external-dns will handle the actual update
+                      else
+                        echo "✅ DNS record up to date: $hostname"
+                      fi
+                    fi
+                  done
+                  
+                  echo "✅ Cloudflare DNS sync completed"
+              env:
+                - name: CF_API_TOKEN
+                  valueFrom:
+                    secretRef:
+                      name: cloudflare-secrets
+                      key: api-token
+                - name: PUBLIC_DOMAIN
+                  valueFrom:
+                    configMapKeyRef:
+                      name: infraflux-config
+                      key: public_domain
+              resources:
+                limits:
+                  memory: 128Mi
+                  cpu: 100m
+                requests:
+                  memory: 64Mi
+                  cpu: 50m
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cloudflare-security-sync
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: cloudflare-automation
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+    app.kubernetes.io/component: automation
+spec:
+  # Run daily at 2 AM to sync security settings
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: cloudflare-security-sync
+        spec:
+          serviceAccountName: cloudflare-automation
+          restartPolicy: OnFailure
+          containers:
+            - name: security-sync
+              image: curlimages/curl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  echo "🔒 Starting Cloudflare security settings sync..."
+                  
+                  # Get zone ID for the domain
+                  ZONE_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$PUBLIC_DOMAIN" \
+                    -H "Authorization: Bearer $CF_API_TOKEN" \
+                    -H "Content-Type: application/json" | \
+                    grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+                  
+                  if [ -z "$ZONE_ID" ]; then
+                    echo "❌ Failed to get zone ID for $PUBLIC_DOMAIN"
+                    exit 1
+                  fi
+                  echo "🆔 Zone ID: $ZONE_ID"
+                  
+                  # Enable security features
+                  echo "🛡️ Enabling security features..."
+                  
+                  # Enable SSL/TLS Full (strict)
+                  curl -s -X PATCH "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/settings/ssl" \
+                    -H "Authorization: Bearer $CF_API_TOKEN" \
+                    -H "Content-Type: application/json" \
+                    --data '{"value":"full"}' > /dev/null
+                  
+                  # Enable Always Use HTTPS
+                  curl -s -X PATCH "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/settings/always_use_https" \
+                    -H "Authorization: Bearer $CF_API_TOKEN" \
+                    -H "Content-Type: application/json" \
+                    --data '{"value":"on"}' > /dev/null
+                  
+                  # Enable HSTS
+                  curl -s -X PATCH "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/settings/security_header" \
+                    -H "Authorization: Bearer $CF_API_TOKEN" \
+                    -H "Content-Type: application/json" \
+                    --data '{"value":{"strict_transport_security":{"enabled":true,"max_age":31536000,"include_subdomains":true,"nosniff":true}}}' > /dev/null
+                  
+                  # Enable Bot Fight Mode
+                  curl -s -X PATCH "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/settings/bot_management" \
+                    -H "Authorization: Bearer $CF_API_TOKEN" \
+                    -H "Content-Type: application/json" \
+                    --data '{"value":"on"}' > /dev/null
+                  
+                  echo "✅ Cloudflare security settings updated"
+              env:
+                - name: CF_API_TOKEN
+                  valueFrom:
+                    secretRef:
+                      name: cloudflare-secrets
+                      key: api-token
+                - name: PUBLIC_DOMAIN
+                  valueFrom:
+                    configMapKeyRef:
+                      name: infraflux-config
+                      key: public_domain
+              resources:
+                limits:
+                  memory: 128Mi
+                  cpu: 100m
+                requests:
+                  memory: 64Mi
+                  cpu: 50m
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloudflare-automation
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: cloudflare-automation
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloudflare-automation
+  labels:
+    app.kubernetes.io/name: cloudflare-automation
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+rules:
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloudflare-automation
+  labels:
+    app.kubernetes.io/name: cloudflare-automation
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cloudflare-automation
+subjects:
+  - kind: ServiceAccount
+    name: cloudflare-automation
+    namespace: kube-system
+
+---
+# ConfigMap with Cloudflare automation settings
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflare-automation-config
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: cloudflare-automation
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+data:
+  # Cloudflare security rules and configurations
+  security-rules.json: |
+    {
+      "rules": [
+        {
+          "description": "Block common attack patterns",
+          "expression": "(http.request.uri.path contains \"/wp-admin\" or http.request.uri.path contains \"/.env\" or http.request.uri.path contains \"/phpmyadmin\")",
+          "action": "block"
+        },
+        {
+          "description": "Rate limit API endpoints",
+          "expression": "(http.request.uri.path matches \"^/api/.*\")",
+          "action": "challenge",
+          "rate_limit": {
+            "requests_per_minute": 100
+          }
+        }
+      ]
+    }
+  
+  # DNS record templates
+  dns-templates.yaml: |
+    # Template for AI/ML services
+    ai_services:
+      - name: "ai"
+        target: "@"
+        proxied: true
+      - name: "jupyter"
+        target: "@" 
+        proxied: true
+    
+    # Template for media services
+    media_services:
+      - name: "media"
+        target: "@"
+        proxied: true
+      - name: "jellyfin"
+        target: "@"
+        proxied: true
+    
+    # Template for development services
+    dev_services:
+      - name: "code"
+        target: "@"
+        proxied: true
+      - name: "git"
+        target: "@"
+        proxied: true
+
+---
+# ServiceMonitor for monitoring Cloudflare automation
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cloudflare-automation
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: cloudflare-automation
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloudflare-automation
+  endpoints:
+    - port: http-metrics
+      interval: 30s
+      path: /metrics

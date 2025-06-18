@@ -1,0 +1,44 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: automation-services
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+resources:
+  - cloudflare-automation.yaml
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: infraflux
+      app.kubernetes.io/managed-by: flux
+      app.kubernetes.io/component: automation
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/stack: automation
+
+images:
+  - name: curlimages/curl
+    newTag: "latest"
+
+# Default conditional patches
+patches:
+  # Default to disabled state - will be enabled by configure-apps.sh if needed
+  - target:
+      kind: CronJob
+      name: cloudflare-dns-sync
+    patch: |-
+      - op: replace
+        path: /spec/suspend
+        value: true
+  - target:
+      kind: CronJob
+      name: cloudflare-security-sync
+    patch: |-
+      - op: replace
+        path: /spec/suspend
+        value: true

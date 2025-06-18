@@ -10,7 +10,7 @@ resources:
   # Core Infrastructure
   - infrastructure/namespace.yaml
   - infrastructure/configmap.yaml
-  # - infrastructure/gpu
+  - infrastructure/gpu
   
   # Security Components
   - security/sealed-secrets.yaml
@@ -33,10 +33,10 @@ resources:
   - gitops
   
   # DNS Services  
-  # - dns
+  - dns
   
   # Automation Services
-  # - automation
+  - automation
   
   # Backup & Recovery
   - backup/velero

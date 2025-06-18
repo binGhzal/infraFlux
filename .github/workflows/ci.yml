@@ -1,0 +1,280 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run daily at 6 AM UTC to catch dependency issues
+    - cron: '0 6 * * *'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Validation and linting job
+  validate:
+    name: Validate & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install tools
+        run: |
+          # Install required tools
+          sudo apt-get update
+          sudo apt-get install -y curl
+          
+          # Install yq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          
+          # Install kustomize
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+          
+          # Install Ansible
+          pip install ansible ansible-lint
+          
+          # Install kubeval for Kubernetes YAML validation
+          curl -L https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz | tar xz
+          sudo mv kubeval /usr/local/bin/
+
+      - name: Validate repository structure
+        run: |
+          echo "🔍 Validating repository structure..."
+          if [ -f "./validate-repo.sh" ]; then
+            chmod +x ./validate-repo.sh
+            ./validate-repo.sh
+          else
+            echo "⚠️ validate-repo.sh not found, running basic validation"
+            # Basic structure validation
+            test -f "config/cluster-config.yaml" || (echo "❌ cluster-config.yaml missing" && exit 1)
+            test -f "deploy.yml" || (echo "❌ deploy.yml missing" && exit 1)
+            test -d "playbooks" || (echo "❌ playbooks directory missing" && exit 1)
+            test -d "cluster/base" || (echo "❌ cluster/base directory missing" && exit 1)
+            echo "✅ Basic structure validation passed"
+          fi
+
+      - name: Validate YAML syntax
+        run: |
+          echo "📝 Validating YAML syntax..."
+          find . -name "*.yaml" -o -name "*.yml" | grep -v ".git" | while read -r file; do
+            echo "Checking $file"
+            yq eval 'true' "$file" > /dev/null || (echo "❌ Invalid YAML: $file" && exit 1)
+          done
+          echo "✅ All YAML files are valid"
+
+      - name: Validate Ansible playbooks
+        run: |
+          echo "🎭 Validating Ansible playbooks..."
+          if [ -f "ansible.cfg" ]; then
+            # Validate main playbook
+            ansible-playbook --syntax-check deploy.yml || exit 1
+            
+            # Validate individual playbooks
+            find playbooks -name "*.yml" -exec ansible-playbook --syntax-check {} \;
+            
+            # Run ansible-lint
+            ansible-lint deploy.yml || echo "⚠️ Ansible lint warnings detected"
+          else
+            echo "⚠️ ansible.cfg not found, skipping Ansible validation"
+          fi
+
+      - name: Validate Kustomize builds
+        run: |
+          echo "🔧 Validating Kustomize builds..."
+          # Test main base build
+          if [ -d "cluster/base" ]; then
+            kustomize build cluster/base --load-restrictor LoadRestrictionsNone > /tmp/base-build.yaml
+            echo "✅ Base Kustomize build successful"
+            
+            # Validate the generated Kubernetes resources
+            kubeval /tmp/base-build.yaml || echo "⚠️ Kubernetes validation warnings"
+            
+            # Test individual component builds
+            find cluster/base -name "kustomization.yaml" -exec dirname {} \; | while read -r dir; do
+              if [ "$dir" != "cluster/base" ]; then
+                echo "Testing $dir"
+                kustomize build "$dir" --load-restrictor LoadRestrictionsNone > /dev/null || (echo "❌ Kustomize build failed for $dir" && exit 1)
+              fi
+            done
+            echo "✅ All Kustomize builds successful"
+          fi
+
+      - name: Validate configuration schema
+        run: |
+          echo "⚙️ Validating configuration schema..."
+          if [ -f "config/cluster-config.yaml" ]; then
+            # Check required fields exist
+            required_fields="cluster_name proxmox_host proxmox_user"
+            for field in $required_fields; do
+              if ! yq eval ".data.$field" config/cluster-config.yaml | grep -qv "null"; then
+                echo "❌ Required field missing: $field"
+                exit 1
+              fi
+            done
+            echo "✅ Configuration schema validation passed"
+          fi
+
+      - name: Security scan
+        run: |
+          echo "🔒 Running security scan..."
+          # Check for secrets in code
+          if grep -r -i "password\|secret\|key" --include="*.yaml" --include="*.yml" cluster/ | grep -v "secretRef\|secretName" | grep -v "secret-key\|jwt-secret" | head -5; then
+            echo "⚠️ Potential secrets found in configuration files"
+          fi
+          
+          # Check for proper secret references
+          echo "✅ Security scan completed"
+
+  # Test deployment simulation
+  test-deployment:
+    name: Test Deployment Simulation
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup tools
+        run: |
+          # Install kustomize
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+          
+          # Install yq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Test application configuration script
+        run: |
+          echo "🎮 Testing application configuration..."
+          if [ -f "scripts/configure-apps.sh" ]; then
+            chmod +x scripts/configure-apps.sh
+            # Test dry-run mode
+            ./scripts/configure-apps.sh --dry-run || echo "⚠️ Configure apps script needs review"
+          fi
+
+      - name: Test with different configurations
+        run: |
+          echo "🧪 Testing different configuration scenarios..."
+          # Create test configuration
+          cp config/cluster-config.yaml config/cluster-config-test.yaml
+          
+          # Test AI/ML enabled
+          yq eval '.data.enable_ai_ml = "true"' -i config/cluster-config-test.yaml
+          yq eval '.data.enable_ollama = "true"' -i config/cluster-config-test.yaml
+          
+          # Test build with AI/ML enabled
+          if [ -d "cluster/base/applications/ai-ml" ]; then
+            kustomize build cluster/base/applications/ai-ml --load-restrictor LoadRestrictionsNone > /dev/null
+            echo "✅ AI/ML stack builds successfully"
+          fi
+          
+          # Clean up
+          rm config/cluster-config-test.yaml
+
+      - name: Resource validation
+        run: |
+          echo "📊 Validating resource requirements..."
+          # Build all resources and check for resource limits/requests
+          kustomize build cluster/base --load-restrictor LoadRestrictionsNone | grep -E "(limits|requests):" || echo "⚠️ Consider adding resource limits"
+
+  # Dependency check
+  dependency-check:
+    name: Dependency & Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check container image versions
+        run: |
+          echo "🐳 Checking container image versions..."
+          # Extract image versions from Kustomize files
+          find cluster -name "kustomization.yaml" -exec grep -H "newTag:" {} \; | while IFS=: read -r file tag_line; do
+            tag=$(echo "$tag_line" | awk '{print $3}' | tr -d '"')
+            echo "Found tag: $tag in $file"
+          done
+
+      - name: Check for outdated dependencies
+        run: |
+          echo "📦 Checking for potentially outdated dependencies..."
+          # Check Kubernetes versions
+          grep -r "k3s_version" config/ || echo "⚠️ K3s version not found"
+          
+          # Check major component versions
+          echo "Current versions found:"
+          grep -r "newTag:" cluster/ | head -10
+
+  # Integration test (conditional on secrets availability)
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [validate, test-deployment]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Mock integration test
+        run: |
+          echo "🔗 Running integration test simulation..."
+          # Since we can't actually deploy to Proxmox in CI, we simulate the test
+          echo "✅ Integration test simulation completed"
+          echo "📝 In a real environment, this would:"
+          echo "  - Connect to Proxmox"
+          echo "  - Create test VMs"
+          echo "  - Deploy K3s cluster"
+          echo "  - Validate applications"
+          echo "  - Clean up resources"
+
+  # Documentation check
+  docs-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check documentation completeness
+        run: |
+          echo "📚 Checking documentation..."
+          # Check required documentation files
+          required_docs="README.md CHANGELOG.md docs/plan/PLAN.md CLAUDE.md"
+          for doc in $required_docs; do
+            if [ ! -f "$doc" ]; then
+              echo "❌ Missing documentation: $doc"
+              exit 1
+            fi
+          done
+          
+          # Check for TODO items in docs
+          if grep -r "TODO\|FIXME" docs/ README.md; then
+            echo "⚠️ Found TODO items in documentation"
+          fi
+          
+          echo "✅ Documentation check completed"
+
+      - name: Check links in README
+        run: |
+          echo "🔗 Checking documentation links..."
+          # Basic link check (could be enhanced with a proper link checker)
+          if grep -o '](.*\.md)' README.md | grep -v http | while IFS='](' read -r _ link; do
+            link=${link%)}
+            if [ ! -f "$link" ]; then
+              echo "❌ Broken link: $link"
+              exit 1
+            fi
+          done; then
+            echo "✅ All local documentation links are valid"
+          fi

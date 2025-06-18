@@ -1,0 +1,89 @@
+version: 2
+updates:
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # Docker container images in Kustomize files
+  - package-ecosystem: "docker"
+    directory: "/cluster/base"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "docker"
+      - "kustomize"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    # Group updates by component to reduce PR noise
+    groups:
+      monitoring-stack:
+        patterns:
+          - "prometheus*"
+          - "grafana*"
+          - "loki*"
+          - "alertmanager*"
+      ai-ml-stack:
+        patterns:
+          - "ollama*"
+          - "open-webui*"
+          - "*jupyter*"
+      security-stack:
+        patterns:
+          - "authentik*"
+          - "crowdsec*"
+          - "trivy*"
+          - "cert-manager*"
+      gpu-infrastructure:
+        patterns:
+          - "*nvidia*"
+          - "*intel*gpu*"
+          - "*node-feature-discovery*"
+      media-stack:
+        patterns:
+          - "jellyfin*"
+          - "*arr*"
+          - "prowlarr*"
+
+  # Python dependencies (for any Python scripts)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+
+  # Ansible Galaxy dependencies (if using requirements.yml)
+  - package-ecosystem: "ansible"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: 1
+      time: "06:00"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "ansible"
+    commit-message:
+      prefix: "deps"
