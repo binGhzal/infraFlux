@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: uptime-kuma
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+resources:
+  - uptime-kuma.yaml
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: infraflux
+      app.kubernetes.io/managed-by: flux
+
+images:
+  - name: louislam/uptime-kuma
+    newTag: "1.23.8-alpine"

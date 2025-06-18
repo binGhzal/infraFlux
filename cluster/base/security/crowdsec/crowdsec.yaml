@@ -1,0 +1,421 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: crowdsec-agent
+  namespace: security
+  labels:
+    app.kubernetes.io/name: crowdsec-agent
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crowdsec-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crowdsec-agent
+    spec:
+      serviceAccountName: crowdsec-agent
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: crowdsec-agent
+          image: crowdsecurity/crowdsec:v1.5.6
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+                - SYS_PTRACE
+          env:
+            - name: COLLECTIONS
+              value: "crowdsecurity/linux crowdsecurity/k8s-audit crowdsecurity/nginx crowdsecurity/traefik"
+            - name: PARSERS
+              value: "crowdsecurity/cri-logs crowdsecurity/k8s-audit crowdsecurity/nginx-logs crowdsecurity/traefik-logs"
+            - name: SCENARIOS
+              value: "crowdsecurity/ssh-bf crowdsecurity/http-bf crowdsecurity/nginx-bf crowdsecurity/traefik-bf"
+            - name: POSTOVERFLOWS
+              value: "crowdsecurity/cdn-whitelist"
+            - name: LOCAL_API_URL
+              value: "http://crowdsec-service:8080"
+            - name: AGENT_USERNAME
+              value: "agent"
+            - name: AGENT_PASSWORD
+              valueFrom:
+                secretRef:
+                  name: crowdsec-secrets
+                  key: agent-password
+            - name: DISABLE_AGENT
+              value: "false"
+            - name: DISABLE_LOCAL_API
+              value: "true"
+            - name: LEVEL_INFO
+              value: "true"
+            - name: CUSTOM_HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: crowdsec-config
+              mountPath: /etc/crowdsec
+            - name: crowdsec-data
+              mountPath: /var/lib/crowdsec/data
+            - name: var-log
+              mountPath: /var/log
+              readOnly: true
+            - name: var-lib-docker-containers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: 500m
+            requests:
+              memory: 256Mi
+              cpu: 100m
+      volumes:
+        - name: crowdsec-config
+          configMap:
+            name: crowdsec-config
+        - name: crowdsec-data
+          hostPath:
+            path: /var/lib/crowdsec/data
+            type: DirectoryOrCreate
+        - name: var-log
+          hostPath:
+            path: /var/log
+        - name: var-lib-docker-containers
+          hostPath:
+            path: /var/lib/docker/containers
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+
+---
+# CrowdSec Local API (LAPI)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crowdsec-lapi
+  namespace: security
+  labels:
+    app.kubernetes.io/name: crowdsec-lapi
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crowdsec-lapi
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crowdsec-lapi
+    spec:
+      containers:
+        - name: crowdsec-lapi
+          image: crowdsecurity/crowdsec:v1.5.6
+          ports:
+            - containerPort: 8080
+              name: api
+          env:
+            - name: DISABLE_AGENT
+              value: "true"
+            - name: DISABLE_LOCAL_API
+              value: "false"
+            - name: LOCAL_API_URL
+              value: "0.0.0.0:8080"
+            - name: PGID
+              value: "1000"
+            - name: PUID
+              value: "1000"
+            - name: CROWDSEC_FEATURE_PAPI_CLIENT
+              value: "true"
+            - name: ENROLL_KEY
+              valueFrom:
+                secretRef:
+                  name: crowdsec-secrets
+                  key: enroll-key
+            - name: CROWDSEC_FEATURE_DISABLE_HTTP_RETRY_BACKOFF
+              value: "true"
+          volumeMounts:
+            - name: crowdsec-lapi-data
+              mountPath: /var/lib/crowdsec/data
+            - name: crowdsec-lapi-config
+              mountPath: /etc/crowdsec
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: 500m
+            requests:
+              memory: 256Mi
+              cpu: 100m
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: api
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: crowdsec-lapi-data
+          persistentVolumeClaim:
+            claimName: crowdsec-lapi-data
+        - name: crowdsec-lapi-config
+          configMap:
+            name: crowdsec-lapi-config
+
+---
+# CrowdSec Bouncer for Traefik
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crowdsec-traefik-bouncer
+  namespace: security
+  labels:
+    app.kubernetes.io/name: crowdsec-traefik-bouncer
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crowdsec-traefik-bouncer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crowdsec-traefik-bouncer
+    spec:
+      containers:
+        - name: traefik-bouncer
+          image: crowdsecurity/traefik-bouncer:v1.1.7
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: CROWDSEC_BOUNCER_API_KEY
+              valueFrom:
+                secretRef:
+                  name: crowdsec-secrets
+                  key: bouncer-api-key
+            - name: CROWDSEC_AGENT_HOST
+              value: "crowdsec-service:8080"
+            - name: GIN_MODE
+              value: "release"
+            - name: CROWDSEC_BOUNCER_LOG_LEVEL
+              value: "info"
+            - name: CROWDSEC_BOUNCER_DEFAULT_DECISION_TIMEOUT
+              value: "300"
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: 200m
+            requests:
+              memory: 128Mi
+              cpu: 50m
+          livenessProbe:
+            httpGet:
+              path: /api/v1/ping
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/v1/ping
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+
+---
+# Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: crowdsec-service
+  namespace: security
+  labels:
+    app.kubernetes.io/name: crowdsec-lapi
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  type: ClusterIP
+  ports:
+    - name: api
+      port: 8080
+      targetPort: api
+  selector:
+    app.kubernetes.io/name: crowdsec-lapi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crowdsec-traefik-bouncer
+  namespace: security
+  labels:
+    app.kubernetes.io/name: crowdsec-traefik-bouncer
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: crowdsec-traefik-bouncer
+
+---
+# ServiceAccount and RBAC
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: crowdsec-agent
+  namespace: security
+  labels:
+    app.kubernetes.io/name: crowdsec-agent
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: crowdsec-agent
+  labels:
+    app.kubernetes.io/name: crowdsec-agent
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "services", "endpoints", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: crowdsec-agent
+  labels:
+    app.kubernetes.io/name: crowdsec-agent
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: crowdsec-agent
+subjects:
+  - kind: ServiceAccount
+    name: crowdsec-agent
+    namespace: security
+
+---
+# PersistentVolumeClaim for LAPI data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: crowdsec-lapi-data
+  namespace: security
+  labels:
+    app.kubernetes.io/name: crowdsec-lapi
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: local-path
+
+---
+# ConfigMaps
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crowdsec-config
+  namespace: security
+  labels:
+    app.kubernetes.io/name: crowdsec-agent
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+data:
+  acquis.yaml: |
+    filenames:
+      - /var/log/containers/*traefik*.log
+      - /var/log/containers/*nginx*.log
+    labels:
+      type: k8s-audit
+    ---
+    filenames:
+      - /var/log/auth.log
+      - /var/log/syslog
+    labels:
+      type: syslog
+    ---
+    source: k8s-audit
+    k8s_audit_api_addr: 127.0.0.1:7080
+    labels:
+      type: k8s-audit
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crowdsec-lapi-config
+  namespace: security
+  labels:
+    app.kubernetes.io/name: crowdsec-lapi
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+data:
+  local_api_credentials.yaml: |
+    url: http://127.0.0.1:8080
+    login: agent
+    password: changeme
+  online_api_credentials.yaml: |
+    login: ""
+    password: ""
+    url: https://api.crowdsec.net/
+    token: ""
+
+---
+# Traefik Middleware for CrowdSec Integration
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: crowdsec-bouncer
+  namespace: security
+  labels:
+    app.kubernetes.io/name: crowdsec-traefik-bouncer
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  forwardAuth:
+    address: http://crowdsec-traefik-bouncer:8080/api/v1/forwardAuth
+    trustForwardHeader: true

@@ -14,11 +14,27 @@ data:
       smtp_from: 'alertmanager@infraflux.local'
 
     route:
-      group_by: ['alertname']
+      group_by: ['alertname', 'cluster', 'service']
       group_wait: 10s
       group_interval: 10s
       repeat_interval: 1h
       receiver: 'webhook'
+      routes:
+        - match:
+            severity: critical
+          receiver: 'discord'
+          group_wait: 5s
+          repeat_interval: 30m
+        - match:
+            severity: warning
+          receiver: 'slack'
+          group_wait: 10s
+          repeat_interval: 2h
+        - match:
+            alertname: NodeDown
+          receiver: 'discord'
+          group_wait: 0s
+          repeat_interval: 15m
 
     receivers:
       - name: 'webhook'
@@ -28,14 +44,21 @@ data:
 
       - name: 'slack'
         slack_configs:
-          - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
-            channel: '#alerts'
-            title: 'InfraFlux Alert'
-            text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+          - api_url_file: '/etc/alertmanager/secrets/slack_webhook_url'
+            channel: '#infraflux-alerts'
+            title: '🚨 InfraFlux Alert - {{ .GroupLabels.alertname }}'
+            text: |
+              {{ range .Alerts -}}
+              *Alert:* {{ .Annotations.summary }}
+              *Description:* {{ .Annotations.description }}
+              *Severity:* {{ .Labels.severity }}
+              *Instance:* {{ .Labels.instance }}
+              {{ end }}
+            send_resolved: true
 
       - name: 'discord'
         webhook_configs:
-          - url: 'https://discord.com/api/webhooks/YOUR/DISCORD/WEBHOOK'
+          - url_file: '/etc/alertmanager/secrets/discord_webhook_url'
             send_resolved: true
             http_config:
               headers:
@@ -43,15 +66,43 @@ data:
             title: 'InfraFlux Alert'
             text: |
               {
-                "content": "**InfraFlux Alert**",
+                "content": null,
                 "embeds": [
                   {
-                    "title": "{{ .GroupLabels.alertname }}",
-                    "description": "{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}",
-                    "color": {{ if eq .Status "firing" }}16711680{{ else }}65280{{ end }}
+                    "title": "🚨 {{ .GroupLabels.alertname }}",
+                    "description": "{{ range .Alerts }}**{{ .Annotations.summary }}**\n{{ .Annotations.description }}{{ end }}",
+                    "color": {{ if eq .Status "firing" }}16711680{{ else }}65280{{ end }},
+                    "fields": [
+                      {
+                        "name": "Severity",
+                        "value": "{{ .GroupLabels.severity }}",
+                        "inline": true
+                      },
+                      {
+                        "name": "Status",
+                        "value": "{{ .Status }}",
+                        "inline": true
+                      }
+                    ],
+                    "timestamp": "{{ (index .Alerts 0).StartsAt }}"
                   }
                 ]
               }
+
+      - name: 'email'
+        email_configs:
+          - to: 'admin@infraflux.local'
+            from: 'alertmanager@infraflux.local'
+            subject: '🚨 InfraFlux Alert: {{ .GroupLabels.alertname }}'
+            body: |
+              Alert Details:
+              {{ range .Alerts }}
+              - Summary: {{ .Annotations.summary }}
+              - Description: {{ .Annotations.description }}
+              - Severity: {{ .Labels.severity }}
+              - Instance: {{ .Labels.instance }}
+              - Started: {{ .StartsAt }}
+              {{ end }}
 
     inhibit_rules:
       - source_match:
@@ -94,6 +145,9 @@ spec:
               mountPath: /etc/alertmanager
             - name: storage
               mountPath: /alertmanager
+            - name: secrets
+              mountPath: /etc/alertmanager/secrets
+              readOnly: true
           resources:
             limits:
               memory: 256Mi
@@ -107,6 +161,10 @@ spec:
             name: alertmanager-config
         - name: storage
           emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: alertmanager-secrets
+            optional: true
 ---
 apiVersion: v1
 kind: Service

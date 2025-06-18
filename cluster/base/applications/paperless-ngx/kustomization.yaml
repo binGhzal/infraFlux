@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: paperless-ngx
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+resources:
+  - paperless-ngx.yaml
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: infraflux
+      app.kubernetes.io/managed-by: flux
+
+images:
+  - name: ghcr.io/paperless-ngx/paperless-ngx
+    newTag: "1.17.4"
+  - name: postgres
+    newTag: "15-alpine"
+  - name: redis
+    newTag: "7-alpine"
+  - name: gotenberg/gotenberg
+    newTag: "7.10"
+  - name: apache/tika
+    newTag: "2.9.1.0-full"

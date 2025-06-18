@@ -1,0 +1,311 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: code-server
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: code-server
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: code-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: code-server
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: code-server
+          image: codercom/code-server:4.18.0
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: PASSWORD
+              valueFrom:
+                secretRef:
+                  name: code-server-secrets
+                  key: password
+            - name: SUDO_PASSWORD
+              valueFrom:
+                secretRef:
+                  name: code-server-secrets
+                  key: sudo-password
+            - name: DEFAULT_WORKSPACE
+              value: "/home/coder/workspace"
+            - name: DOCKER_HOST
+              value: "tcp://code-server-docker:2376"
+          args:
+            - --bind-addr
+            - 0.0.0.0:8080
+            - --auth
+            - password
+            - --disable-telemetry
+            - --disable-update-check
+            - /home/coder/workspace
+          volumeMounts:
+            - name: code-server-data
+              mountPath: /home/coder
+            - name: code-server-config
+              mountPath: /home/coder/.config
+            - name: code-server-workspace
+              mountPath: /home/coder/workspace
+          
+          resources:
+            limits:
+              memory: 2Gi
+              cpu: 1000m
+            requests:
+              memory: 512Mi
+              cpu: 200m
+          
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      
+      volumes:
+        - name: code-server-data
+          persistentVolumeClaim:
+            claimName: code-server-data
+        - name: code-server-config
+          persistentVolumeClaim:
+            claimName: code-server-config
+        - name: code-server-workspace
+          persistentVolumeClaim:
+            claimName: code-server-workspace
+
+---
+# Docker-in-Docker service for Code Server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: code-server-docker
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: code-server-docker
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: code-server-docker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: code-server-docker
+    spec:
+      securityContext:
+        privileged: true
+      containers:
+        - name: docker
+          image: docker:24.0-dind
+          ports:
+            - containerPort: 2376
+              name: docker
+          env:
+            - name: DOCKER_TLS_CERTDIR
+              value: ""
+            - name: DOCKER_DRIVER
+              value: "overlay2"
+          args:
+            - --host=0.0.0.0:2376
+            - --tls=false
+          volumeMounts:
+            - name: docker-data
+              mountPath: /var/lib/docker
+          securityContext:
+            privileged: true
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: 500m
+            requests:
+              memory: 256Mi
+              cpu: 100m
+      volumes:
+        - name: docker-data
+          persistentVolumeClaim:
+            claimName: code-server-docker-data
+
+---
+# Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: code-server
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: code-server
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: code-server
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: code-server-docker
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: code-server-docker
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  type: ClusterIP
+  ports:
+    - name: docker
+      port: 2376
+      targetPort: docker
+  selector:
+    app.kubernetes.io/name: code-server-docker
+
+---
+# Persistent Volume Claims
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: code-server-data
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: code-server
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: code-server-config
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: code-server
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: local-path
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: code-server-workspace
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: code-server
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: local-path
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: code-server-docker-data
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: code-server-docker
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: local-path
+
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: code-server
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: code-server
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Enable websocket support for VS Code
+    traefik.ingress.kubernetes.io/router.middlewares: applications-code-server-headers@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - code.local.cluster
+      secretName: code-server-tls
+  rules:
+    - host: code.local.cluster
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: code-server
+                port:
+                  number: 8080
+
+---
+# Middleware for WebSocket support
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: code-server-headers
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: code-server
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Proto: "https"
+    customResponseHeaders:
+      X-Frame-Options: "SAMEORIGIN"
+      X-Content-Type-Options: "nosniff"

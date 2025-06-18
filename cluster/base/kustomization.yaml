@@ -16,6 +16,8 @@ resources:
   - security/rbac.yaml
   - security/authentik
   - security/cert-manager
+  - security/crowdsec
+  - security/trivy
   
   # Monitoring Stack
   - monitoring/prometheus.yaml
@@ -38,6 +40,10 @@ resources:
   - applications/nextcloud
   - applications/vaultwarden
   - applications/gitea
+  - applications/paperless-ngx
+  - applications/n8n
+  - applications/code-server
+  - applications/uptime-kuma
 
 labels:
   - includeSelectors: true
