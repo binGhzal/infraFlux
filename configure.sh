@@ -46,40 +46,40 @@ echo
 
 # Cluster Configuration
 print_header "📋 Cluster Configuration"
-read -p "Cluster name [infraflux-cluster]: " CLUSTER_NAME
+read -r -p "Cluster name [infraflux-cluster]: " CLUSTER_NAME
 CLUSTER_NAME=${CLUSTER_NAME:-infraflux-cluster}
 
 # Auto-detect network
 DETECTED_NETWORK=$(detect_network)
 print_info "Auto-detected network: $DETECTED_NETWORK"
-read -p "Network CIDR [$DETECTED_NETWORK]: " NETWORK_CIDR
+read -r -p "Network CIDR [$DETECTED_NETWORK]: " NETWORK_CIDR
 NETWORK_CIDR=${NETWORK_CIDR:-$DETECTED_NETWORK}
 
 echo
 
 # Proxmox Configuration
 print_header "🖥️  Proxmox Configuration"
-read -p "Proxmox host (IP or FQDN): " PROXMOX_HOST
-read -p "Proxmox username [root@pam]: " PROXMOX_USER
+read -r -p "Proxmox host (IP or FQDN): " PROXMOX_HOST
+read -r -p "Proxmox username [root@pam]: " PROXMOX_USER
 PROXMOX_USER=${PROXMOX_USER:-root@pam}
-read -p "Proxmox node name [pve]: " PROXMOX_NODE
+read -r -p "Proxmox node name [pve]: " PROXMOX_NODE
 PROXMOX_NODE=${PROXMOX_NODE:-pve}
-read -p "Storage pool [local-lvm]: " PROXMOX_STORAGE
+read -r -p "Storage pool [local-lvm]: " PROXMOX_STORAGE
 PROXMOX_STORAGE=${PROXMOX_STORAGE:-local-lvm}
 
 echo
 
 # Node Configuration
 print_header "🔧 Node Configuration"
-read -p "Number of controller nodes [3]: " CONTROLLER_COUNT
+read -r -p "Number of controller nodes [3]: " CONTROLLER_COUNT
 CONTROLLER_COUNT=${CONTROLLER_COUNT:-3}
-read -p "Number of worker nodes [3]: " WORKER_COUNT
+read -r -p "Number of worker nodes [3]: " WORKER_COUNT
 WORKER_COUNT=${WORKER_COUNT:-3}
-read -p "VM memory in MB [4096]: " VM_MEMORY
+read -r -p "VM memory in MB [4096]: " VM_MEMORY
 VM_MEMORY=${VM_MEMORY:-4096}
-read -p "VM CPU cores [2]: " VM_CORES
+read -r -p "VM CPU cores [2]: " VM_CORES
 VM_CORES=${VM_CORES:-2}
-read -p "VM disk size [20G]: " VM_DISK_SIZE
+read -r -p "VM disk size [20G]: " VM_DISK_SIZE
 VM_DISK_SIZE=${VM_DISK_SIZE:-20G}
 
 echo
@@ -87,27 +87,27 @@ echo
 # Application Configuration
 print_header "📦 Application Configuration"
 echo "Which applications would you like to install? (y/n)"
-read -p "Cilium CNI [Y/n]: " INSTALL_CILIUM
+read -r -p "Cilium CNI [Y/n]: " INSTALL_CILIUM
 INSTALL_CILIUM=$(echo "${INSTALL_CILIUM:-y}" | tr '[:upper:]' '[:lower:]')
 [[ "$INSTALL_CILIUM" =~ ^(y|yes)$ ]] && INSTALL_CILIUM="true" || INSTALL_CILIUM="false"
 
-read -p "MetalLB Load Balancer [Y/n]: " INSTALL_METALLB
+read -r -p "MetalLB Load Balancer [Y/n]: " INSTALL_METALLB
 INSTALL_METALLB=$(echo "${INSTALL_METALLB:-y}" | tr '[:upper:]' '[:lower:]')
 [[ "$INSTALL_METALLB" =~ ^(y|yes)$ ]] && INSTALL_METALLB="true" || INSTALL_METALLB="false"
 
-read -p "Ingress NGINX [Y/n]: " INSTALL_INGRESS
+read -r -p "Ingress NGINX [Y/n]: " INSTALL_INGRESS
 INSTALL_INGRESS=$(echo "${INSTALL_INGRESS:-y}" | tr '[:upper:]' '[:lower:]')
 [[ "$INSTALL_INGRESS" =~ ^(y|yes)$ ]] && INSTALL_INGRESS="true" || INSTALL_INGRESS="false"
 
-read -p "Cert Manager [Y/n]: " INSTALL_CERT_MANAGER
+read -r -p "Cert Manager [Y/n]: " INSTALL_CERT_MANAGER
 INSTALL_CERT_MANAGER=$(echo "${INSTALL_CERT_MANAGER:-y}" | tr '[:upper:]' '[:lower:]')
 [[ "$INSTALL_CERT_MANAGER" =~ ^(y|yes)$ ]] && INSTALL_CERT_MANAGER="true" || INSTALL_CERT_MANAGER="false"
 
-read -p "Prometheus Monitoring [Y/n]: " INSTALL_MONITORING
+read -r -p "Prometheus Monitoring [Y/n]: " INSTALL_MONITORING
 INSTALL_MONITORING=$(echo "${INSTALL_MONITORING:-y}" | tr '[:upper:]' '[:lower:]')
 [[ "$INSTALL_MONITORING" =~ ^(y|yes)$ ]] && INSTALL_MONITORING="true" || INSTALL_MONITORING="false"
 
-read -p "Backup with Velero [y/N]: " ENABLE_BACKUP
+read -r -p "Backup with Velero [y/N]: " ENABLE_BACKUP
 ENABLE_BACKUP=$(echo "${ENABLE_BACKUP:-n}" | tr '[:upper:]' '[:lower:]')
 [[ "$ENABLE_BACKUP" =~ ^(y|yes)$ ]] && ENABLE_BACKUP="true" || ENABLE_BACKUP="false"
 

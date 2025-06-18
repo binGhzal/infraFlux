@@ -3,6 +3,7 @@
 ## Prerequisites
 
 1. **Proxmox Environment**
+
    - One or more Proxmox hosts
    - Ubuntu 24.04 LTS template VM
    - Network access to Proxmox API
@@ -29,6 +30,7 @@ cd infraFlux
 ```
 
 This interactive wizard will help you set up your cluster configuration with:
+
 - Auto-detected network settings
 - Proxmox connection details
 - VM specifications
@@ -41,6 +43,7 @@ This interactive wizard will help you set up your cluster configuration with:
 ```
 
 That's it! Your Kubernetes cluster will be automatically deployed with:
+
 - **Native Traefik ingress** (no external NGINX)
 - **Native ServiceLB** for load balancing
 - **Terraform-managed VMs** on Proxmox

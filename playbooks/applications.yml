@@ -13,7 +13,8 @@
         msg:
           - "📦 Installing core applications"
           - "Cilium CNI: {{ install_cilium | default(true) }}"
-          - "Traefik Ingress: Native K3s (enabled)"
+          - "Native K3s Traefik: {{ 'enabled' if not (k3s_disable_traefik | default(false) | bool) else 'disabled' }}"
+          - "Native K3s ServiceLB: {{ 'enabled' if not (k3s_disable_servicelb | default(false) | bool) else 'disabled' }}"
           - "MetalLB: {{ install_metallb | default(false) }}"
           - "Cert Manager: {{ install_cert_manager | default(true) }}"
           - "Monitoring: {{ install_monitoring | default(true) }}"
@@ -25,17 +26,18 @@
       retries: 30
       delay: 10
 
-    - name: Add Helm repositories
+    - name: Add required Helm repositories
       kubernetes.core.helm_repository:
         name: "{{ item.name }}"
         repo_url: "{{ item.url }}"
       loop:
-        - { name: 'cilium', url: 'https://helm.cilium.io/' }
-        - { name: 'metallb', url: 'https://metallb.github.io/metallb' }
-        - { name: 'ingress-nginx', url: 'https://kubernetes.github.io/ingress-nginx' }
-        - { name: 'jetstack', url: 'https://charts.jetstack.io' }
-        - { name: 'prometheus-community', url: 'https://prometheus-community.github.io/helm-charts' }
-        - { name: 'sealed-secrets', url: 'https://bitnami-labs.github.io/sealed-secrets' }
+        - { name: 'cilium', url: 'https://helm.cilium.io/', condition: "{{ install_cilium | default(true) | bool }}" }
+        - { name: 'metallb', url: 'https://metallb.github.io/metallb', condition: "{{ install_metallb | default(false) | bool }}" }
+        - { name: 'ingress-nginx', url: 'https://kubernetes.github.io/ingress-nginx', condition: "{{ (k3s_disable_traefik | default(false) | bool) and (install_ingress_nginx | default(false) | bool) }}" }
+        - { name: 'jetstack', url: 'https://charts.jetstack.io', condition: "{{ install_cert_manager | default(true) | bool }}" }
+        - { name: 'prometheus-community', url: 'https://prometheus-community.github.io/helm-charts', condition: "{{ install_monitoring | default(true) | bool }}" }
+        - { name: 'sealed-secrets', url: 'https://bitnami-labs.github.io/sealed-secrets', condition: "{{ install_sealed_secrets | default(false) | bool }}" }
+      when: item.condition
 
     - name: Install Cilium CNI
       kubernetes.core.helm:

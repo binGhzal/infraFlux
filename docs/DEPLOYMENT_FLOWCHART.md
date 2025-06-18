@@ -44,10 +44,16 @@ flowchart TD
     Q --> Q1{Install Cilium?}
     Q1 -->|Yes| Q2[Deploy Cilium CNI]
     Q1 -->|No| Q3[Keep default Flannel]
-    Q2 --> Q4[Install MetalLB Load Balancer]
+    Q2 --> Q4{Use native ServiceLB?}
     Q3 --> Q4
-    Q4 --> Q5[Install Ingress Controller<br/>Currently: NGINX<br/>Should be: Traefik]
-    Q5 --> Q6[Install Cert Manager]
+    Q4 -->|Yes| Q5[Native K3s ServiceLB enabled<br/>Load balancing ready]
+    Q4 -->|No| Q6[Install MetalLB Load Balancer]
+    Q5 --> Q7{Use native Traefik?}
+    Q6 --> Q7
+    Q7 -->|Yes| Q8[Native K3s Traefik enabled<br/>Ingress controller ready]
+    Q7 -->|No| Q9[Install external NGINX Ingress]
+    Q8 --> Q10[Install Cert Manager]
+    Q9 --> Q10
     Q6 --> Q7{Install Monitoring?}
     Q7 -->|Yes| Q8[Deploy Prometheus + Grafana]
     Q7 -->|No| Q9[Deploy Sealed Secrets]
