@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# InfraFlux Configuration Wizard
+# InfraFlux Configuration Wizard - Linux Only
+# This script must be run on Linux systems only
 # This script helps users create their cluster-config.yaml file
 
 CONFIG_FILE="config/cluster-config.yaml"
@@ -24,14 +25,33 @@ print_success() {
     echo -e "${GREEN}✓ $1${NC}"
 }
 
-# Auto-detect network configuration
+# Auto-detect network configuration (Linux only)
 detect_network() {
     local network
-    network=$(ip route | grep -E "192\.168\.|10\.|172\." | head -1 | awk '{print $1}' 2>/dev/null || echo "")
+    # Use Linux ip command to detect network
+    network=$(ip route | grep -E "192\.168\.|10\.|172\." | head -1 | awk '{print $1}' 2>/dev/null)
+    
+    # If that fails, try getting from default route
     if [[ -z "$network" ]]; then
-        # Try alternative method for macOS
-        network=$(route -n get default 2>/dev/null | grep interface | awk '{print $2}' | xargs -I {} ipconfig getifaddr {} 2>/dev/null | sed 's/\.[0-9]*$/\.0\/24/' || echo "192.168.1.0/24")
+        local default_if
+        default_if=$(ip route | grep default | awk '{print $5}' | head -1)
+        if [[ -n "$default_if" ]]; then
+            local network_ip
+            network_ip=$(ip addr show "$default_if" | grep 'inet ' | awk '{print $2}' | head -1 | cut -d'/' -f1)
+            if [[ -n "$network_ip" ]]; then
+                # Convert IP to network (assume /24)
+                local network_prefix
+                network_prefix=$(echo "$network_ip" | cut -d. -f1-3)
+                network="${network_prefix}.0/24"
+            fi
+        fi
     fi
+    
+    # Final fallback
+    if [[ -z "$network" ]]; then
+        network="192.168.1.0/24"
+    fi
+    
     echo "$network"
 }
 

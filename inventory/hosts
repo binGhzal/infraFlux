@@ -1,0 +1,8 @@
+[proxmox]
+10.0.0.69 ansible_user=root
+
+[local]
+localhost ansible_connection=local
+
+[all:vars]
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'

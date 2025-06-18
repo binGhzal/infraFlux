@@ -1,12 +1,20 @@
 #!/bin/bash
 set -euo pipefail
 
-# InfraFlux - Simplified Unified Deployment Script
-# This script replaces the complex deployment structure with a single, streamlined approach
+# InfraFlux - Linux-Only Unified Deployment Script
+# This script must be run as root on Linux systems only
+# It replaces the complex deployment structure with a single, streamlined approach
 
 CONFIG_FILE="${1:-config/cluster-config.yaml}"
 PHASE="${2:-all}"
 WORK_DIR="/tmp/infraflux"
+
+# Verify running as root on Linux
+if [[ $EUID -ne 0 ]]; then
+    echo -e "\033[0;31m✗\033[0m This script must be run as root on Linux systems only"
+    echo "Usage: sudo $0 [config-file] [phase]"
+    exit 1
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -45,7 +53,7 @@ print_error() {
     echo -e "${RED}✗${NC} ${1}"
 }
 
-# Check and install prerequisites
+# Check and install prerequisites (Linux only)
 check_prerequisites() {
     print_step "Checking prerequisites..."
 
@@ -62,41 +70,57 @@ check_prerequisites() {
         print_warning "Missing tools: ${missing_tools[*]}"
         print_step "Installing missing tools..."
 
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            # macOS with Homebrew
-            if ! command -v brew &>/dev/null; then
-                print_error "Homebrew not found. Please install Homebrew first."
-                exit 1
-            fi
-            brew install "${missing_tools[@]}"
-        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-            # Linux
-            if command -v apt-get &>/dev/null; then
-                sudo apt-get update
-                for tool in "${missing_tools[@]}"; do
-                    case $tool in
-                    ansible)
-                        sudo apt-get install -y ansible
-                        ;;
-                    terraform)
-                        curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
-                        sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-                        sudo apt-get update && sudo apt-get install terraform
-                        ;;
-                    yq)
-                        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-                        sudo chmod +x /usr/local/bin/yq
-                        ;;
-                    kubectl)
-                        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-                        ;;
-                    esac
-                done
-            else
-                print_error "Unsupported Linux distribution. Please install tools manually."
-                exit 1
-            fi
+        # Linux package installation (requires root)
+        if command -v apt-get &>/dev/null; then
+            apt-get update
+            for tool in "${missing_tools[@]}"; do
+                case $tool in
+                ansible)
+                    apt-get install -y ansible
+                    ;;
+                terraform)
+                    curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add -
+                    apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+                    apt-get update && apt-get install terraform
+                    ;;
+                yq)
+                    wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+                    chmod +x /usr/local/bin/yq
+                    ;;
+                kubectl)
+                    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+                    rm kubectl
+                    ;;
+                esac
+            done
+        elif command -v yum &>/dev/null; then
+            # RHEL/CentOS/Fedora
+            yum update -y
+            for tool in "${missing_tools[@]}"; do
+                case $tool in
+                ansible)
+                    yum install -y ansible
+                    ;;
+                terraform)
+                    yum install -y yum-utils
+                    yum-config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+                    yum install -y terraform
+                    ;;
+                yq)
+                    wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+                    chmod +x /usr/local/bin/yq
+                    ;;
+                kubectl)
+                    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+                    rm kubectl
+                    ;;
+                esac
+            done
+        else
+            print_error "Unsupported Linux distribution. Please install tools manually."
+            exit 1
         fi
     fi
 
@@ -129,10 +153,31 @@ parse_config() {
     export CLUSTER_NAME PROXMOX_HOST PROXMOX_USER PROXMOX_NODE
     export CONTROLLER_COUNT WORKER_COUNT NETWORK_CIDR
 
-    # Auto-detect network if set to "auto"
+    # Auto-detect network if set to "auto" (Linux only)
     if [[ "$NETWORK_CIDR" == "auto" ]]; then
         print_step "Auto-detecting network configuration..."
-        NETWORK_CIDR=$(ip route | grep -E "192\.168\.|10\.|172\." | head -1 | awk '{print $1}' 2>/dev/null || echo "192.168.1.0/24")
+        
+        # Use Linux ip command to detect network
+        NETWORK_CIDR=$(ip route | grep -E "192\.168\.|10\.|172\." | head -1 | awk '{print $1}' 2>/dev/null)
+        
+        # If that fails, try getting from default route
+        if [[ -z "$NETWORK_CIDR" ]]; then
+            DEFAULT_IF=$(ip route | grep default | awk '{print $5}' | head -1)
+            if [[ -n "$DEFAULT_IF" ]]; then
+                NETWORK_IP=$(ip addr show "$DEFAULT_IF" | grep 'inet ' | awk '{print $2}' | head -1 | cut -d'/' -f1)
+                if [[ -n "$NETWORK_IP" ]]; then
+                    # Convert IP to network (assume /24)
+                    NETWORK_PREFIX=$(echo "$NETWORK_IP" | cut -d. -f1-3)
+                    NETWORK_CIDR="${NETWORK_PREFIX}.0/24"
+                fi
+            fi
+        fi
+        
+        # Final fallback if detection failed
+        if [[ -z "$NETWORK_CIDR" || "$NETWORK_CIDR" == "auto" ]]; then
+            NETWORK_CIDR="192.168.1.0/24"
+        fi
+        
         print_success "Detected network: $NETWORK_CIDR"
     fi
 
@@ -262,8 +307,9 @@ show_success_info() {
 
 # Show help
 show_help() {
-    echo "InfraFlux - Simplified Kubernetes Deployment"
+    echo "InfraFlux - Linux-Only Kubernetes Deployment"
     echo "============================================="
+    echo "⚠️  This script must be run as root on Linux systems only"
     echo
     echo "Usage: $0 [config-file] [phase]"
     echo
@@ -307,7 +353,7 @@ main() {
         show_help
         exit 0
         ;;
-    "all" | "infrastructure" | "k3s" | "apps")
+    "all" | "infrastructure" | "k3s" | "apps" | "security" | "monitoring" | "gitops")
         print_banner
         check_prerequisites
         parse_config

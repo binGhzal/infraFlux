@@ -1,0 +1,22 @@
+# InfraFlux Terraform Variables
+# Generated automatically by Ansible
+
+proxmox_api_url      = "https://{{ tf_proxmox_host }}:8006/api2/json"
+proxmox_user         = "{{ tf_proxmox_user }}"
+proxmox_password     = "{{ tf_proxmox_password }}"
+proxmox_node         = "{{ tf_proxmox_node }}"
+proxmox_storage      = "{{ tf_proxmox_storage }}"
+
+cluster_name         = "{{ tf_cluster_name }}"
+controller_count     = {{ tf_controller_count }}
+worker_count         = {{ tf_worker_count }}
+
+vm_template_name     = "{{ tf_vm_template_name }}"
+vm_cores             = {{ tf_vm_cores }}
+vm_memory            = {{ tf_vm_memory }}
+vm_disk_size         = "{{ tf_vm_disk_size }}"
+
+network_cidr         = "{{ tf_network_cidr }}"
+gateway_ip           = "{{ tf_gateway_ip }}"
+
+ssh_public_key       = {{ tf_ssh_public_key | to_json }}

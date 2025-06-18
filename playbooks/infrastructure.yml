@@ -1,31 +1,54 @@
 ---
+- name: Gather Facts from Proxmox Host
+  hosts: proxmox
+  gather_facts: yes
+  vars:
+    ansible_user: "{{ proxmox_user.split('@')[0] if proxmox_user is defined else 'root' }}"
+    ansible_password: "{{ proxmox_password }}"
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+
 - name: Deploy Infrastructure using Terraform and Proxmox
   hosts: localhost
   connection: local
-  gather_facts: yes
+  gather_facts: no
   vars:
-    # Auto-detected network variables (can be overridden)
-    detected_network: "{{ ansible_default_ipv4.network }}/{{ ansible_default_ipv4.netmask | ipaddr('prefix') }}"
-    detected_gateway: "{{ ansible_default_ipv4.gateway }}"
-
-    # Use provided network or auto-detected
-    network_cidr: "{{ network_cidr | default(detected_network) }}"
-    gateway_ip: "{{ gateway_ip | default(detected_gateway) }}"
-
-    # VM configuration with smart defaults
     vm_base_name: "{{ cluster_name | default('k3s') }}"
     terraform_dir: "/tmp/infraflux-terraform"
 
   tasks:
-    - name: Display deployment information
+    - name: Display initial deployment information
       debug:
         msg:
           - "🌟 Starting Infrastructure Deployment with Terraform"
+          - "Connecting to Proxmox host: {{ proxmox_host }}"
           - "Cluster: {{ vm_base_name }}"
-          - "Network: {{ network_cidr }}"
-          - "Gateway: {{ gateway_ip }}"
           - "Controllers: {{ controller_count | default(3) }}"
           - "Workers: {{ worker_count | default(3) }}"
+
+    - name: Auto-detect network configuration from Proxmox
+      set_fact:
+        detected_network_cidr: "{{ hostvars[proxmox_host]['ansible_default_ipv4']['network'] }}/24"
+        detected_gateway: "{{ hostvars[proxmox_host]['ansible_default_ipv4']['gateway'] }}"
+      when: network_cidr == "auto"
+
+    - name: Use provided network configuration
+      set_fact:
+        detected_network_cidr: "{{ network_cidr }}"
+        detected_gateway: "{{ gateway_ip | default(hostvars[proxmox_host]['ansible_default_ipv4']['gateway'] | default('192.168.1.1')) }}"
+      when: network_cidr != "auto"
+
+    - name: Set final network configuration
+      set_fact:
+        final_network_cidr: "{{ detected_network_cidr }}"
+        final_gateway_ip: "{{ detected_gateway }}"
+
+    - name: Display discovered network configuration
+      debug:
+        msg:
+          - "✅ Network Discovery Complete"
+          - "Network CIDR: {{ final_network_cidr }}"
+          - "Gateway IP: {{ final_gateway_ip }}"
+          - "Proxmox Node: {{ proxmox_node | default('pve') }}"
 
     - name: Create Terraform working directory
       file:
@@ -38,13 +61,13 @@
         src: "{{ item }}"
         dest: "{{ terraform_dir }}/"
       loop:
-        - "ansible/templates/terraform/main.tf"
-        - "ansible/templates/terraform/variables.tf"
-        - "ansible/templates/terraform/outputs.tf"
+        - "../ansible/templates/terraform/main.tf"
+        - "../ansible/templates/terraform/variables.tf"
+        - "../ansible/templates/terraform/outputs.tf"
 
     - name: Create Terraform variables file
       template:
-        src: "ansible/templates/terraform.tfvars.j2"
+        src: "../ansible/templates/terraform.tfvars.j2"
         dest: "{{ terraform_dir }}/terraform.tfvars"
       vars:
         tf_proxmox_host: "{{ proxmox_host }}"
@@ -59,9 +82,9 @@
         tf_vm_cores: "{{ vm_cores | default(2) }}"
         tf_vm_memory: "{{ vm_memory | default(4096) }}"
         tf_vm_disk_size: "{{ vm_disk_size | default('20G') }}"
-        tf_network_cidr: "{{ network_cidr }}"
-        tf_gateway_ip: "{{ gateway_ip }}"
-        tf_ssh_key_path: "{{ ssh_key_path | default('~/.ssh/id_rsa.pub') }}"
+        tf_network_cidr: "{{ final_network_cidr }}"
+        tf_gateway_ip: "{{ final_gateway_ip }}"
+        tf_ssh_public_key: "{{ ssh_public_key }}"
 
     - name: Initialize Terraform
       terraform:
