@@ -1,0 +1,13 @@
+# Directories to ignore
+/sample
+/trash
+
+# Files to ignore
+/.DS_Store
+
+# Log files
+/logs
+
+# Temporary files
+/tmp
+
