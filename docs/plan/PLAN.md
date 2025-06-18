@@ -19,9 +19,117 @@ InfraFlux has achieved **enterprise-grade foundation configuration** with:
 
 ---
 
-## 🎯 **Infrastructure-First Deployment Phases**
+## 🎯 **Hybrid Ansible+Flux Deployment Phases**
 
-### **PHASE 1: Core Infrastructure Deployment** (Week 1-2) - _CRITICAL PRIORITY_
+### **PHASE 0: Repository Restructure & Flux Integration** (Week 0) - *CRITICAL PRIORITY*
+
+InfraFlux will use a **hybrid approach**:
+- **Ansible**: Infrastructure provisioning, VM management, cluster bootstrapping
+- **Flux GitOps**: Application lifecycle management, configuration drift prevention, continuous delivery
+
+#### **0.1 Repository Cleanup** (8 subtasks)
+
+- [x] **0.1.1** Remove sample/ directory entirely (JimsGarage examples, etc.)
+  - **Dependencies**: None
+  - **Validation**: sample/ directory no longer exists
+  - **Success Criteria**: Repository size reduced, unnecessary examples removed
+  - **Test Command**: `ls sample/` should return "No such file or directory"
+
+- [ ] **0.1.2** Remove deprecated and unused directories
+  - **Dependencies**: 0.1.1 complete
+  - **Validation**: Only necessary directories remain in repository
+  - **Success Criteria**: Clean directory structure, no orphaned folders
+  - **Test Command**: `find . -type d -empty` returns minimal results
+
+- [ ] **0.1.3** Clean up redundant configuration files
+  - **Dependencies**: 0.1.2 complete
+  - **Validation**: No duplicate or conflicting configuration files
+  - **Success Criteria**: Single source of truth for each configuration
+  - **Test Command**: Verify no duplicate config names exist
+
+- [ ] **0.1.4** Organize secrets/ directory properly
+  - **Dependencies**: 0.1.3 complete
+  - **Validation**: Secrets properly structured and documented
+  - **Success Criteria**: Clear secret organization, no sensitive data in repo
+  - **Test Command**: Validate secrets/ structure and .gitignore coverage
+
+- [ ] **0.1.5** Remove test files not relevant to current architecture
+  - **Dependencies**: 0.1.4 complete
+  - **Validation**: Only architecture-relevant tests remain
+  - **Success Criteria**: Test suite focused on actual deployment workflow
+  - **Test Command**: Execute remaining tests, verify all pass
+
+- [ ] **0.1.6** Clean up cluster/base/kustomization.yaml.backup
+  - **Dependencies**: 0.1.5 complete
+  - **Validation**: No backup files remain in repository
+  - **Success Criteria**: Clean working tree, no temporary files
+  - **Test Command**: `find . -name "*.backup" -o -name "*.bak"` returns nothing
+
+- [ ] **0.1.7** Remove duplicate or outdated templates
+  - **Dependencies**: 0.1.6 complete
+  - **Validation**: Only current, used templates remain
+  - **Success Criteria**: Template directory contains only active templates
+  - **Test Command**: Verify each template is referenced in deployment
+
+- [ ] **0.1.8** Archive trash/ directory contents (keep for reference but organize)
+  - **Dependencies**: 0.1.7 complete
+  - **Validation**: Trash organized or removed, repository clean
+  - **Success Criteria**: Clean repository structure, reference materials archived
+  - **Test Command**: Repository passes cleanliness validation
+
+#### **0.2 Hybrid Ansible+Flux Structure Implementation** (12 subtasks)
+
+- [ ] **0.2.1** Keep existing Ansible infrastructure (playbooks/, roles/, deploy.sh)
+- [ ] **0.2.2** Restructure cluster/ directory to follow Flux GitOps patterns
+- [ ] **0.2.3** Create apps/base/ for Flux-managed applications
+- [ ] **0.2.4** Create apps/production/ and apps/staging/ overlays
+- [ ] **0.2.5** Create infrastructure/controllers/ for post-deployment components
+- [ ] **0.2.6** Create infrastructure/configs/ for runtime configurations
+- [ ] **0.2.7** Convert existing applications to HelmReleases where appropriate
+- [ ] **0.2.8** Create HelmRepository definitions for external charts
+- [ ] **0.2.9** Add Flux Kustomization manifests for GitOps workflow
+- [ ] **0.2.10** Implement proper environment separation (staging/production)
+- [ ] **0.2.11** Add Flux notification providers for deployment status
+- [ ] **0.2.12** Configure Flux image automation for container updates
+
+#### **0.3 Documentation Restructure for Wiki** (10 subtasks)
+
+- [ ] **0.3.1** Break large PLAN.md into focused documents
+- [ ] **0.3.2** Create docs/infrastructure/ for Ansible deployment guides  
+- [ ] **0.3.3** Create docs/gitops/ for Flux workflow documentation
+- [ ] **0.3.4** Create docs/applications/ for application-specific guides
+- [ ] **0.3.5** Create docs/troubleshooting/ for issue resolution
+- [ ] **0.3.6** Create docs/architecture/ for system design overview
+- [ ] **0.3.7** Create docs/security/ for security procedures and policies
+- [ ] **0.3.8** Create docs/monitoring/ for observability and alerting
+- [ ] **0.3.9** Create docs/networking/ for network configuration guides
+- [ ] **0.3.10** Create modular README files for each major component
+
+#### **0.4 Ansible Integration with Flux** (8 subtasks)
+
+- [ ] **0.4.1** Add Flux installation to Ansible playbooks (post K3s setup)
+- [ ] **0.4.2** Create Ansible task to bootstrap Flux in cluster
+- [ ] **0.4.3** Configure Ansible to deploy initial Flux configuration
+- [ ] **0.4.4** Add Ansible validation for Flux readiness
+- [ ] **0.4.5** Create Ansible tasks for Flux secret management
+- [ ] **0.4.6** Implement Ansible-driven Flux repository setup
+- [ ] **0.4.7** Add Ansible post-deployment Flux validation
+- [ ] **0.4.8** Create Ansible rollback procedures for Flux issues
+
+#### **0.5 Flux Command Integration** (8 subtasks)
+
+- [ ] **0.5.1** Create scripts/flux-bootstrap.sh for initial Flux setup
+- [ ] **0.5.2** Add scripts/flux-status.sh for deployment monitoring
+- [ ] **0.5.3** Create scripts/flux-reconcile.sh for manual sync
+- [ ] **0.5.4** Add scripts/flux-suspend.sh for maintenance mode
+- [ ] **0.5.5** Create scripts/flux-app-deploy.sh for new applications
+- [ ] **0.5.6** Add scripts/flux-config-update.sh for configuration changes
+- [ ] **0.5.7** Create scripts/flux-troubleshoot.sh for debugging
+- [ ] **0.5.8** Add scripts/flux-backup.sh for configuration backup
+
+### **PHASE 1: Core Infrastructure Deployment** (Week 1-2) - _HIGH PRIORITY_
+
+**Deployment Architecture**: Ansible provisions infrastructure → Flux manages applications
 
 #### 🏗️ **Base Infrastructure Deployment**
 
@@ -431,19 +539,23 @@ InfraFlux has achieved **enterprise-grade foundation configuration** with:
 
 ### **Phase Progression Requirements**
 
-- **Phase 1 → Phase 2**: All Phase 1 subtasks complete, infrastructure test suite passes
-- **Phase 2 → Phase 3**: Advanced infrastructure deployed, storage/networking operational  
-- **Phase 3 → Phase 4**: Infrastructure hardened, disaster recovery tested
-- **Phase 4**: Applications deployed only after all infrastructure phases validated
+- **Phase 0 → Phase 1**: Repository restructured, Flux integrated with Ansible
+- **Phase 1 → Phase 2**: Ansible deploys infrastructure + Flux bootstrap complete
+- **Phase 2 → Phase 3**: Flux deploys advanced infrastructure, storage/networking operational  
+- **Phase 3 → Phase 4**: Infrastructure hardened via Flux, disaster recovery tested
+- **Phase 4**: Applications deployed and managed entirely via Flux GitOps
 
 ### **Critical Validation Gates**
 
-1. **Gate 1.4.9**: K3s cluster fully operational (all nodes Ready)
-2. **Gate 1.5.12**: Security stack deployed and validated (Authentik SSO working)
-3. **Gate 1.6.11**: Monitoring stack operational (alerts and notifications working)
-4. **Gate 1.9.2**: Phase 1 success metrics validated (performance targets met)
-5. **Gate 2.6.4**: Phase 2 integration tests pass (advanced infrastructure ready)
-6. **Gate 3.6.4**: Phase 3 hardening complete (production readiness confirmed)
+1. **Gate 0.1.8**: Repository cleanup complete (clean structure, no unnecessary files)
+2. **Gate 0.2.12**: Flux GitOps structure implemented (apps/, infrastructure/, clusters/)
+3. **Gate 0.4.8**: Ansible+Flux integration complete (hybrid deployment ready)
+4. **Gate 1.4.9**: K3s cluster fully operational (all nodes Ready)
+5. **Gate 1.5.12**: Security stack deployed and validated (Authentik SSO working)
+6. **Gate 1.6.11**: Monitoring stack operational (alerts and notifications working)
+7. **Gate 1.9.2**: Phase 1 success metrics validated (performance targets met)
+8. **Gate 2.6.4**: Phase 2 integration tests pass (advanced infrastructure ready)
+9. **Gate 3.6.4**: Phase 3 hardening complete (production readiness confirmed)
 
 ### **Validation Criteria Framework**
 
@@ -747,17 +859,20 @@ Each subtask includes four validation elements:
 | **Phase 4** | **Home Automation**        | 10 subtasks    | ⏸️ Post-Infrastructure  |
 | **Phase 4** | **Productivity Apps**      | 8 subtasks     | ⏸️ Post-Infrastructure  |
 
-**📊 Total Tasks**: **171 granular subtasks** (vs 23 original high-level tasks)
+**📊 Total Tasks**: **217+ granular subtasks** (vs 23 original high-level tasks)
 
+**🎯 Phase 0 Focus**: **46 subtasks** for repository restructure and Flux integration
 **🎯 Phase 1 Focus**: **63 subtasks** for core infrastructure deployment and validation
 
 ---
 
-**🚀 Next Action**: Begin Phase 1.3.1 - Verify GitHub Actions CI workflows run successfully
+**🚀 Next Action**: Continue Phase 0.1.2 - Remove deprecated and unused directories
 
-**📋 Current Focus**: Execute Phase 1 subtasks systematically with validation at each step
+**📋 Current Focus**: Execute Phase 0 subtasks to restructure repository for hybrid Ansible+Flux approach
 
 **✅ Granular Tracking**: Each subtask has specific deliverables and validation criteria
+
+**🔄 Hybrid Approach**: Ansible for infrastructure → Flux for applications
 
 ---
 
