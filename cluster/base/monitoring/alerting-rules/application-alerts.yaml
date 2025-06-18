@@ -1,0 +1,148 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: infraflux-application-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: infraflux-application-alerts
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  groups:
+  - name: infraflux.applications
+    rules:
+    # Authentik SSO Alerts
+    - alert: AuthentikDown
+      expr: up{job="authentik-server"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        component: authentik
+        service: sso
+      annotations:
+        summary: "Authentik SSO server is down"
+        description: "Authentik SSO server has been down for more than 5 minutes. Users cannot authenticate."
+        runbook_url: "https://docs.infraflux.io/runbooks/authentik-down"
+
+    - alert: AuthentikHighLatency
+      expr: histogram_quantile(0.95, rate(django_http_response_size_bytes_bucket[5m])) > 2000
+      for: 10m
+      labels:
+        severity: warning
+        component: authentik
+        service: sso
+      annotations:
+        summary: "Authentik SSO high response time"
+        description: "Authentik SSO 95th percentile response time is above 2 seconds."
+
+    - alert: AuthentikPostgreSQLDown
+      expr: up{job="authentik-postgresql"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        component: postgresql
+        service: database
+      annotations:
+        summary: "Authentik PostgreSQL database is down"
+        description: "PostgreSQL database for Authentik has been down for more than 5 minutes."
+
+    # Monitoring Stack Alerts
+    - alert: PrometheusDown
+      expr: up{job="prometheus"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        component: prometheus
+        service: monitoring
+      annotations:
+        summary: "Prometheus server is down"
+        description: "Prometheus monitoring server has been down for more than 5 minutes."
+
+    - alert: GrafanaDown
+      expr: up{job="grafana"} == 0
+      for: 5m
+      labels:
+        severity: warning
+        component: grafana
+        service: monitoring
+      annotations:
+        summary: "Grafana dashboard is down"
+        description: "Grafana dashboard server has been down for more than 5 minutes."
+
+    - alert: AlertManagerDown
+      expr: up{job="alertmanager"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        component: alertmanager
+        service: monitoring
+      annotations:
+        summary: "AlertManager is down"
+        description: "AlertManager has been down for more than 5 minutes. Alerts will not be sent."
+
+    # GitOps Alerts
+    - alert: FluxSystemDown
+      expr: up{namespace="flux-system"} == 0
+      for: 10m
+      labels:
+        severity: warning
+        component: flux
+        service: gitops
+      annotations:
+        summary: "Flux GitOps system is down"
+        description: "Flux GitOps controllers have been down for more than 10 minutes."
+
+    - alert: FluxSyncFailure
+      expr: gotk_reconcile_condition{type="Ready",status="False"} == 1
+      for: 15m
+      labels:
+        severity: warning
+        component: flux
+        service: gitops
+      annotations:
+        summary: "Flux sync failure"
+        description: "Flux {{ $labels.kind }} {{ $labels.name }} in {{ $labels.namespace }} failed to reconcile."
+
+    # Storage Alerts
+    - alert: PersistentVolumeClaimPending
+      expr: kube_persistentvolumeclaim_status_phase{phase="Pending"} == 1
+      for: 10m
+      labels:
+        severity: warning
+        component: storage
+      annotations:
+        summary: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is pending"
+        description: "PersistentVolumeClaim {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} has been pending for more than 10 minutes."
+
+    # Network Alerts
+    - alert: IngressDown
+      expr: up{job="traefik"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        component: traefik
+        service: ingress
+      annotations:
+        summary: "Traefik ingress controller is down"
+        description: "Traefik ingress controller has been down for more than 5 minutes."
+
+    # Container Alerts
+    - alert: ContainerHighCPU
+      expr: rate(container_cpu_usage_seconds_total{container!="POD",container!=""}[5m]) > 0.8
+      for: 15m
+      labels:
+        severity: warning
+        component: container
+      annotations:
+        summary: "Container {{ $labels.namespace }}/{{ $labels.pod }}/{{ $labels.container }} high CPU usage"
+        description: "Container {{ $labels.namespace }}/{{ $labels.pod }}/{{ $labels.container }} CPU usage is above 80% for more than 15 minutes."
+
+    - alert: ContainerHighMemory
+      expr: container_memory_working_set_bytes{container!="POD",container!=""} / container_spec_memory_limit_bytes > 0.9
+      for: 15m
+      labels:
+        severity: warning
+        component: container
+      annotations:
+        summary: "Container {{ $labels.namespace }}/{{ $labels.pod }}/{{ $labels.container }} high memory usage"
+        description: "Container {{ $labels.namespace }}/{{ $labels.pod }}/{{ $labels.container }} memory usage is above 90% for more than 15 minutes."

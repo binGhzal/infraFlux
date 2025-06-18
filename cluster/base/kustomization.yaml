@@ -15,19 +15,23 @@ resources:
   - security/sealed-secrets.yaml
   - security/rbac.yaml
   - security/authentik
+  - security/cert-manager
   
   # Monitoring Stack
   - monitoring/prometheus.yaml
   - monitoring/grafana.yaml
   - monitoring/loki.yaml
   - monitoring/alertmanager.yaml
+  - monitoring/grafana-dashboards-configmap.yaml
+  - monitoring/alerting-rules/cluster-health.yaml
+  - monitoring/alerting-rules/application-alerts.yaml
   
   # GitOps Components
   - gitops
   
   # Application Templates
   - applications/authelia.yaml
-  - applications/homepage.yaml
+  - applications/homepage-enhanced.yaml
 
 labels:
   - includeSelectors: true

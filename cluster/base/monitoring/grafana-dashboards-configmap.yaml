@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-k3s-cluster
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: grafana-dashboards
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+data:
+  k3s-cluster-overview.json: |
+    {
+      "dashboard": {
+        "title": "K3s Cluster Overview",
+        "tags": ["k3s", "cluster", "infraflux"],
+        "timezone": "browser",
+        "panels": [],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "timepicker": {},
+        "templating": {
+          "list": []
+        },
+        "annotations": {
+          "list": []
+        },
+        "refresh": "30s",
+        "schemaVersion": 30,
+        "version": 1,
+        "links": []
+      }
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-authentik-sso
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: grafana-dashboards
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+data:
+  authentik-sso-metrics.json: |
+    {
+      "dashboard": {
+        "title": "Authentik SSO Metrics",
+        "tags": ["authentik", "sso", "security", "infraflux"],
+        "timezone": "browser",
+        "panels": [],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "timepicker": {},
+        "templating": {
+          "list": []
+        },
+        "annotations": {
+          "list": []
+        },
+        "refresh": "30s",
+        "schemaVersion": 30,
+        "version": 1,
+        "links": []
+      }
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-application-performance
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: grafana-dashboards
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+data:
+  application-performance.json: |
+    {
+      "dashboard": {
+        "title": "Application Performance Overview",
+        "tags": ["performance", "applications", "homelab", "infraflux"],
+        "timezone": "browser",
+        "panels": [],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "timepicker": {},
+        "templating": {
+          "list": []
+        },
+        "annotations": {
+          "list": []
+        },
+        "refresh": "30s",
+        "schemaVersion": 30,
+        "version": 1,
+        "links": []
+      }
+    }

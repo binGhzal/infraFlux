@@ -1,0 +1,485 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: homepage
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: homepage
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: homepage
+  labels:
+    app.kubernetes.io/name: homepage
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+      - pods
+      - nodes
+      - services
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - extensions
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - traefik.containo.us
+    resources:
+      - ingressroutes
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - metrics.k8s.io
+    resources:
+      - nodes
+      - pods
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: homepage
+  labels:
+    app.kubernetes.io/name: homepage
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: homepage
+subjects:
+  - kind: ServiceAccount
+    name: homepage
+    namespace: applications
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-config-enhanced
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: homepage
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+data:
+  settings.yaml: |
+    ---
+    title: InfraFlux Homelab
+    subtitle: Production-Ready Kubernetes Platform
+    logo: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/kubernetes.png
+    theme: dark
+    color: slate
+    headerStyle: clean
+    hideVersion: true
+    language: en
+    target: _self
+    base: http://homepage.local.cluster
+    
+    layout:
+      Infrastructure:
+        style: row
+        columns: 4
+        header: true
+      Security:
+        style: row
+        columns: 3
+        header: true
+      Monitoring:
+        style: row
+        columns: 3
+        header: true
+      Applications:
+        style: row
+        columns: 4
+        header: true
+
+    providers:
+      kubernetes:
+        mode: cluster
+    
+    quicklaunch:
+      searchDescriptions: true
+      hideInternetSearch: false
+      showSearchSuggestions: true
+      hideVisitURL: false
+
+  services.yaml: |
+    ---
+    - Infrastructure:
+        - Proxmox VE:
+            icon: proxmox.png
+            href: http://10.0.0.69:8006
+            description: Virtualization Platform
+            widget:
+              type: proxmox
+              url: http://10.0.0.69:8006
+              username: root@pam
+              password: "{{HOMEPAGE_VAR_PROXMOX_PASSWORD}}"
+        
+        - Traefik:
+            icon: traefik.png
+            href: http://traefik.local.cluster
+            description: Native K3s Ingress Controller
+            widget:
+              type: traefik
+              url: http://traefik.local.cluster
+        
+        - Cilium Hubble:
+            icon: cilium.png
+            href: http://hubble.local.cluster
+            description: Network Security & Observability
+            widget:
+              type: kubernetes
+              namespace: kube-system
+              app: hubble-ui
+        
+        - Flux GitOps:
+            icon: flux.png
+            href: http://flux.local.cluster
+            description: GitOps Continuous Deployment
+            widget:
+              type: kubernetes
+              namespace: flux-system
+              app: source-controller
+
+    - Security:
+        - Authentik SSO:
+            icon: authentik.png
+            href: http://authentik.local.cluster
+            description: Identity & Access Management
+            widget:
+              type: kubernetes
+              namespace: security
+              app: authentik-server
+        
+        - Sealed Secrets:
+            icon: sealed-secrets.png
+            href: "#"
+            description: GitOps Secret Management
+            widget:
+              type: kubernetes
+              namespace: kube-system
+              app: sealed-secrets-controller
+        
+        - cert-manager:
+            icon: cert-manager.png
+            href: "#"
+            description: Automatic TLS Certificate Management
+            widget:
+              type: kubernetes
+              namespace: cert-manager
+              app: cert-manager
+
+    - Monitoring:
+        - Prometheus:
+            icon: prometheus.png
+            href: http://prometheus.local.cluster
+            description: Metrics Collection & Storage
+            widget:
+              type: prometheus
+              url: http://prometheus.local.cluster
+        
+        - Grafana:
+            icon: grafana.png
+            href: http://grafana.local.cluster
+            description: Metrics Visualization & Dashboards
+            widget:
+              type: grafana
+              url: http://grafana.local.cluster
+              username: admin
+              password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
+        
+        - AlertManager:
+            icon: alertmanager.png
+            href: http://alertmanager.local.cluster
+            description: Alert Routing & Notifications
+            widget:
+              type: kubernetes
+              namespace: monitoring
+              app: alertmanager
+
+    - Applications:
+        - Nextcloud:
+            icon: nextcloud.png
+            href: http://nextcloud.local.cluster
+            description: Personal Cloud Storage & Collaboration
+            widget:
+              type: nextcloud
+              url: http://nextcloud.local.cluster
+              username: admin
+              password: "{{HOMEPAGE_VAR_NEXTCLOUD_PASSWORD}}"
+        
+        - Vaultwarden:
+            icon: vaultwarden.png
+            href: http://vaultwarden.local.cluster
+            description: Self-hosted Bitwarden Password Manager
+            widget:
+              type: kubernetes
+              namespace: applications
+              app: vaultwarden
+        
+        - Gitea:
+            icon: gitea.png
+            href: http://gitea.local.cluster
+            description: Self-hosted Git Service
+            widget:
+              type: gitea
+              url: http://gitea.local.cluster
+              username: admin
+              password: "{{HOMEPAGE_VAR_GITEA_PASSWORD}}"
+        
+        - Paperless-ngx:
+            icon: paperless-ngx.png
+            href: http://paperless.local.cluster
+            description: Document Management & OCR
+            widget:
+              type: paperlessngx
+              url: http://paperless.local.cluster
+              username: admin
+              password: "{{HOMEPAGE_VAR_PAPERLESS_PASSWORD}}"
+
+  bookmarks.yaml: |
+    ---
+    - Development:
+        - InfraFlux:
+            - Repository:
+                icon: github.png
+                href: https://github.com/infraflux/infraflux
+            - Documentation:
+                icon: gitbook.png
+                href: https://docs.infraflux.io
+            - Issues:
+                icon: github.png
+                href: https://github.com/infraflux/infraflux/issues
+    
+    - Kubernetes:
+        - Official:
+            - K3s Documentation:
+                icon: kubernetes.png
+                href: https://k3s.io/
+            - Kubernetes Docs:
+                icon: kubernetes.png
+                href: https://kubernetes.io/docs/
+            - Helm Charts:
+                icon: helm.png
+                href: https://artifacthub.io/
+        
+        - Tools:
+            - Flux CD:
+                icon: flux.png
+                href: https://fluxcd.io/
+            - Kustomize:
+                icon: kubernetes.png
+                href: https://kustomize.io/
+            - Sealed Secrets:
+                icon: sealed-secrets.png
+                href: https://sealed-secrets.netlify.app/
+
+    - Homelab Resources:
+        - Communities:
+            - r/homelab:
+                icon: reddit.png
+                href: https://reddit.com/r/homelab
+            - r/selfhosted:
+                icon: reddit.png
+                href: https://reddit.com/r/selfhosted
+            - Awesome Selfhosted:
+                icon: github.png
+                href: https://github.com/awesome-selfhosted/awesome-selfhosted
+
+        - Documentation:
+            - Traefik:
+                icon: traefik.png
+                href: https://doc.traefik.io/traefik/
+            - Authentik:
+                icon: authentik.png
+                href: https://goauthentik.io/docs/
+            - Prometheus:
+                icon: prometheus.png
+                href: https://prometheus.io/docs/
+
+  widgets.yaml: |
+    ---
+    - logo:
+        icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/kubernetes.png
+    
+    - search:
+        provider: duckduckgo
+        target: _blank
+    
+    - datetime:
+        text_size: xl
+        format:
+          timeStyle: short
+          dateStyle: short
+          hourCycle: h23
+
+    - kubernetes:
+        cluster:
+          show: true
+          cpu: true
+          memory: true
+          showLabel: true
+          label: "InfraFlux Cluster"
+        nodes:
+          show: true
+          cpu: true
+          memory: true
+          showLabel: true
+
+    - resources:
+        backend: resources
+        expanded: true
+        cpu: true
+        memory: true
+        disk: /
+        uptime: true
+
+    - openmeteo:
+        label: Weather
+        latitude: 40.7128
+        longitude: -74.0060
+        timezone: America/New_York
+        units: metric
+        cache: 5
+
+  kubernetes.yaml: |
+    ---
+    mode: cluster
+
+  docker.yaml: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homepage-enhanced
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: homepage-enhanced
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: homepage-enhanced
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: homepage-enhanced
+    spec:
+      serviceAccountName: homepage
+      containers:
+        - name: homepage
+          image: ghcr.io/gethomepage/homepage:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: HOMEPAGE_VAR_PROXMOX_PASSWORD
+              value: "change_me"
+            - name: HOMEPAGE_VAR_GRAFANA_PASSWORD
+              value: "admin"
+            - name: HOMEPAGE_VAR_NEXTCLOUD_PASSWORD
+              value: "change_me"
+            - name: HOMEPAGE_VAR_GITEA_PASSWORD
+              value: "change_me"
+            - name: HOMEPAGE_VAR_PAPERLESS_PASSWORD
+              value: "change_me"
+          volumeMounts:
+            - name: homepage-config
+              mountPath: /app/config
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: 300m
+            requests:
+              memory: 256Mi
+              cpu: 150m
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: homepage-config
+          configMap:
+            name: homepage-config-enhanced
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: homepage-enhanced
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: homepage-enhanced
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+  selector:
+    app.kubernetes.io/name: homepage-enhanced
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: homepage-enhanced
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: homepage-enhanced
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - home.local.cluster
+    - homepage.local.cluster
+    secretName: homepage-tls
+  rules:
+    - host: home.local.cluster
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: homepage-enhanced
+                port:
+                  number: 3000
+    - host: homepage.local.cluster
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: homepage-enhanced
+                port:
+                  number: 3000

@@ -1,0 +1,93 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  labels:
+    app.kubernetes.io/name: letsencrypt-prod
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  acme:
+    # Replace with your email address
+    email: admin@infraflux.local
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      # Secret resource that will be used to store the account's private key.
+      name: letsencrypt-prod
+    # Add a single challenge solver, HTTP01 using nginx
+    solvers:
+    - http01:
+        ingress:
+          ingressClassName: traefik
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+  labels:
+    app.kubernetes.io/name: letsencrypt-staging
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  acme:
+    # Replace with your email address
+    email: admin@infraflux.local
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      # Secret resource that will be used to store the account's private key.
+      name: letsencrypt-staging
+    # Add a single challenge solver, HTTP01 using nginx
+    solvers:
+    - http01:
+        ingress:
+          ingressClassName: traefik
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+  labels:
+    app.kubernetes.io/name: selfsigned-issuer
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: infraflux-ca
+  namespace: cert-manager
+  labels:
+    app.kubernetes.io/name: infraflux-ca
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  isCA: true
+  commonName: InfraFlux Internal CA
+  secretName: infraflux-ca-secret
+  duration: 43800h # 5 years
+  renewBefore: 8760h # 1 year
+  subject:
+    organizationalUnits:
+    - Infrastructure
+    organizations:
+    - InfraFlux
+    countries:
+    - US
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: infraflux-ca-issuer
+  labels:
+    app.kubernetes.io/name: infraflux-ca-issuer
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  ca:
+    secretName: infraflux-ca-secret
