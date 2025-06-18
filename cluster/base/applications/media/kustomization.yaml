@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: media-stack
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+resources:
+  - jellyfin/jellyfin.yaml
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: infraflux
+      app.kubernetes.io/managed-by: flux
+      app.kubernetes.io/component: media
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/stack: media
+
+images:
+  - name: jellyfin/jellyfin
+    newTag: "latest"
+
+# Environment-specific patches
+patchesStrategicMerge:
+  # Development environment uses smaller storage
+  - |-
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: media-storage
+      namespace: applications
+    spec:
+      resources:
+        requests:
+          storage: 100Gi  # Smaller for dev
+
+# Note: Configuration replacements can be added when cluster-config supports media_storage_size

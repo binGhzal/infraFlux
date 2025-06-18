@@ -10,6 +10,7 @@ resources:
   # Core Infrastructure
   - infrastructure/namespace.yaml
   - infrastructure/configmap.yaml
+  - infrastructure/gpu
   
   # Security Components
   - security/sealed-secrets.yaml
@@ -31,6 +32,9 @@ resources:
   # GitOps Components
   - gitops
   
+  # DNS Services  
+  - dns
+  
   # Backup & Recovery
   - backup/velero
   
@@ -44,6 +48,12 @@ resources:
   - applications/n8n
   - applications/code-server
   - applications/uptime-kuma
+  
+  # AI/ML Platform (conditionally included)
+  # - applications/ai-ml
+  
+  # Media Center Platform (conditionally included)  
+  # - applications/media
 
 labels:
   - includeSelectors: true
@@ -69,13 +79,5 @@ images:
 # patchesStrategicMerge:
 #   - patches/resource-limits.yaml
 
-# replacements:
-#   - source:
-#       kind: ConfigMap
-#       name: cluster-config
-#       fieldPath: data.cluster_domain
-#     targets:
-#       - select:
-#           kind: Ingress
-#         fieldPaths:
-#           - spec.rules.[name=*.local.cluster].host
+# Note: Dynamic configuration is handled by configure-apps.sh script
+# This ensures proper dependency management and avoids cross-namespace ConfigMap issues

@@ -1,0 +1,101 @@
+# Dynamic Ingress Template
+# This template is used to generate ingresses for applications
+# It supports both local and public domain access via Cloudflare
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: APP_NAME-ingress
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: APP_NAME
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+  annotations:
+    # Traefik configuration
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    
+    # External DNS for Cloudflare (only if public access enabled)
+    external-dns.alpha.kubernetes.io/target: "PUBLIC_IP"
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    
+    # Security headers
+    traefik.ingress.kubernetes.io/router.middlewares: |
+      applications-APP_NAME-headers@kubernetescrd,
+      applications-security-headers@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - APP_NAME.local.cluster
+        - APP_NAME.PUBLIC_DOMAIN  # Only if public access enabled
+      secretName: APP_NAME-tls
+  rules:
+    # Local access rule
+    - host: APP_NAME.local.cluster
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: APP_NAME
+                port:
+                  number: SERVICE_PORT
+    
+    # Public access rule (only if public access enabled)
+    - host: APP_NAME.PUBLIC_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: APP_NAME
+                port:
+                  number: SERVICE_PORT
+
+---
+# Security middleware template
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: APP_NAME-headers
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: APP_NAME
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Proto: "https"
+      X-Forwarded-Host: "APP_NAME.local.cluster"
+    customResponseHeaders:
+      X-Content-Type-Options: "nosniff"
+      X-Frame-Options: "SAMEORIGIN" 
+      X-XSS-Protection: "1; mode=block"
+      Referrer-Policy: "strict-origin-when-cross-origin"
+      Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+
+---
+# Global security headers middleware
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: security-headers
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  headers:
+    customResponseHeaders:
+      X-Content-Type-Options: "nosniff"
+      X-Frame-Options: "DENY"
+      X-XSS-Protection: "1; mode=block"
+      Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+      Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+      Referrer-Policy: "strict-origin-when-cross-origin"

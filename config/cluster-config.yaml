@@ -93,16 +93,33 @@ data:
   vpn_provider: "tailscale"         # Options: tailscale, wireguard, headscale
   enable_pihole: "false"            # Network-wide ad blocking
   enable_external_dns: "false"      # Automatic DNS record management
+  
+  # DNS & Public Access Configuration
+  dns_provider: "cloudflare"        # DNS provider for public access
+  cloudflare_email: ""              # Cloudflare account email
+  cloudflare_api_token: ""          # Cloudflare API token (from secrets)
+  public_domain: "example.com"      # Your public domain
+  enable_public_ingress: "false"    # Enable public internet access via Cloudflare
+  enable_local_ingress: "true"      # Enable local cluster access
 
   # Application Catalog
   enable_app_catalog: "false"       # Enable application templates
   default_app_categories: "security,monitoring"
   auto_create_ingress: "true"       # Automatically create ingress for apps
 
+  # AI/ML Platform
+  enable_ai_ml: "false"             # Enable AI/ML stack
+  enable_ollama: "false"            # Local LLM hosting
+  enable_open_webui: "false"        # ChatGPT-style interface
+  enable_jupyterhub: "false"        # Multi-user data science environment
+  ai_model_storage_size: "100Gi"    # Storage for AI models
+  
   # Development & DevOps Tools
   enable_gitops: "false"            # Enable ArgoCD/Flux
   enable_container_registry: "false" # Internal container registry
+  enable_harbor: "false"            # Enterprise container registry
   enable_ci_cd: "false"             # Woodpecker CI or similar
+  enable_code_server: "false"       # VS Code in browser
 
   # Productivity Applications
   enable_nextcloud: "false"         # File storage and collaboration
@@ -112,6 +129,16 @@ data:
   # Media & Entertainment
   enable_jellyfin: "false"          # Media streaming server
   enable_transmission: "false"      # BitTorrent client with VPN
+  enable_sonarr: "false"            # TV show management
+  enable_radarr: "false"            # Movie management
+  enable_prowlarr: "false"          # Indexer management
+  enable_immich: "false"            # Google Photos alternative
+  
+  # GPU & Hardware Acceleration
+  enable_gpu_support: "false"       # Enable GPU infrastructure
+  gpu_vendor: "nvidia"              # Options: nvidia, intel, amd
+  enable_intel_gpu: "true"          # Enable Intel Quick Sync Video
+  enable_nvidia_gpu: "false"        # Enable NVIDIA GPU support
 
   # Advanced Configuration
   enable_auto_updates: "true"

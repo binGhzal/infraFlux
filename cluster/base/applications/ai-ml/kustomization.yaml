@@ -1,0 +1,70 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: ai-ml-stack
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+resources:
+  - ollama/ollama.yaml
+  - open-webui/open-webui.yaml
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: infraflux
+      app.kubernetes.io/managed-by: flux
+      app.kubernetes.io/component: ai-ml
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/stack: ai-ml
+
+images:
+  - name: ollama/ollama
+    newTag: "latest"
+  - name: ghcr.io/open-webui/open-webui
+    newTag: "main"
+
+# Resource transformations for different environments
+patches:
+  # Production environment gets more resources
+  - target:
+      kind: Deployment
+      name: ollama
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 32Gi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 16Gi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 8000m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 4000m
+
+# Note: Dynamic configuration will be applied via external patches
+# ConfigMap replacements require the ConfigMap to exist in the same namespace or be global
+
+# Default conditional deployment patches  
+patches:
+  # Default to disabled state - will be overridden by configure-apps.sh
+  - target:
+      kind: Deployment
+      name: ollama
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  - target:
+      kind: Deployment
+      name: open-webui
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0

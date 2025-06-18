@@ -1,0 +1,192 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ollama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ollama
+    spec:
+      # Use GPU runtime class for hardware acceleration
+      runtimeClassName: nvidia
+      serviceAccountName: gpu-user
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports:
+            - containerPort: 11434
+              name: http
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:11434"
+            - name: OLLAMA_ORIGINS
+              value: "*"
+            - name: OLLAMA_MODELS
+              value: "/root/.ollama/models"
+            - name: OLLAMA_KEEP_ALIVE
+              value: "24h"
+            - name: OLLAMA_MAX_LOADED_MODELS
+              value: "3"
+            - name: OLLAMA_NUM_PARALLEL
+              value: "4"
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+          resources:
+            limits:
+              memory: 16Gi
+              cpu: 4000m
+              # GPU support (now available with GPU infrastructure)
+              nvidia.com/gpu: 1
+            requests:
+              memory: 8Gi
+              cpu: 2000m
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          startupProbe:
+            httpGet:
+              path: /api/tags
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 12
+      volumes:
+        - name: ollama-data
+          persistentVolumeClaim:
+            claimName: ollama-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 11434
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: ollama
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-data
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi  # Large storage for LLM models
+  storageClassName: local-path
+
+---
+# Job to download initial models
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-model-loader
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: ollama-model-loader
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ollama-model-loader
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: model-loader
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Ollama to be ready..."
+              while ! curl -f http://ollama:11434/api/tags; do
+                echo "Ollama not ready, waiting..."
+                sleep 10
+              done
+              
+              echo "Downloading essential models..."
+              
+              # Download Llama 3.2 3B (efficient for homelab)
+              curl -X POST http://ollama:11434/api/pull \
+                -H "Content-Type: application/json" \
+                -d '{"name": "llama3.2:3b"}'
+              
+              # Download Codellama for coding assistance
+              curl -X POST http://ollama:11434/api/pull \
+                -H "Content-Type: application/json" \
+                -d '{"name": "codellama:7b"}'
+              
+              # Download Mistral for general tasks
+              curl -X POST http://ollama:11434/api/pull \
+                -H "Content-Type: application/json" \
+                -d '{"name": "mistral:7b"}'
+              
+              echo "Model download completed!"
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: 200m
+            requests:
+              memory: 128Mi
+              cpu: 100m
+
+---
+# ServiceMonitor for Prometheus monitoring
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ollama
+  namespace: applications
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ollama
+  endpoints:
+    - port: http
+      interval: 30s
+      path: /metrics

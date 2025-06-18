@@ -1,0 +1,69 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: gpu-infrastructure
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+resources:
+  - nvidia-operator.yaml
+  - runtime-classes.yaml
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: infraflux
+      app.kubernetes.io/managed-by: flux
+      app.kubernetes.io/component: gpu-infrastructure
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/stack: gpu-infrastructure
+
+images:
+  - name: nvcr.io/nvidia/k8s-device-plugin
+    newTag: "v0.14.5"
+  - name: intel/intel-gpu-plugin
+    newTag: "0.27.1"
+  - name: k8s.gcr.io/nfd/node-feature-discovery
+    newTag: "v0.14.2"
+
+# Environment-specific patches
+patches:
+  # Development environment may not have GPUs
+  - target:
+      kind: Deployment
+      name: nvidia-device-plugin
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0  # Disable in dev if no GPUs
+  
+  # Production environment configuration
+  - target:
+      kind: DaemonSet
+      name: intel-gpu-plugin
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/nodeSelector
+        value:
+          kubernetes.io/arch: amd64
+          # Add when GPU detection is working
+          # feature.node.kubernetes.io/pci-0300_8086.present: "true"
+
+# Resource limits handled by runtime classes
+
+# Note: Enable GPU resources in production
+# replacements:
+#   - source:
+#       kind: ConfigMap
+#       name: cluster-config
+#       fieldPath: data.enable_gpu_support
+#     targets:
+#       - select:
+#           kind: Deployment
+#           name: nvidia-device-plugin
+#         fieldPaths:
+#           - spec.replicas

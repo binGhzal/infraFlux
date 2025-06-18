@@ -1,0 +1,434 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nvidia-device-plugin
+  namespace: kube-system  
+  labels:
+    app.kubernetes.io/name: nvidia-device-plugin
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+    app.kubernetes.io/component: gpu-infrastructure
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nvidia-device-plugin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nvidia-device-plugin
+    spec:
+      # Tolerations for running on all nodes including control plane
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      # Node selector to only run on nodes with NVIDIA GPUs
+      nodeSelector:
+        accelerator: nvidia
+      # Host network and privileged for hardware access
+      hostNetwork: true
+      hostPID: true
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+      containers:
+        - name: nvidia-device-plugin
+          image: nvcr.io/nvidia/k8s-device-plugin:v0.14.5
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: PASS_DEVICE_SPECS
+              value: "true"
+            - name: FAIL_ON_INIT_ERROR
+              value: "false"
+            - name: DEVICE_LIST_STRATEGY
+              value: envvar
+            - name: DEVICE_ID_STRATEGY
+              value: uuid
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: all
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "compute,utility,video"
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: dev-dir
+              mountPath: /dev
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+            limits:
+              cpu: 50m
+              memory: 100Mi
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: dev-dir
+          hostPath:
+            path: /dev
+
+---  
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nvidia-device-plugin
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: nvidia-device-plugin
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nvidia-device-plugin
+  labels:
+    app.kubernetes.io/name: nvidia-device-plugin
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes/status"]
+    verbs: ["patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nvidia-device-plugin
+  labels:
+    app.kubernetes.io/name: nvidia-device-plugin
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nvidia-device-plugin
+subjects:
+  - kind: ServiceAccount
+    name: nvidia-device-plugin
+    namespace: kube-system
+
+---
+# Intel GPU Device Plugin for Intel Quick Sync Video
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: intel-gpu-plugin
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: intel-gpu-plugin
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+    app.kubernetes.io/component: gpu-infrastructure
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: intel-gpu-plugin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: intel-gpu-plugin
+    spec:
+      # Tolerations for running on all nodes
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      # Node selector for Intel GPUs (most VMs will have this)
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      # Host access for GPU devices
+      hostNetwork: true
+      containers:
+        - name: intel-gpu-plugin
+          image: intel/intel-gpu-plugin:0.27.1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            readOnlyRootFilesystem: true
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: devfs
+              mountPath: /dev/dri
+              readOnly: true
+            - name: sysfs
+              mountPath: /sys/class/drm
+              readOnly: true
+            - name: kubeletsockets
+              mountPath: /var/lib/kubelet/device-plugins
+          resources:
+            requests:
+              cpu: 10m
+              memory: 20Mi
+            limits:
+              cpu: 300m
+              memory: 300Mi
+      volumes:
+        - name: devfs
+          hostPath:
+            path: /dev/dri
+        - name: sysfs
+          hostPath:
+            path: /sys/class/drm
+        - name: kubeletsockets
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+
+---
+# Node Feature Discovery for automatic hardware detection
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-feature-discovery-worker
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: node-feature-discovery
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+    app.kubernetes.io/component: gpu-infrastructure
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-feature-discovery-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: node-feature-discovery-worker
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      serviceAccount: node-feature-discovery
+      containers:
+        - name: worker
+          image: k8s.gcr.io/nfd/node-feature-discovery:v0.14.2
+          imagePullPolicy: IfNotPresent
+          command:
+            - "nfd-worker"
+          args:
+            - "--sleep-interval=60s"
+            - "--server=nfd-master:8080"
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+          volumeMounts:
+            - name: host-boot
+              mountPath: "/host-boot"
+              readOnly: true
+            - name: host-os-release
+              mountPath: "/host-etc/os-release"
+              readOnly: true
+            - name: host-sys
+              mountPath: "/host-sys"
+              readOnly: true
+            - name: host-usr-lib
+              mountPath: "/host-usr/lib"
+              readOnly: true
+            - name: source-d
+              mountPath: "/etc/kubernetes/node-feature-discovery/source.d/"
+              readOnly: true
+            - name: features-d
+              mountPath: "/etc/kubernetes/node-feature-discovery/features.d/"
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: host-boot
+          hostPath:
+            path: "/boot"
+        - name: host-os-release
+          hostPath:
+            path: "/etc/os-release"
+        - name: host-sys
+          hostPath:
+            path: "/sys"
+        - name: host-usr-lib
+          hostPath:
+            path: "/usr/lib"
+        - name: source-d
+          hostPath:
+            path: "/etc/kubernetes/node-feature-discovery/source.d/"
+        - name: features-d
+          hostPath:
+            path: "/etc/kubernetes/node-feature-discovery/features.d/"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-feature-discovery
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: node-feature-discovery
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-feature-discovery
+  labels:
+    app.kubernetes.io/name: node-feature-discovery
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "patch", "update", "list"]
+  - apiGroups: [""]
+    resources: ["nodes/status"]
+    verbs: ["patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-feature-discovery
+  labels:
+    app.kubernetes.io/name: node-feature-discovery
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: node-feature-discovery
+subjects:
+  - kind: ServiceAccount
+    name: node-feature-discovery
+    namespace: kube-system
+
+---
+# NFD Master Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfd-master
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: nfd-master
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+    app.kubernetes.io/component: gpu-infrastructure
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nfd-master
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nfd-master
+    spec:
+      serviceAccount: node-feature-discovery
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/master
+                    operator: Exists
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: Exists
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: master
+          image: k8s.gcr.io/nfd/node-feature-discovery:v0.14.2
+          imagePullPolicy: IfNotPresent
+          command:
+            - "nfd-master"
+          ports:
+            - containerPort: 8080
+              name: grpc
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nfd-master
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: nfd-master
+    app.kubernetes.io/part-of: infraflux
+    app.kubernetes.io/managed-by: flux
+spec:
+  selector:
+    app.kubernetes.io/name: nfd-master
+  ports:
+    - port: 8080
+      targetPort: grpc
+      name: grpc
+  type: ClusterIP
