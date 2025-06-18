@@ -26,9 +26,50 @@ Transform InfraFlux into a best-in-class homelab Kubernetes deployment tool that
 - [!] **Authentik SSO Integration**: YAML manifests exist but **NOT integrated** into base Kustomize structure
 - [!] **GitOps Integration**: Playbook exists but **Flux CLI not installed** or configured
 
-### 📋 HIGH PRIORITY FIXES REQUIRED
+## 🚨 PHASE 1: Fix Current Implementations (CRITICAL)
 
-## 🏗️ Phase 1: Core Infrastructure Enhancement (High Priority)
+### 1.1 Fix Kustomize Base Structure
+
+**Status**: Pending | **Priority**: CRITICAL | **ETA**: 30 minutes
+**Issue**: base/kustomization.yaml references 9 files that don't exist
+
+**Subtasks**:
+
+- [ ] Create infrastructure/namespace.yaml
+- [ ] Create infrastructure/configmap.yaml
+- [ ] Create security/sealed-secrets.yaml
+- [ ] Create security/rbac.yaml
+- [ ] Create monitoring/prometheus.yaml
+- [ ] Create monitoring/grafana.yaml
+- [ ] Create applications/authelia.yaml
+- [ ] Create applications/homepage.yaml
+- [ ] Create patches/resource-limits.yaml
+
+### 1.2 Complete Authentik Integration
+
+**Status**: Pending | **Priority**: HIGH | **ETA**: 45 minutes
+**Issue**: Authentik manifests exist but not integrated into base structure
+
+**Subtasks**:
+
+- [ ] Update authentik kustomization.yaml to match base expectations
+- [ ] Create sealed secrets for authentik database credentials
+- [ ] Test authentik integration with `kustomize build cluster/base`
+- [ ] Verify all authentik components are properly referenced
+
+### 1.3 Fix GitOps Structure
+
+**Status**: Pending | **Priority**: HIGH | **ETA**: 30 minutes
+**Issue**: GitOps playbook exists but Flux CLI not actually installed
+
+**Subtasks**:
+
+- [ ] Install Flux CLI components and CRDs
+- [ ] Create GitRepository and Kustomization resources
+- [ ] Test GitOps deployment flow
+- [ ] Verify kubeseal integration works
+
+## 🏗️ PHASE 2: Core Infrastructure Enhancement (HIGH)
 
 ### 1.1 Authentik SSO Integration
 
@@ -86,25 +127,20 @@ Transform InfraFlux into a best-in-class homelab Kubernetes deployment tool that
 
 **Status**: Pending | **Priority**: Medium | **ETA**: 2-3 hours
 
-- [ ] Nextcloud with Redis and PostgreSQL
-- [ ] Vaultwarden password manager
 - [ ] Homepage dashboard with service discovery
-- [ ] Paperless-ngx document management
 
 ### 2.2 Development Tools
 
 **Status**: Pending | **Priority**: Medium | **ETA**: 2-3 hours
 
-- [ ] Gitea self-hosted Git service
 - [ ] Container registry (Harbor/Docker Registry)
-- [ ] Woodpecker CI/CD
 - [ ] Code-Server web IDE
 
 ### 2.3 Media & Entertainment
 
 **Status**: Pending | **Priority**: Low | **ETA**: 1-2 hours
 
-- [ ] Jellyfin media server
+- [ ] plex media server
 - [ ] Transmission with VPN
 - [ ] Prowlarr/Radarr/Sonarr automation
 
@@ -121,11 +157,11 @@ Transform InfraFlux into a best-in-class homelab Kubernetes deployment tool that
 - [ ] Automated restore procedures
 - [ ] Backup validation and testing
 
-### 3.2 ArgoCD GitOps Enhancement
+### 3.2 flux cli GitOps Enhancement
 
 **Status**: Pending | **Priority**: Medium | **ETA**: 1-2 hours
 
-- [ ] ArgoCD deployment and configuration
+- [ ] flux cli deployment and configuration
 - [ ] ApplicationSets for multi-app management
 - [ ] Git repository automation
 - [ ] Progressive deployment strategies
@@ -157,7 +193,6 @@ Transform InfraFlux into a best-in-class homelab Kubernetes deployment tool that
 **Status**: Pending | **Priority**: Low | **ETA**: 1-2 hours
 
 - [ ] Comprehensive README updates
-- [ ] Video tutorials and walkthroughs
 - [ ] Troubleshooting guides
 - [ ] Best practices documentation
 
