@@ -16,7 +16,7 @@ storage:
         size: largest
       type: disk
       wipe: superblock-recursive
-      
+
     # partition 0, for /efi
     - device: disk-os
       size: 500M
@@ -72,7 +72,7 @@ storage:
       type: partition
       wipe: superblock
 
-    # Create the VG on the PV 
+    # Create the VG on the PV
     - name: vg0
       devices:
       - partition-2
@@ -86,16 +86,16 @@ storage:
       preserve: false
       size: 2G
       type: lvm_partition
-      volgroup: lvm_volgroup-0 
+      volgroup: lvm_volgroup-0
     - fstype: ext4
       id: format-tmp
       preserve: false
       type: format
-      volume: lvm_partition-tmp          
+      volume: lvm_partition-tmp
     - device: format-tmp
       id: mount-tmp
       path: /tmp
-      type: mount  
+      type: mount
       options: 'rw,nosuid,nodev,relatime,noexec'
 
     # Create /var partition (150GB)
@@ -104,7 +104,7 @@ storage:
       preserve: false
       size: 150G
       type: lvm_partition
-      volgroup: lvm_volgroup-0        
+      volgroup: lvm_volgroup-0
     - fstype: ext4
       id: format-var
       preserve: false
@@ -113,7 +113,7 @@ storage:
     - device: format-var
       id: mount-var
       path: /var
-      type: mount    
+      type: mount
       options: 'rw,relatime,data=ordered'
 
     # Create /var/log partition (4GB)
@@ -122,16 +122,16 @@ storage:
       preserve: false
       size: 4G
       type: lvm_partition
-      volgroup: lvm_volgroup-0        
+      volgroup: lvm_volgroup-0
     - fstype: ext4
       id: format-var-log
       preserve: false
       type: format
-      volume: lvm_partition-var-log            
+      volume: lvm_partition-var-log
     - device: format-var-log
       id: mount-var-log
       path: /var/log
-      type: mount  
+      type: mount
       options: 'rw,nosuid,nodev,noexec,relatime'
 
     # Create /var/log/audit partition (100M)
@@ -140,7 +140,7 @@ storage:
       preserve: false
       size: 100M
       type: lvm_partition
-      volgroup: lvm_volgroup-0        
+      volgroup: lvm_volgroup-0
     - fstype: ext4
       id: format-var-log-audit
       preserve: false
@@ -149,8 +149,8 @@ storage:
     - device: format-var-log-audit
       id: mount-var-log-audit
       path: /var/log/audit
-      type: mount       
-      options: 'rw,relatime,data=ordered'        
+      type: mount
+      options: 'rw,relatime,data=ordered'
 
     # Create /home partition (100M)
     - id: lvm_partition-home
@@ -158,7 +158,7 @@ storage:
       preserve: false
       size: 100M
       type: lvm_partition
-      volgroup: lvm_volgroup-0        
+      volgroup: lvm_volgroup-0
     - fstype: ext4
       id: format-home
       preserve: false
@@ -167,7 +167,7 @@ storage:
     - device: format-home
       id: mount-home
       path: /home
-      type: mount 
+      type: mount
       options: 'rw,nodev,relatime,data=ordered'
 
     # Create a 5GB root partition
@@ -176,7 +176,7 @@ storage:
       preserve: false
       size: 5G
       type: lvm_partition
-      volgroup: lvm_volgroup-0        
+      volgroup: lvm_volgroup-0
     - fstype: ext4
       id: format-root
       preserve: false
@@ -185,4 +185,4 @@ storage:
     - device: format-root
       id: mount-root
       path: /
-      type: mount     
+      type: mount
