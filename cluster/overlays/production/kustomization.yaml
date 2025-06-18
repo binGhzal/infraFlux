@@ -6,15 +6,39 @@ metadata:
   annotations:
     config.kubernetes.io/local-config: "true"
 
-namespace: infraflux-system
+# namespace: infraflux-system  # Commented out to avoid conflicts
 
 resources:
   - ../../base
 
-patchesStrategicMerge:
-  - patches/production-resources.yaml
-  - patches/production-ingress.yaml
-  - patches/production-security.yaml
+patches:
+  # Simple resource patches for production
+  - target:
+      kind: Deployment
+      name: grafana
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+  - target:
+      kind: Deployment
+      name: authentik-server
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            memory: "1Gi"
+            cpu: "300m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
 
 configMapGenerator:
   - name: cluster-config
@@ -32,16 +56,18 @@ secretGenerator:
     options:
       disableNameSuffixHash: true
 
-commonLabels:
-  environment: production
-  cluster: infraflux-prod
+labels:
+  - includeSelectors: true
+    pairs:
+      environment: production
+      cluster: infraflux-prod
 
 replicas:
-  - name: prometheus
-    count: 2
   - name: grafana
     count: 2
-  - name: authelia
+  - name: authentik-server
+    count: 3
+  - name: authentik-worker
     count: 2
 
 images:
@@ -51,39 +77,5 @@ images:
     newTag: "10.0.0"
   - name: prom/prometheus
     newTag: "v2.47.0"
-
-patches:
-  # Enable high availability for production
-  - target:
-      kind: Deployment
-      name: prometheus
-    patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 2
-      - op: add
-        path: /spec/template/spec/affinity
-        value:
-          podAntiAffinity:
-            preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: prometheus
-                topologyKey: kubernetes.io/hostname
-  
-  # Production resource limits
-  - target:
-      kind: Deployment
-      name: grafana
-    patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/0/resources
-        value:
-          requests:
-            memory: "512Mi"
-            cpu: "200m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
+  - name: authentik/authentik
+    newTag: "2023.10.4"

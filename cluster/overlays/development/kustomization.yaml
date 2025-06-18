@@ -6,44 +6,13 @@ metadata:
   annotations:
     config.kubernetes.io/local-config: "true"
 
-namespace: infraflux-dev
+# namespace: infraflux-dev  # Commented out to avoid conflicts
 
 resources:
   - ../../base
 
-patchesStrategicMerge:
-  - patches/development-resources.yaml
-  - patches/development-ingress.yaml
-
-configMapGenerator:
-  - name: cluster-config
-    files:
-      - config=cluster-config-dev.yaml
-    options:
-      disableNameSuffixHash: true
-
-commonLabels:
-  environment: development
-  cluster: infraflux-dev
-
-replicas:
-  - name: prometheus
-    count: 1
-  - name: grafana
-    count: 1
-  - name: authelia
-    count: 1
-
-images:
-  - name: authelia/authelia
-    newTag: "4.38.0"
-  - name: grafana/grafana
-    newTag: "10.0.0"
-  - name: prom/prometheus
-    newTag: "v2.47.0"
-
 patches:
-  # Development resource limits (smaller)
+  # Simple resource patches for development
   - target:
       kind: Deployment
       name: grafana
@@ -57,14 +26,47 @@ patches:
           limits:
             memory: "256Mi"
             cpu: "100m"
-  
-  # Enable debug logging for development
   - target:
       kind: Deployment
-      name: authelia
+      name: authentik-server
     patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
         value:
-          name: AUTHELIA_LOG_LEVEL
-          value: "debug"
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+
+configMapGenerator:
+  - name: cluster-config
+    files:
+      - config=cluster-config-dev.yaml
+    options:
+      disableNameSuffixHash: true
+
+labels:
+  - includeSelectors: true
+    pairs:
+      environment: development
+      cluster: infraflux-dev
+
+replicas:
+  - name: grafana
+    count: 1
+  - name: authentik-server
+    count: 1
+  - name: authentik-worker
+    count: 1
+
+images:
+  - name: authelia/authelia
+    newTag: "4.38.0"
+  - name: grafana/grafana
+    newTag: "10.0.0"
+  - name: prom/prometheus
+    newTag: "v2.47.0"
+  - name: authentik/authentik
+    newTag: "2023.10.4"
