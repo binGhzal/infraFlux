@@ -1,84 +1,34 @@
-- hosts: proxmox_servers:proxmox_vms
-  gather_facts: no # because the nodes aren't up yet
+---
+# Main deployment playbook for infraFlux
+# This orchestrates the entire deployment process through modular task playbooks
 
-  tasks: 
-  - { import_role: { name: proxmox }, tags: [ proxmox ] }
-  - { import_role: { name: proxmox-controller }, tags: [ proxmox-controller ] }  
+# Phase 1: Infrastructure Setup (Proxmox VMs)
+- import_playbook: playbooks/infrastructure.yml
+  when:
+    - "'proxmox_servers' in groups"
+    - "'proxmox_vms' in groups"
 
-- hosts: k3s_servers
-  gather_facts: yes
-  become: yes
+# Phase 2: Node Preparation
+- import_playbook: playbooks/node-preparation.yml
 
-  vars:
-      local_home: "{{ lookup('env','HOME') }}"
-      haproxy_k8s_backends: |
-            {% for master in groups["k3s_servers"] %}
-            server k8s-api-{{ hostvars[master]["inventory_hostname_short"]}} {{ cluster_nic_class_c }}.{{ hostvars[master]["ansible_host"].split(".")[3] }}:6443 check
-            {% endfor %} 
+# Phase 3: K3s Cluster Setup (Masters)
+- import_playbook: playbooks/k3s-cluster.yml
+  when: "'k3s_servers' in groups"
 
-  # roles:
-  # - role: artis3n.tailscale
-  #   vars:
-  #     # Example pulling the API key from the env vars on the host running Ansible
-  #     tailscale_authkey: "{{ tailscale_key }}"
-  #     tailscale_args: "--accept-dns=false" # don't want tailscale messing up our kube dns
+# Phase 4: Controllers Setup
+- import_playbook: playbooks/controllers.yml
+  when: "'controllers' in groups"
 
-  tasks:
-  - { import_role: { name: node }, tags: [ node ] }
-  - { import_role: { name: haproxy }, tags: [ haproxy ], when: "inventory_hostname in groups['haproxy_servers']" }
-  - { import_role: { name: keepalived }, tags: [ keepalived ], when: "inventory_hostname in groups['haproxy_servers']" }
-  - { import_role: { name: k3s-server }, tags: [ k3s-server ] }
-  - { import_role: { name: oidc }, tags: [ oidc], when: "groups['k3s_servers'][0] == inventory_hostname" }
-  - { import_role: { name: backup }, tags: [ backup ] }
+# Phase 5: Worker Nodes Setup
+- import_playbook: playbooks/workers.yml
+  when:
+    - "('k3s_agents' in groups) or ('k3s_contended' in groups) or ('k3s_dedicated' in groups)"
 
+# Phase 6: Kubernetes Applications and Services
+- import_playbook: playbooks/applications.yml
+  when: "'controllers' in groups"
 
-# We need this to get flux in before k3s-agent
-- hosts: controllers
-  gather_facts: yes
-
-  tasks: 
-
-  - name: set host architecture
-    set_fact:
-      host_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
-    tags: always
-
-  - { import_role: { name: controller }, tags: [ controller ] }
-  - { import_role: { name: cilium-pre-flux }, tags: [ cilium-pre-flux ] } 
-
-# Now install workers
-- hosts: k3s_agents,k3s_contended,k3s_dedicated
-  gather_facts: yes
-  become: yes
-
-  # roles:
-  # - role: artis3n.tailscale
-  #   vars:
-  #     # Example pulling the API key from the env vars on the host running Ansible
-  #     tailscale_authkey: "{{ tailscale_key }}"
-  #     tailscale_args: "--accept-dns=false" # don't want tailscale messing up our kube dns  
-
-  tasks: 
-  - { import_role: { name: node }, tags: [ node ] }
-  - { import_role: { name: transcode-killer }, tags: [ transcode-killer ] }  
-  - { import_role: { name: k3s-agent }, tags: [ k3s-agent ] }
-  # - { import_role: { name: kata-containers }, tags: [ kata-containers ] }
-
-
-- hosts: controllers
-  gather_facts: yes
-
-  tasks: 
-
-  - name: set host architecture
-    set_fact:
-      host_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
-    tags: always
-
-  - { import_role: { name: sealed-secrets }, tags: [ sealed-secrets ] }  
-  - { import_role: { name: velero }, tags: [ velero ] }
-  - { import_role: { name: flux }, tags: [ flux ] }  
-  - { import_role: { name: grafana-dashboards }, tags: [ grafana-dashboards ] }
-  - { import_role: { name: authentik }, tags: [ authentik ] }
-  - { import_role: { name: tetragon }, tags: [ tetragon ] }
+# Special Case: Speedtester Nodes
+- import_playbook: playbooks/speedtesters.yml
+  when: "'speedtesters' in groups"
 

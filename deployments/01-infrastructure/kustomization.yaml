@@ -1,0 +1,66 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: phase-01-infrastructure
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: infraflux-source
+  path: "./deployments/01-infrastructure"
+  prune: true
+  wait: true
+  timeout: 20m
+  postBuild:
+    substitute:
+      PROXMOX_HOST: "${PROXMOX_HOST}"
+      VM_TEMPLATE_ID: "${VM_TEMPLATE_ID}"
+      CONTROLLER_COUNT: "${CONTROLLER_COUNT}"
+      WORKER_COUNT: "${WORKER_COUNT}"
+---
+apiVersion: v1
+kind: Job
+metadata:
+  name: create-vms
+  namespace: flux-system
+spec:
+  template:
+    spec:
+      containers:
+        - name: vm-creator
+          image: quay.io/ansible/ansible-runner:latest
+          command: [ "/bin/bash" ]
+          args:
+            - -c
+            - |
+              # Auto-detect network configuration
+              export NETWORK_CIDR=$(ip route | grep -E "192\.168\.|10\.|172\." | head -1 | awk '{print $1}')
+              export GATEWAY_IP=$(ip route | grep default | awk '{print $3}')
+
+              # Create VMs on Proxmox
+              ansible-playbook -i localhost, /deployments/01-infrastructure/create-vms.yml \
+                -e proxmox_host=${PROXMOX_HOST} \
+                -e vm_template_id=${VM_TEMPLATE_ID} \
+                -e controller_count=${CONTROLLER_COUNT} \
+                -e worker_count=${WORKER_COUNT} \
+                -e network_cidr=${NETWORK_CIDR} \
+                -e gateway_ip=${GATEWAY_IP}
+          volumeMounts:
+            - name: deployments
+              mountPath: /deployments
+            - name: ssh-key
+              mountPath: /root/.ssh
+              readOnly: true
+          env:
+            - name: ANSIBLE_HOST_KEY_CHECKING
+              value: "False"
+      volumes:
+        - name: deployments
+          configMap:
+            name: deployment-scripts
+        - name: ssh-key
+          secret:
+            name: ssh-private-key
+            defaultMode: 600
+      restartPolicy: OnFailure

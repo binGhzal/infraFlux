@@ -1,0 +1,60 @@
+# InfraFlux Cluster Configuration
+# This file defines your entire infrastructure deployment
+# Edit the values below and Flux will automatically deploy your cluster
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infraflux-config
+  namespace: flux-system
+data:
+  # Cluster Configuration
+  cluster_name: "infraflux-cluster"
+  cluster_domain: "cluster.local"
+
+  # Network Configuration (Auto-detected or manually specified)
+  network_cidr: "auto" # Set to "auto" for auto-detection or specify like "192.168.1.0/24"
+  service_cidr: "10.96.0.0/12"
+  pod_cidr: "10.244.0.0/16"
+
+  # Proxmox Configuration
+  proxmox_host: "proxmox.example.com"
+  proxmox_user: "root@pam"
+  proxmox_node: "pve"
+  proxmox_storage: "local-lvm"
+
+  # VM Template Configuration
+  vm_template_id: "9000"
+  vm_template_name: "ubuntu-24.04-template"
+
+  # Node Configuration
+  controller_count: "3"
+  worker_count: "3"
+  vm_memory: "4096"
+  vm_cores: "2"
+  vm_disk_size: "20G"
+
+  # K3s Configuration
+  k3s_version: "v1.28.5+k3s1"
+  k3s_cluster_init: "true"
+  k3s_disable_servicelb: "true"
+  k3s_disable_traefik: "true"
+
+  # Security Configuration
+  disable_swap: "true"
+  enable_firewall: "true"
+  ssh_key_path: "~/.ssh/id_rsa.pub"
+
+  # Application Configuration
+  install_cilium: "true"
+  install_metallb: "true"
+  install_ingress_nginx: "true"
+  install_cert_manager: "true"
+  install_monitoring: "true"
+  install_logging: "false"
+
+  # Advanced Configuration
+  enable_backup: "true"
+  backup_schedule: "0 2 * * *"
+  enable_auto_updates: "true"
+  enable_sealed_secrets: "true"

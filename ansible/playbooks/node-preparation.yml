@@ -1,0 +1,35 @@
+---
+# Node Preparation - Basic node setup and configuration
+# This playbook handles the initial setup of all nodes regardless of their role
+
+- hosts: k3s_servers,k3s_agents,k3s_contended,k3s_dedicated,controllers
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    # Use different node setup based on provider/environment
+    - name: Setup nodes for CrunchBits environment
+      import_role:
+        name: node-crunchbits
+      tags: [ node-crunchbits ]
+      when: "'crunchbits' in group_names or 'public_hosts' in groups"
+
+    - name: Setup standard nodes
+      import_role:
+        name: node
+      tags: [ node ]
+      when: "'crunchbits' not in group_names and 'public_hosts' not in groups"
+
+# Special setup for public hosts (CrunchBits)
+- hosts: public_hosts
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Setup Tailscale on public hosts
+      import_role:
+        name: artis3n.tailscale
+      vars:
+        tailscale_authkey: "{{ tailscale_key }}"
+        tailscale_args: "--accept-dns=false"
+      tags: [ tailscale ]
+      when: tailscale_key is defined

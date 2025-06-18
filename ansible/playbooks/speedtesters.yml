@@ -1,12 +1,17 @@
+---
+# Speedtester Nodes Setup
+# This playbook handles the setup of speedtester nodes with nginx and SSL
+
 - hosts: speedtesters
   become: yes
+  gather_facts: yes
 
   vars:
     certbot_admin_email: davidy@funkypenguin.co.nz
     certbot_auto_renew_user: root
     certbot_create_if_missing: true
     certbot_create_standalone_stop_services: []
-    certbot_create_extra_args: 
+    certbot_create_extra_args:
     certbot_certs:
       - domains:
           - "{{ inventory_hostname }}"
@@ -30,16 +35,20 @@
               proxy_set_header X-Real-IP $remote_addr;
               proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
               proxy_set_header X-Forwarded-Proto $scheme;
-          }          
+          }
 
   pre_tasks:
-    - name: Update apt cache.
-      apt: update_cache=true cache_valid_time=600
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 600
       when: ansible_os_family == 'Debian'
       changed_when: false
 
-    - name: Install cron (Debian).
-      apt: name=cron state=present
+    - name: Install cron (Debian)
+      apt:
+        name: cron
+        state: present
       when: ansible_os_family == 'Debian'
 
   roles:
@@ -47,12 +56,12 @@
     - geerlingguy.nginx
 
   tasks:
-    - name: Flush handlers in case any configs have changed.
+    - name: Flush handlers in case any configs have changed
       meta: flush_handlers
 
-    - name: Test secure connection to SSL domain.
+    - name: Test secure connection to SSL domain
       uri:
         url: https://{{ inventory_hostname }}
         status_code: 200
       delegate_to: localhost
-      become: false    
+      become: false

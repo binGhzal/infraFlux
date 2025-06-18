@@ -1,0 +1,23 @@
+---
+# Controllers Setup - Controller nodes configuration
+# This playbook sets up controller nodes and prepares for Kubernetes applications
+
+- hosts: controllers
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: Set host architecture
+      set_fact:
+        host_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
+      tags: always
+
+    - name: Setup controller node
+      import_role:
+        name: controller
+      tags: [ controller ]
+
+    - name: Install Cilium CNI (pre-flux)
+      import_role:
+        name: cilium-pre-flux
+      tags: [ cilium-pre-flux ]

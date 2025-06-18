@@ -1,0 +1,22 @@
+[controllers]
+{% for i in controllers %}
+{{ vm_base_name }}-controller-{{ i }} ansible_host={{ start_ip | ipmath(i) }} ansible_user=ubuntu
+{% endfor %}
+
+[workers]
+{% for i in workers %}
+{{ vm_base_name }}-worker-{{ i }} ansible_host={{ start_ip | ipmath((controller_count | int) + i) }} ansible_user=ubuntu
+{% endfor %}
+
+[k3s_cluster:children]
+controllers
+workers
+
+[k3s_cluster:vars]
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_ssh_private_key_file={{ ssh_private_key_path | default('~/.ssh/id_rsa') }}
+k3s_version={{ k3s_version | default('v1.28.5+k3s1') }}
+k3s_token={{ k3s_token | default(lookup('password', '/tmp/k3s_token chars=ascii_letters,digits length=32')) }}
+cluster_cidr={{ pod_cidr | default('10.244.0.0/16') }}
+service_cidr={{ service_cidr | default('10.96.0.0/12') }}
+cluster_dns={{ cluster_dns | default('10.96.0.10') }}

@@ -1,0 +1,152 @@
+---
+- name: Setup K3s Kubernetes Cluster
+  hosts: k3s_cluster
+  become: yes
+  gather_facts: yes
+  vars:
+    k3s_server_ip: "{{ hostvars[groups['controllers'][0]]['ansible_host'] }}"
+
+  tasks:
+    - name: Update system packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+        autoremove: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install required packages
+      package:
+        name:
+          - curl
+          - wget
+          - git
+          - htop
+          - net-tools
+          - software-properties-common
+        state: present
+
+    - name: Disable swap
+      shell: |
+        swapoff -a
+        sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+      when: disable_swap | default(true) | bool
+
+    - name: Configure kernel modules
+      modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - br_netfilter
+        - overlay
+
+    - name: Make kernel modules persistent
+      lineinfile:
+        path: /etc/modules-load.d/k3s.conf
+        line: "{{ item }}"
+        create: yes
+      loop:
+        - br_netfilter
+        - overlay
+
+    - name: Configure sysctl for Kubernetes
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { key: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+        - { key: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+        - { key: 'net.ipv4.ip_forward', value: '1' }
+
+- name: Install K3s on controllers
+  hosts: controllers
+  become: yes
+  serial: 1
+  tasks:
+    - name: Download K3s installer
+      get_url:
+        url: https://get.k3s.io
+        dest: /tmp/k3s-install.sh
+        mode: '0755'
+
+    - name: Install first K3s server
+      shell: |
+        INSTALL_K3S_VERSION="{{ k3s_version }}" \
+        K3S_TOKEN="{{ k3s_token }}" \
+        sh /tmp/k3s-install.sh server \
+        --cluster-init \
+        --disable servicelb \
+        --disable traefik \
+        --cluster-cidr="{{ cluster_cidr }}" \
+        --service-cidr="{{ service_cidr }}" \
+        --cluster-dns="{{ cluster_dns }}"
+      when: inventory_hostname == groups['controllers'][0]
+
+    - name: Wait for first server to be ready
+      wait_for:
+        port: 6443
+        host: "{{ ansible_host }}"
+        delay: 10
+        timeout: 300
+      when: inventory_hostname == groups['controllers'][0]
+
+    - name: Install additional K3s servers
+      shell: |
+        INSTALL_K3S_VERSION="{{ k3s_version }}" \
+        K3S_TOKEN="{{ k3s_token }}" \
+        sh /tmp/k3s-install.sh server \
+        --server https://{{ k3s_server_ip }}:6443 \
+        --disable servicelb \
+        --disable traefik
+      when: inventory_hostname != groups['controllers'][0]
+
+- name: Install K3s on workers
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Download K3s installer
+      get_url:
+        url: https://get.k3s.io
+        dest: /tmp/k3s-install.sh
+        mode: '0755'
+
+    - name: Install K3s agent
+      shell: |
+        INSTALL_K3S_VERSION="{{ k3s_version }}" \
+        K3S_URL="https://{{ k3s_server_ip }}:6443" \
+        K3S_TOKEN="{{ k3s_token }}" \
+        sh /tmp/k3s-install.sh agent
+
+- name: Configure kubectl access
+  hosts: controllers[0]
+  become: yes
+  tasks:
+    - name: Create .kube directory for ubuntu user
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Copy kubeconfig for ubuntu user
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: /home/ubuntu/.kube/config
+        owner: ubuntu
+        group: ubuntu
+        mode: '0600'
+        remote_src: yes
+
+    - name: Update kubeconfig server address
+      replace:
+        path: /home/ubuntu/.kube/config
+        regexp: 'https://127.0.0.1:6443'
+        replace: "https://{{ ansible_host }}:6443"
+
+    - name: Fetch kubeconfig to local machine
+      fetch:
+        src: /home/ubuntu/.kube/config
+        dest: /tmp/kubeconfig
+        flat: yes
