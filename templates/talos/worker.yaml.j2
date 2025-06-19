@@ -16,7 +16,31 @@ machine:
   kubelet:
     image: ghcr.io/siderolabs/kubelet:{{ config.data.kubernetes_version }}
     extraArgs:
+      # Security
       rotate-server-certificates: "true"
+      protect-kernel-defaults: "true"
+      tls-cipher-suites: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256"
+      
+      # Performance optimization
+      max-pods: "110"
+      kube-api-qps: "50"
+      kube-api-burst: "100"
+      serialize-image-pulls: "false"
+      registry-qps: "10"
+      registry-burst: "20"
+      
+      # Resource management
+      cpu-manager-policy: "static"
+      topology-manager-policy: "best-effort"
+      
+      # Monitoring
+      read-only-port: "0"
+      anonymous-auth: "false"
+      authorization-mode: "Webhook"
+      authentication-token-webhook: "true"
+      
+      # Feature gates
+      feature-gates: "RotateKubeletServerCertificate=true,CPUManager=true,TopologyManager=true"
   
   network:
     hostname: {{ node.hostname | default('worker-' + loop.index | string) }}
@@ -34,18 +58,103 @@ machine:
     stableHostname: true
     apidCheckExtKeyUsage: true
     diskQuotaSupport: true
+    kubePrism:
+      enabled: true
+      port: 7445
+    hostDNS:
+      enabled: true
+      forwardKubeDNSToHost: false
+  
+  # Security Kernel Parameters
+  kernel:
+    modules:
+      # Security modules
+      - name: audit
+      - name: selinux
+    
+  # Advanced Security Configuration
+  install:
+    disk: /dev/sda
+    image: ghcr.io/siderolabs/installer:{{ config.data.talos_version }}
+    wipe: false
+    extraKernelArgs:
+      # Security hardening
+      - audit=1
+      - audit_backlog_limit=8192
+      - slub_debug=P
+      - page_poison=1
+      - slab_nomerge
+      - pti=on
+      - spectre_v2=on
+      - spec_store_bypass_disable=on
+      - l1tf=full,force
+      - mds=full,nosmt
+      - tsx=off
+      - tsx_async_abort=full,nosmt
+      - kvm.nx_huge_pages=force
+      
+  # System Security
+  security:
+    # Enable process auditing
+    audit:
+      enabled: true
+      
+  # Resource Control and Security
+  cgroups:
+    # Enable cgroup v2 for better resource isolation
+    v2: true
   
   # System Configuration
   time:
     disabled: false
     servers:
       - time.cloudflare.com
+      - time.nist.gov
   
-  # Sysctls for Kubernetes
+  # Sysctls for Kubernetes and Performance
   sysctls:
+    # Kubernetes networking
     net.bridge.bridge-nf-call-iptables: "1"
     net.bridge.bridge-nf-call-ip6tables: "1"
     net.ipv4.ip_forward: "1"
+    
+    # Performance optimizations
+    net.core.rmem_max: "16777216"
+    net.core.wmem_max: "16777216"
+    net.core.rmem_default: "262144"
+    net.core.wmem_default: "262144"
+    net.core.netdev_max_backlog: "5000"
+    net.core.netdev_budget: "600"
+    net.ipv4.tcp_rmem: "4096 65536 16777216"
+    net.ipv4.tcp_wmem: "4096 65536 16777216"
+    net.ipv4.tcp_congestion_control: "bbr"
+    net.ipv4.tcp_slow_start_after_idle: "0"
+    
+    # File system performance
+    fs.file-max: "2097152"
+    fs.inotify.max_user_instances: "8192"
+    fs.inotify.max_user_watches: "524288"
+    
+    # Virtual memory optimizations
+    vm.max_map_count: "262144"
+    vm.swappiness: "1"
+    vm.dirty_ratio: "15"
+    vm.dirty_background_ratio: "5"
+    
+    # Security hardening
+    kernel.dmesg_restrict: "1"
+    kernel.kptr_restrict: "2"
+    kernel.yama.ptrace_scope: "1"
+    net.ipv4.conf.default.rp_filter: "1"
+    net.ipv4.conf.all.rp_filter: "1"
+    net.ipv4.conf.default.accept_source_route: "0"
+    net.ipv4.conf.all.accept_source_route: "0"
+    net.ipv4.conf.default.accept_redirects: "0"
+    net.ipv4.conf.all.accept_redirects: "0"
+    net.ipv4.conf.default.send_redirects: "0"
+    net.ipv4.conf.all.send_redirects: "0"
+    net.ipv4.icmp_echo_ignore_broadcasts: "1"
+    net.ipv4.icmp_ignore_bogus_error_responses: "1"
 
 cluster:
   id: {{ cluster.id | default('') }}

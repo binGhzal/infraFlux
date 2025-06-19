@@ -133,3 +133,57 @@ data:
     enable_auto_updates: true
     cluster_timezone: "UTC"
     log_level: "info"
+  
+  # Production Enhancement Configuration
+  production:
+    # Security Hardening
+    enable_audit_logging: true
+    enable_pod_security_policies: true
+    enable_kernel_hardening: true
+    enable_selinux: false  # Optional, may impact compatibility
+    
+    # Performance Optimization
+    enable_cpu_manager: true
+    enable_topology_manager: true
+    enable_bbr_congestion_control: true
+    optimize_kernel_parameters: true
+    
+    # Monitoring Integration
+    enable_metrics_server: true
+    enable_node_exporter: true
+    enable_enhanced_logging: true
+    
+    # Resource Management
+    enable_resource_quotas: true
+    enable_limit_ranges: true
+    system_reserved_cpu: "200m"
+    system_reserved_memory: "512Mi"
+    kube_reserved_cpu: "100m"
+    kube_reserved_memory: "256Mi"
+    
+    # High Availability
+    enable_pod_disruption_budgets: true
+    enable_node_affinity: true
+    
+    # Network Security
+    enable_network_policies: true
+    enable_ingress_security: true
+    
+    # Storage Optimization
+    enable_storage_optimization: true
+    enable_disk_quotas: true
+  
+  # Optional External Auth Configuration (OIDC)
+  external_auth:
+    enabled: false
+    oidc_issuer_url: ""
+    oidc_client_id: ""
+    oidc_username_claim: "email"
+    oidc_groups_claim: "groups"
+  
+  # Custom Extensions and Features
+  extensions:
+    enable_custom_ca: false
+    custom_ca_certificate: ""
+    enable_private_registry: false
+    private_registry_url: ""

@@ -102,6 +102,7 @@ validate_configuration() {
             ".data.proxmox_host"
             ".data.control_plane_ips"
             ".data.worker_ips"
+            ".data.cluster_domain"
         )
         
         for field in "${required_fields[@]}"; do
@@ -127,13 +128,21 @@ for ip in config[\"data\"][\"worker_ips\"]:
         
         # Control plane count validation (must be odd for HA)
         check "Control plane count (odd for HA)" "python3 -c '
-import yaml
+import yaml, sys
 with open(\"$CONFIG_FILE\") as f:
     config = yaml.safe_load(f)
 cp_count = len(config[\"data\"][\"control_plane_ips\"])
 if cp_count > 1 and cp_count % 2 == 0:
     sys.exit(1)
 '"
+        
+        # Production features validation
+        check "Production configuration structure" "yq eval '.data.production' '$CONFIG_FILE' | grep -v null"
+        
+        # Security configuration validation
+        check "Security hardening features" "yq eval '.data.production.enable_audit_logging' '$CONFIG_FILE'"
+        check "Performance optimization features" "yq eval '.data.production.enable_cpu_manager' '$CONFIG_FILE'"
+        check "Monitoring integration features" "yq eval '.data.production.enable_metrics_server' '$CONFIG_FILE'"
     fi
     
     echo
