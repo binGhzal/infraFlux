@@ -291,6 +291,40 @@ deploy_core_apps() {
     success "Core applications deployed"
 }
 
+# GitOps deployment with Flux
+deploy_gitops() {
+    log "🔄 Deploying GitOps with Flux v2..."
+    
+    export KUBECONFIG="${WORK_DIR}/kubeconfig"
+    
+    # Check if Flux is available
+    if ! command -v flux &>/dev/null; then
+        warning "Flux CLI not found. Installing Flux manually..."
+        
+        # Install Flux manually
+        kubectl apply -f https://github.com/fluxcd/flux2/releases/latest/download/install.yaml
+        
+        # Wait for Flux controllers
+        log "Waiting for Flux controllers to be ready..."
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/part-of=flux -n flux-system --timeout=300s
+        
+        success "Flux installed manually"
+    else
+        # Use Flux bootstrap script
+        log "Bootstrapping Flux with GitOps automation..."
+        
+        if [[ -x "${SCRIPT_DIR}/bootstrap-flux.sh" ]]; then
+            "${SCRIPT_DIR}/bootstrap-flux.sh" "$CONFIG_FILE" --environment production
+        else
+            warning "Flux bootstrap script not found. Installing basic Flux..."
+            kubectl apply -f https://github.com/fluxcd/flux2/releases/latest/download/install.yaml
+            kubectl wait --for=condition=ready pod -l app.kubernetes.io/part-of=flux -n flux-system --timeout=300s
+        fi
+    fi
+    
+    success "GitOps deployment completed"
+}
+
 # Phase execution framework
 execute_phase() {
     local phase_name="$1"
@@ -358,6 +392,7 @@ show_help() {
     echo "  infrastructure - Create VMs only"
     echo "  cluster        - Bootstrap Talos cluster only"
     echo "  apps           - Deploy core applications only"
+    echo "  gitops         - Setup GitOps with Flux v2"
     echo
     echo "Examples:"
     echo "  $0                                    # Full deployment with default config"
@@ -402,6 +437,7 @@ main() {
         execute_phase "Infrastructure" deploy_infrastructure || exit 1
         execute_phase "Cluster Bootstrap" bootstrap_cluster || exit 1
         execute_phase "Core Applications" deploy_core_apps || exit 1
+        execute_phase "GitOps Setup" deploy_gitops || exit 1
         ;;
     "infrastructure")
         execute_phase "Prerequisites" check_prerequisites || exit 1
@@ -416,6 +452,10 @@ main() {
     "apps")
         execute_phase "Prerequisites" check_prerequisites || exit 1
         execute_phase "Core Applications" deploy_core_apps || exit 1
+        ;;
+    "gitops")
+        execute_phase "Prerequisites" check_prerequisites || exit 1
+        execute_phase "GitOps Setup" deploy_gitops || exit 1
         ;;
     *)
         error "Invalid phase: ${DEPLOYMENT_PHASE}"
