@@ -44,13 +44,15 @@ class InfraFluxConfigGenerator:
     def _register_filters(self):
         """Register custom Jinja2 filters"""
 
-        @self.env.filter('to_json')
         def to_json(value, indent=2):
             return json.dumps(value, indent=indent)
 
-        @self.env.filter('to_yaml')
         def to_yaml_filter(value, indent=2):
             return yaml.dump(value, default_flow_style=False, indent=indent)
+        
+        # Register filters with the environment
+        self.env.filters['to_json'] = to_json
+        self.env.filters['to_yaml'] = to_yaml_filter
 
     def generate_talos_configs(self):
         """Generate Talos machine configurations"""
