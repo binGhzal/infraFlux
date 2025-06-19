@@ -23,7 +23,7 @@ InfraFlux v2.0 represents a complete architectural transformation from tradition
 
 ### **Infrastructure Layer**
 
-```
+```plaintext
 ┌─────────────────────────────────────────────────────────────┐
 │                    Proxmox Infrastructure                    │
 ├─────────────────────────────────────────────────────────────┤
@@ -43,7 +43,7 @@ InfraFlux v2.0 represents a complete architectural transformation from tradition
 
 ### **Kubernetes Layer**
 
-```
+```plaintext
 ┌─────────────────────────────────────────────────────────────┐
 │                   Kubernetes Cluster                        │
 ├─────────────────────────────────────────────────────────────┤
@@ -64,7 +64,7 @@ InfraFlux v2.0 represents a complete architectural transformation from tradition
 
 ### **Platform Layer**
 
-```
+```plaintext
 ┌─────────────────────────────────────────────────────────────┐
 │                   Platform Services                         │
 ├─────────────────────────────────────────────────────────────┤
@@ -85,7 +85,7 @@ InfraFlux v2.0 represents a complete architectural transformation from tradition
 
 ### **Application Layer**
 
-```
+```plaintext
 ┌─────────────────────────────────────────────────────────────┐
 │                   Application Stack                         │
 ├─────────────────────────────────────────────────────────────┤
@@ -126,7 +126,7 @@ graph TD
 
 ### **Configuration Flow**
 
-```
+```plaintext
 cluster-config.yaml → Jinja2 Templates → Generated Configs
                                       ├─ Talos machine configs
                                       ├─ Terraform infrastructure
@@ -140,7 +140,7 @@ cluster-config.yaml → Jinja2 Templates → Generated Configs
 
 ### **Zero-Trust Model**
 
-```
+```plaintext
 ┌─────────────────────────────────────────────────────────────┐
 │                   Security Layers                          │
 ├─────────────────────────────────────────────────────────────┤
@@ -169,7 +169,7 @@ cluster-config.yaml → Jinja2 Templates → Generated Configs
 
 ## 🗂️ **Repository Structure**
 
-```
+```plaintext
 infraFlux/
 ├── 📋 config/
 │   └── cluster-config.yaml          # Single source of truth
@@ -200,7 +200,7 @@ infraFlux/
 
 ### **Git Repository Structure**
 
-```
+```plaintext
 Git Repository → Flux Controllers → Kubernetes Cluster
      ↓               ↓                    ↓
 Configuration    Automated           Live State
@@ -209,7 +209,7 @@ Configuration    Automated           Live State
 
 ### **Flux Architecture**
 
-```
+```plaintext
 ┌─────────────────────────────────────────────────────────────┐
 │                   Flux v2 Components                       │
 ├─────────────────────────────────────────────────────────────┤
@@ -298,7 +298,7 @@ flux get all
 
 ### **Metrics Collection**
 
-```
+```plaintext
 Application Metrics → Prometheus → Grafana Dashboards
 Infrastructure Metrics → Node Exporter → Alerting Rules
 Kubernetes Metrics → kube-state-metrics → SLO Monitoring
@@ -306,7 +306,7 @@ Kubernetes Metrics → kube-state-metrics → SLO Monitoring
 
 ### **Logging Pipeline**
 
-```
+```plaintext
 Container Logs → Loki → Grafana Log Analysis
 Audit Logs → Talos Audit → Security Monitoring
 System Logs → Journal → Troubleshooting
@@ -391,5 +391,3 @@ For detailed implementation information, see:
 - **[Completion Status](plan/INFRAFLUX_V2_COMPLETION_STATUS.md)**: Production readiness
 
 ---
-
-_InfraFlux v2.0 - Next-Generation Immutable Kubernetes Platform_

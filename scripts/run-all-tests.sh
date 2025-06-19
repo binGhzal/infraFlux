@@ -8,7 +8,6 @@ set -euo pipefail
 declare SCRIPT_DIR
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
-readonly PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 readonly CONFIG_FILE="${1:-config/cluster-config.yaml}"
 
 # Colors
@@ -240,4 +239,5 @@ if [[ "${1:-}" =~ ^(-h|--help|help)$ ]]; then
 fi
 
 # Execute main function
+main "$@"
 main "$@"

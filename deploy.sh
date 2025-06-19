@@ -5,9 +5,13 @@
 set -euo pipefail
 
 # Script metadata
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+declare SCRIPT_DIR
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
 readonly INFRAFLUX_VERSION="2.0.0"
-readonly DEPLOYMENT_ID="infraflux-$(date +%Y%m%d-%H%M%S)"
+declare DEPLOYMENT_ID
+DEPLOYMENT_ID="infraflux-$(date +%Y%m%d-%H%M%S)"
+readonly DEPLOYMENT_ID
 
 # Configuration
 readonly CONFIG_FILE="${1:-config/cluster-config.yaml}"
@@ -34,22 +38,26 @@ declare -i PHASE_START_TIME
 
 # Logging functions
 log() {
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     echo -e "${BLUE}[${timestamp}]${NC} $1" | tee -a "${LOG_FILE}"
 }
 
 success() {
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     echo -e "${GREEN}[${timestamp}] ✅${NC} $1" | tee -a "${LOG_FILE}"
 }
 
 warning() {
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     echo -e "${YELLOW}[${timestamp}] ⚠️${NC} $1" | tee -a "${LOG_FILE}"
 }
 
 error() {
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     echo -e "${RED}[${timestamp}] ❌${NC} $1" | tee -a "${LOG_FILE}"
 }
 
@@ -199,9 +207,17 @@ bootstrap_cluster() {
     export TALOSCONFIG="$talos_dir/talosconfig"
 
     # Extract cluster info from config
-    local cluster_name=$(yq eval '.data.cluster_name' "$CONFIG_FILE")
-    local control_plane_ips=($(yq eval '.data.control_plane_ips[]' "$CONFIG_FILE"))
-    local worker_ips=($(yq eval '.data.worker_ips[]' "$CONFIG_FILE"))
+    local cluster_name
+    cluster_name=$(yq eval '.data.cluster_name' "$CONFIG_FILE")
+    export cluster_name
+
+    local control_plane_ips_array
+    mapfile -t control_plane_ips_array < <(yq eval '.data.control_plane_ips[]' "$CONFIG_FILE")
+    export control_plane_ips=("${control_plane_ips_array[@]}")
+
+    local worker_ips_array
+    mapfile -t worker_ips_array < <(yq eval '.data.worker_ips[]' "$CONFIG_FILE")
+    export worker_ips=("${worker_ips_array[@]}")
 
     # Apply control plane configurations
     log "Applying control plane configurations..."
@@ -294,25 +310,25 @@ deploy_core_apps() {
 # GitOps deployment with Flux
 deploy_gitops() {
     log "🔄 Deploying GitOps with Flux v2..."
-    
+
     export KUBECONFIG="${WORK_DIR}/kubeconfig"
-    
+
     # Check if Flux is available
     if ! command -v flux &>/dev/null; then
         warning "Flux CLI not found. Installing Flux manually..."
-        
+
         # Install Flux manually
         kubectl apply -f https://github.com/fluxcd/flux2/releases/latest/download/install.yaml
-        
+
         # Wait for Flux controllers
         log "Waiting for Flux controllers to be ready..."
         kubectl wait --for=condition=ready pod -l app.kubernetes.io/part-of=flux -n flux-system --timeout=300s
-        
+
         success "Flux installed manually"
     else
         # Use Flux bootstrap script
         log "Bootstrapping Flux with GitOps automation..."
-        
+
         if [[ -x "${SCRIPT_DIR}/bootstrap-flux.sh" ]]; then
             "${SCRIPT_DIR}/bootstrap-flux.sh" "$CONFIG_FILE" --environment production
         else
@@ -321,7 +337,7 @@ deploy_gitops() {
             kubectl wait --for=condition=ready pod -l app.kubernetes.io/part-of=flux -n flux-system --timeout=300s
         fi
     fi
-    
+
     success "GitOps deployment completed"
 }
 
