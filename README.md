@@ -119,23 +119,23 @@ data:
   # Cluster Identity
   cluster_name: "infraflux-v2"
   cluster_domain: "cluster.local"
-  
+
   # Talos and Kubernetes Versions
   talos_version: "v1.10.0"
   kubernetes_version: "v1.31.0"
-  
+
   # Proxmox Infrastructure
   proxmox_host: "proxmox.local"
   proxmox_user: "root@pam"
   proxmox_node: "pve"
   proxmox_storage: "local-lvm"
-  
+
   # VM Configuration
   vm_cores: 4
   vm_memory: 8192
   vm_disk_size: "50G"
   vm_network_bridge: "vmbr0"
-  
+
   # Cluster Topology
   control_plane_ips:
     - "10.0.0.10"
@@ -145,7 +145,7 @@ data:
     - "10.0.0.20"
     - "10.0.0.21"
     - "10.0.0.22"
-  
+
   # Network Configuration
   pod_subnets:
     - "10.244.0.0/16"
@@ -166,16 +166,19 @@ All configurations are generated from Jinja2 templates:
 ## 🚀 **Deployment Process**
 
 ### **Phase 1: Infrastructure**
+
 - Creates VMs via Terraform on Proxmox
 - Configures networking and storage
 - Prepares VMs for Talos boot
 
 ### **Phase 2: Cluster Bootstrap**
+
 - Applies Talos configurations to VMs
 - Bootstraps Kubernetes cluster
 - Generates kubeconfig and talosconfig
 
 ### **Phase 3: Core Applications**
+
 - Deploys Cilium CNI for networking
 - Installs cert-manager for TLS
 - Sets up GitOps with Flux v2
@@ -199,7 +202,7 @@ InfraFlux v2.0 implements a true zero-trust security model:
 ```bash
 # Talos API commands (replace SSH)
 talosctl dashboard              # System dashboard
-talosctl logs                   # View system logs  
+talosctl logs                   # View system logs
 talosctl restart                # Restart services
 talosctl upgrade                # Upgrade OS
 talosctl reset                  # Factory reset
@@ -217,6 +220,7 @@ kubectl logs pod-name           # Application logs
 InfraFlux v2.0 is designed for GitOps from day one:
 
 ### **Repository Structure**
+
 ```
 infraflux/
 ├── config/                     # Master configuration
@@ -227,7 +231,9 @@ infraflux/
 ```
 
 ### **Future GitOps Integration**
+
 After deployment, applications will be managed via:
+
 - **Flux v2** for continuous deployment
 - **Kustomize** for environment-specific configs
 - **Sealed Secrets** for secure secret management
@@ -246,6 +252,7 @@ After deployment, applications will be managed via:
 ### **Future Observability**
 
 Planned integration with:
+
 - **Prometheus** for metrics collection
 - **Grafana** for visualization
 - **Loki** for log aggregation
@@ -289,18 +296,21 @@ kubectl exec -it debug-pod -- /bin/sh
 ## 🚀 **Roadmap**
 
 ### **Phase 1: Core Platform** ✅
+
 - [x] Talos Linux integration
 - [x] Single command deployment
 - [x] Template-driven configuration
 - [x] Zero-trust security model
 
 ### **Phase 2: GitOps Automation** 🔄
+
 - [ ] Flux v2 application deployment
 - [ ] Sealed secrets integration
 - [ ] Multi-environment support
 - [ ] Automated scaling
 
 ### **Phase 3: Enterprise Features** 📋
+
 - [ ] Advanced monitoring stack
 - [ ] Backup and disaster recovery
 - [ ] Multi-cluster management

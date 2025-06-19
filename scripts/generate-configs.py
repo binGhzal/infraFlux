@@ -8,6 +8,7 @@ import yaml
 import json
 import os
 import sys
+import subprocess
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape, StrictUndefined
 
@@ -49,7 +50,7 @@ class InfraFluxConfigGenerator:
 
         def to_yaml_filter(value, indent=2):
             return yaml.dump(value, default_flow_style=False, indent=indent)
-        
+
         # Register filters with the environment
         self.env.filters['to_json'] = to_json
         self.env.filters['to_yaml'] = to_yaml_filter
@@ -66,20 +67,59 @@ class InfraFluxConfigGenerator:
         secrets_file = talos_dir / "secrets.yaml"
         if not secrets_file.exists():
             print("  Generating Talos secrets...")
-            os.system(f"talosctl gen secrets -o {secrets_file}")
+            print(f"  Running: talosctl gen secrets -o {secrets_file}")
+            # Use os.system for better compatibility on macOS
+            exit_code = os.system(f"talosctl gen secrets -o {secrets_file} 2>/dev/null")
+            if exit_code == 0:
+                print(f"  ✅ Secrets generated successfully")
+            else:
+                print(f"  ❌ Failed to generate secrets (exit code: {exit_code})")
+                sys.exit(1)
+
+        # Verify secrets file was created and is valid
+        if not secrets_file.exists():
+            print(f"  ❌ Secrets file was not created: {secrets_file}")
+            sys.exit(1)
 
         # Load secrets
-        with open(secrets_file, 'r') as f:
-            secrets = yaml.safe_load(f)
+        try:
+            with open(secrets_file, 'r') as f:
+                secrets = yaml.safe_load(f)
+
+            # Validate required keys exist
+            required_keys = ['cluster', 'certs', 'trustdinfo']
+            for key in required_keys:
+                if key not in secrets:
+                    print(f"  ❌ Invalid secrets file: missing '{key}' key")
+                    sys.exit(1)
+
+            # Validate cluster keys
+            cluster_keys = ['id', 'secret']
+            for key in cluster_keys:
+                if key not in secrets['cluster']:
+                    print(f"  ❌ Invalid secrets file: missing 'cluster.{key}' key")
+                    sys.exit(1)
+
+            # Validate cert keys
+            cert_keys = ['os', 'k8s']
+            for key in cert_keys:
+                if key not in secrets['certs']:
+                    print(f"  ❌ Invalid secrets file: missing 'certs.{key}' key")
+                    sys.exit(1)
+
+            print(f"  ✅ Secrets loaded and validated")
+        except Exception as e:
+            print(f"  ❌ Failed to load secrets: {e}")
+            sys.exit(1)
 
         # Prepare template variables
         template_vars = {
             'config': self.config,
             'cluster': {
-                'token': secrets['cluster']['token'],
+                'token': secrets['trustdinfo']['token'],
                 'secret': secrets['cluster']['secret'],
                 'id': secrets['cluster']['id'],
-                'ca': secrets['cluster']['ca'],
+                'ca': secrets['certs']['k8s'],
                 'endpoint': f"https://{self.config['data']['control_plane_ips'][0]}:6443"
             }
         }
@@ -119,9 +159,9 @@ class InfraFluxConfigGenerator:
                 self.config['data']['cluster_name']: {
                     'endpoints': self.config['data']['control_plane_ips'],
                     'nodes': self.config['data']['control_plane_ips'],
-                    'ca': secrets['cluster']['ca']['crt'],
-                    'crt': secrets['certs']['admin']['crt'],
-                    'key': secrets['certs']['admin']['key']
+                    'ca': secrets['certs']['os']['crt'],
+                    'crt': secrets['certs']['os']['crt'],
+                    'key': secrets['certs']['os']['key']
                 }
             }
         }

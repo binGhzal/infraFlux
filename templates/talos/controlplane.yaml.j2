@@ -8,11 +8,11 @@ persist: true
 machine:
   type: controlplane
   token: {{ cluster.token | default('your-cluster-token') }}
-  
+
   ca:
     crt: {{ cluster.ca.crt | default('') }}
     key: {{ cluster.ca.key | default('') }}
-  
+
   certSANs:
     - {{ cluster.endpoint | default('127.0.0.1') }}
     {% for ip in config.data.control_plane_ips %}
@@ -20,14 +20,14 @@ machine:
     {% endfor %}
     - 127.0.0.1
     - localhost
-  
+
   kubelet:
     image: ghcr.io/siderolabs/kubelet:{{ config.data.kubernetes_version }}
     extraArgs:
       rotate-server-certificates: "true"
-  
+
   network:
-    hostname: {{ node.hostname | default('controlplane-' + loop.index | string) }}
+    hostname: {{ node.hostname | default('controlplane-1') }}
     interfaces:
       - interface: eth0
         dhcp: false
@@ -48,14 +48,14 @@ machine:
     hostDNS:
       enabled: true
       forwardKubeDNSToHost: false
-  
+
   # Security Kernel Parameters
   kernel:
     modules:
       # Security modules
       - name: audit
       - name: selinux
-    
+
   # Advanced Security Configuration
   install:
     disk: /dev/sda
@@ -76,31 +76,31 @@ machine:
       - tsx=off
       - tsx_async_abort=full,nosmt
       - kvm.nx_huge_pages=force
-      
+
   # System Security
   security:
     # Enable process auditing
     audit:
       enabled: true
-      
+
   # Resource Control and Security
   cgroups:
     # Enable cgroup v2 for better resource isolation
     v2: true
-  
+
   # System Configuration
   time:
     disabled: false
     servers:
       - time.cloudflare.com
-  
+
   # Sysctls for Kubernetes and Performance
   sysctls:
     # Kubernetes networking
     net.bridge.bridge-nf-call-iptables: "1"
     net.bridge.bridge-nf-call-ip6tables: "1"
     net.ipv4.ip_forward: "1"
-    
+
     # Performance optimizations
     net.core.rmem_max: "16777216"
     net.core.wmem_max: "16777216"
@@ -112,18 +112,18 @@ machine:
     net.ipv4.tcp_wmem: "4096 65536 16777216"
     net.ipv4.tcp_congestion_control: "bbr"
     net.ipv4.tcp_slow_start_after_idle: "0"
-    
+
     # File system performance
     fs.file-max: "2097152"
     fs.inotify.max_user_instances: "8192"
     fs.inotify.max_user_watches: "524288"
-    
+
     # Virtual memory optimizations
     vm.max_map_count: "262144"
     vm.swappiness: "1"
     vm.dirty_ratio: "15"
     vm.dirty_background_ratio: "5"
-    
+
     # Security hardening
     kernel.dmesg_restrict: "1"
     kernel.kptr_restrict: "2"
@@ -142,12 +142,12 @@ machine:
 cluster:
   id: {{ cluster.id | default('') }}
   secret: {{ cluster.secret | default('') }}
-  
+
   controlPlane:
     endpoint: https://{{ config.data.control_plane_ips[0] }}:6443
-  
+
   clusterName: {{ config.data.cluster_name }}
-  
+
   network:
     dnsDomain: {{ config.data.cluster_domain }}
     podSubnets:
@@ -160,10 +160,10 @@ cluster:
       {% endfor %}
     cni:
       name: none  # Cilium will be installed via GitOps
-  
+
   proxy:
     disabled: true  # Cilium handles this
-  
+
   discovery:
     enabled: true
     registries:
@@ -171,7 +171,7 @@ cluster:
         disabled: false
       service:
         disabled: false
-  
+
   # API Server Configuration
   apiServer:
     image: registry.k8s.io/kube-apiserver:{{ config.data.kubernetes_version }}
@@ -181,33 +181,33 @@ cluster:
       {% endfor %}
       - 127.0.0.1
       - localhost
-    
+
     # Security Configuration
     disablePodSecurityPolicy: false
-    
+
     # Resource management
     extraArgs:
       # Performance tuning
       max-requests-inflight: "400"
       max-mutating-requests-inflight: "200"
-      
+
       # Security enhancements
       enable-admission-plugins: "NodeRestriction,ResourceQuota,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,PodSecurityPolicy"
       audit-log-maxage: "30"
       audit-log-maxbackup: "10"
       audit-log-maxsize: "100"
       audit-log-path: "/var/log/kubernetes/audit.log"
-      
+
       # Encryption at rest
       encryption-provider-config: "/etc/kubernetes/encryption.yaml"
-      
+
       # OIDC configuration (if using external auth)
       # oidc-issuer-url: "{{ config.data.oidc_issuer_url | default('') }}"
       # oidc-client-id: "{{ config.data.oidc_client_id | default('') }}"
-      
+
       # Feature gates for production
       feature-gates: "RotateKubeletServerCertificate=true,RemoveSelfLink=false"
-    
+
     # Audit Configuration
     auditPolicy:
       rules:
@@ -232,67 +232,67 @@ cluster:
               resources: ["clusterroles", "clusterrolebindings", "roles", "rolebindings"]
         - level: "Metadata"
           omitStages: ["RequestReceived"]
-  
+
   # Controller Manager Configuration
   controllerManager:
     image: registry.k8s.io/kube-controller-manager:{{ config.data.kubernetes_version }}
     extraArgs:
       bind-address: "0.0.0.0"
-      
+
       # Performance and reliability
       concurrent-service-endpoint-syncs: "5"
       concurrent-serviceaccount-token-syncs: "5"
       concurrent-resource-quota-syncs: "5"
       concurrent-deployment-syncs: "5"
       concurrent-gc-syncs: "20"
-      
+
       # Security enhancements
       use-service-account-credentials: "true"
       root-ca-file: "/var/lib/kubernetes/ca.crt"
       service-account-private-key-file: "/var/lib/kubernetes/service-account-key.pem"
-      
+
       # Feature gates
       feature-gates: "RotateKubeletServerCertificate=true"
-  
+
   # Scheduler Configuration
   scheduler:
     image: registry.k8s.io/kube-scheduler:{{ config.data.kubernetes_version }}
     extraArgs:
       bind-address: "0.0.0.0"
-      
+
       # Performance tuning
       kube-api-qps: "100"
       kube-api-burst: "100"
-      
+
       # Feature gates
       feature-gates: "RotateKubeletServerCertificate=true"
-  
+
   # ETCD Configuration
   etcd:
     image: gcr.io/etcd-development/etcd:v3.5.15
-    
+
     # Performance and monitoring
     extraArgs:
       # Monitoring
       listen-metrics-urls: "http://0.0.0.0:2381"
-      
+
       # Performance tuning
       heartbeat-interval: "100"
       election-timeout: "1000"
       quota-backend-bytes: "8589934592"  # 8GB
       max-request-bytes: "33554432"      # 32MB
-      
+
       # Security
       auto-compaction-mode: "periodic"
       auto-compaction-retention: "24h"
-      
+
       # Logging
       log-level: "info"
       logger: "zap"
-    
+
     # Additional ETCD configuration for production
     subnet: "{{ config.data.etcd_subnet | default('') }}"
-    
+
   # Additional cluster configuration for monitoring
   inlineManifests:
     - name: metrics-server
