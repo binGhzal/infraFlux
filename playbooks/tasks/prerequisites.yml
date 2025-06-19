@@ -51,9 +51,11 @@
 
 - name: Display Proxmox connectivity
   debug:
-    msg: "Proxmox connectivity: {{ 'OK' if proxmox_test.status == 200 else 'Failed' }}"
+    msg: "Proxmox connectivity: {{ 'OK' if proxmox_test.status | default(0) == 200 else 'Failed' }}"
 
 - name: Fail if Proxmox is not accessible
   fail:
     msg: "Cannot connect to Proxmox at {{ proxmox_host }}. Check network and credentials."
-  when: proxmox_test.status != 200
+  when: 
+    - not ansible_check_mode
+    - proxmox_test.status | default(0) != 200

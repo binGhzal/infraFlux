@@ -29,19 +29,19 @@ resource "proxmox_vm_qemu" "control_plane" {
   name        = "{{ cluster_name }}-cp-${count.index + 1}"
   target_node = "{{ proxmox_node }}"
   
-  # Boot from Talos ISO
-  iso  = "{{ proxmox_storage }}:iso/talos-{{ talos_version }}-amd64.iso"
-  boot = "order=ide2;scsi0"
+  # Boot order - ISO will be attached manually or via post-creation
+  boot    = "order=scsi0;ide2"
   
   # VM Resources
-  cores   = {{ vm_cores }}
-  memory  = {{ vm_memory }}
-  balloon = 0
-  numa    = false
-  cpu     = "host"
+  cores    = {{ vm_cores }}
+  memory   = {{ vm_memory }}
+  balloon  = 0
+  numa     = false
+  cpu_type = "host"
   
   # Network
   network {
+    id      = 0
     model   = "virtio"
     bridge  = "{{ vm_network_bridge }}"
     macaddr = format("02:00:00:01:01:%02x", count.index + 1)
@@ -49,12 +49,12 @@ resource "proxmox_vm_qemu" "control_plane" {
   
   # Storage
   disk {
+    slot     = "scsi0"
     size     = "{{ vm_disk_size }}"
-    type     = "virtio"
+    type     = "disk"
     storage  = "{{ proxmox_storage }}"
-    iothread = 1
-    discard  = "on"
-    ssd      = 1
+    iothread = true
+    discard  = true
   }
   
   # Talos settings
@@ -77,19 +77,19 @@ resource "proxmox_vm_qemu" "worker" {
   name        = "{{ cluster_name }}-worker-${count.index + 1}"
   target_node = "{{ proxmox_node }}"
   
-  # Boot from Talos ISO
-  iso  = "{{ proxmox_storage }}:iso/talos-{{ talos_version }}-amd64.iso"
-  boot = "order=ide2;scsi0"
+  # Boot order - ISO will be attached manually or via post-creation
+  boot    = "order=scsi0;ide2"
   
   # VM Resources
-  cores   = {{ vm_cores }}
-  memory  = {{ vm_memory }}
-  balloon = 0
-  numa    = false
-  cpu     = "host"
+  cores    = {{ vm_cores }}
+  memory   = {{ vm_memory }}
+  balloon  = 0
+  numa     = false
+  cpu_type = "host"
   
   # Network
   network {
+    id      = 0
     model   = "virtio"
     bridge  = "{{ vm_network_bridge }}"
     macaddr = format("02:00:00:02:01:%02x", count.index + 1)
@@ -97,12 +97,12 @@ resource "proxmox_vm_qemu" "worker" {
   
   # Storage
   disk {
+    slot     = "scsi0"
     size     = "{{ vm_disk_size }}"
-    type     = "virtio"
+    type     = "disk"
     storage  = "{{ proxmox_storage }}"
-    iothread = 1
-    discard  = "on"
-    ssd      = 1
+    iothread = true
+    discard  = true
   }
   
   # Talos settings
