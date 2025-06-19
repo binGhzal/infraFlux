@@ -1,0 +1,9 @@
+# InfraFlux v2.0 - Proxmox Configuration
+
+proxmox = {
+  endpoint         = "https://{{ proxmox_host }}:8006/api2/json"
+  api_token_id     = "{{ proxmox_env.api_token_id }}"
+  api_token_secret = "{{ proxmox_env.api_token_secret }}"
+  insecure         = {{ config.spec.infrastructure.proxmox.tls_insecure | default(true) | lower }}
+  cluster_name     = "{{ config.spec.infrastructure.proxmox.cluster_name | default('proxmox') }}"
+}
