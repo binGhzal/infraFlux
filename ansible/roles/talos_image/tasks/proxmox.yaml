@@ -50,29 +50,11 @@
 
 - name: "Upload Talos image to Proxmox nodes"
   block:
-    - name: "Upload image to each Proxmox node"
-      uri:
-        url: "{{ proxmox.api_url }}/api2/json/nodes/{{ hostvars[item]['inventory_hostname'] }}/storage/{{ proxmox.storage.template_storage | default('local') }}/upload"
-        method: POST
-        headers:
-          Authorization: "PVEAPIToken={{ proxmox_api_token }}"
-        body_format: form-multipart
-        body:
-          content: "{{ proxmox_image_config.content_type }}"
-          filename: "{{ talos_image_info.filename }}"
-        timeout: "{{ proxmox_image_config.timeout }}"
-        validate_certs: false
-      register: upload_initiate
-      loop: "{{ groups['proxmox_servers'] }}"
-      when: >
-        talos_image_info.filename not in 
-        (existing_images | map('regex_replace', '^[^:]+:', '') | map('regex_replace', '\\.iso$', '') | list)
-
     - name: "Upload image file via curl"
       shell: >
         curl -k -X POST 
         -H "Authorization: PVEAPIToken={{ proxmox_api_token }}"
-        -F "content={{ proxmox_image_config.content_type }}"
+        -F "content=iso"
         -F "filename=@{{ talos_image_info.local_path }}"
         "{{ proxmox.api_url }}/api2/json/nodes/{{ hostvars[item]['inventory_hostname'] }}/storage/{{ proxmox.storage.template_storage | default('local') }}/upload"
       register: upload_result

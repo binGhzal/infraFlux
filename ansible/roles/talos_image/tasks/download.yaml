@@ -121,7 +121,7 @@
     msg:
       - "Talos image ready: {{ talos_final_image_path }}"
       - "Size: {{ final_image_stat.stat.size | human_readable }}"
-      - "Modified: {{ final_image_stat.stat.mtime | int | strftime('%Y-%m-%d %H:%M:%S') }}"
+      - "Modified: {{ ansible_date_time.iso8601 }}"
 
 - name: "Update Talos image facts"
   set_fact:
