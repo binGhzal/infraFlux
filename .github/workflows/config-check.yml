@@ -1,0 +1,42 @@
+name: Configuration Check
+
+on:
+  pull_request:
+    paths:
+      - 'config/**'
+      - 'templates/**'
+
+jobs:
+  config-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        pip install PyYAML Jinja2
+        sudo wget -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq
+        curl -sL https://talos.dev/install | sh
+        sudo mv talosctl /usr/local/bin/
+        
+    - name: Test configuration generation
+      run: |
+        python3 scripts/generate-configs.py --config config/test-cluster-config.yaml --output /tmp/test --validate-only
+        
+    - name: Generate configurations
+      run: |
+        mkdir -p /tmp/test-gen
+        python3 scripts/generate-configs.py --config config/test-cluster-config.yaml --output /tmp/test-gen
+        
+    - name: Check generated files
+      run: |
+        echo "Generated files:"
+        find /tmp/test-gen -name "*.yaml" -o -name "*.tf" | head -10

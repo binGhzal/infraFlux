@@ -27,6 +27,8 @@ InfraFlux v2.0 is a **complete rewrite** of the Kubernetes homelab platform, now
 
 ## ⚡ **Quick Start**
 
+**Deploy a production-ready Kubernetes cluster in minutes, not hours.**
+
 ### **Prerequisites**
 
 Before deploying InfraFlux v2.0, ensure you have:
