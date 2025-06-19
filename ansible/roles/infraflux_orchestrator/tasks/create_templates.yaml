@@ -1,0 +1,155 @@
+---
+# Phase 3: Create VM Templates
+
+- name: "Set orchestration phase"
+  set_fact:
+    orchestration_phase: "template_creation"
+
+- name: "Check for existing Talos template"
+  uri:
+    url: "{{ proxmox.api_url }}/api2/json/nodes/{{ item }}/qemu"
+    method: GET
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox.api_user }}!{{ proxmox.api_token_id }}={{ vault_proxmox_api_token }}"
+    validate_certs: false
+  register: existing_vms
+  loop: "{{ groups['proxmox_servers'] }}"
+
+- name: "Find existing Talos templates"
+  set_fact:
+    existing_templates: >-
+      {{
+        existing_vms.results | 
+        map('json') | 
+        map(attribute='data') | 
+        flatten | 
+        selectattr('name', 'match', '.*talos.*template.*') | 
+        list
+      }}
+
+- name: "Remove existing templates if force recreate is enabled"
+  uri:
+    url: "{{ proxmox.api_url }}/api2/json/nodes/{{ item.node }}/qemu/{{ item.vmid }}"
+    method: DELETE
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox.api_user }}!{{ proxmox.api_token_id }}={{ vault_proxmox_api_token }}"
+    validate_certs: false
+  loop: "{{ existing_templates }}"
+  when: 
+    - template_management.force_recreate | bool
+    - existing_templates | length > 0
+
+- name: "Create Packer VM template"
+  include_role:
+    name: packer_templates
+  vars:
+    packer_force_build: "{{ template_management.force_recreate | bool }}"
+    packer_cleanup_failed: "{{ template_management.cleanup_failed | bool }}"
+    template_validate: "{{ template_management.validate_templates | bool }}"
+  when: >
+    template_management.force_recreate | bool or
+    existing_templates | length == 0
+
+- name: "Wait for template creation to complete"
+  pause:
+    seconds: 30
+  when: packer_template_created | default(false)
+
+- name: "Verify template creation across all nodes"
+  uri:
+    url: "{{ proxmox.api_url }}/api2/json/nodes/{{ item }}/qemu"
+    method: GET
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox.api_user }}!{{ proxmox.api_token_id }}={{ vault_proxmox_api_token }}"
+    validate_certs: false
+  register: template_verification
+  loop: "{{ groups['proxmox_servers'] }}"
+  retries: 3
+  delay: 10
+
+- name: "Find created Talos templates"
+  set_fact:
+    created_templates: >-
+      {{
+        template_verification.results | 
+        map('json') | 
+        map(attribute='data') | 
+        flatten | 
+        selectattr('name', 'match', '.*talos.*template.*') | 
+        list
+      }}
+
+- name: "Validate template creation"
+  assert:
+    that:
+      - created_templates | length > 0
+    fail_msg: "No Talos templates found after creation process"
+  when: template_management.validate_templates | bool
+
+- name: "Get template details"
+  uri:
+    url: "{{ proxmox.api_url }}/api2/json/nodes/{{ item.node }}/qemu/{{ item.vmid }}/config"
+    method: GET
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox.api_user }}!{{ proxmox.api_token_id }}={{ vault_proxmox_api_token }}"
+    validate_certs: false
+  register: template_details
+  loop: "{{ created_templates[:1] }}"  # Get details for first template only
+
+- name: "Validate template configuration"
+  assert:
+    that:
+      - template_details.results[0].json.data.template is defined
+      - template_details.results[0].json.data.template == 1
+    fail_msg: "Template is not properly configured as a template"
+  when: 
+    - template_management.validate_templates | bool
+    - template_details.results | length > 0
+
+- name: "Set template facts"
+  set_fact:
+    vm_template_info:
+      name: "{{ created_templates[0].name }}"
+      vmid: "{{ created_templates[0].vmid }}"
+      node: "{{ created_templates[0].node }}"
+      status: "{{ created_templates[0].status }}"
+    template_creation_complete: true
+
+- name: "Clean up failed template attempts"
+  block:
+    - name: "Find failed template VMs"
+      set_fact:
+        failed_templates: >-
+          {{
+            template_verification.results | 
+            map('json') | 
+            map(attribute='data') | 
+            flatten | 
+            selectattr('name', 'match', '.*talos.*') | 
+            rejectattr('template', 'defined') | 
+            list
+          }}
+
+    - name: "Remove failed template VMs"
+      uri:
+        url: "{{ proxmox.api_url }}/api2/json/nodes/{{ item.node }}/qemu/{{ item.vmid }}"
+        method: DELETE
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox.api_user }}!{{ proxmox.api_token_id }}={{ vault_proxmox_api_token }}"
+        validate_certs: false
+      loop: "{{ failed_templates }}"
+      when: failed_templates | length > 0
+
+  when: template_management.cleanup_failed | bool
+
+- name: "Display template creation results"
+  debug:
+    msg:
+      - "Template Creation Complete"
+      - "========================="
+      - "Template Name: {{ vm_template_info.name }}"
+      - "Template ID: {{ vm_template_info.vmid }}"
+      - "Template Node: {{ vm_template_info.node }}"
+      - "Template Status: {{ vm_template_info.status }}"
+      - "Validation: {{ 'Passed' if template_management.validate_templates else 'Skipped' }}"
+      - "Cleanup: {{ 'Enabled' if template_management.cleanup_failed else 'Disabled' }}"

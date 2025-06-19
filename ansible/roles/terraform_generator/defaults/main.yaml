@@ -1,0 +1,57 @@
+---
+# Terraform generator defaults
+
+# Terraform configuration
+terraform_config:
+  version: ">= 1.5.0"
+  parallelism: 1
+  workspace_dir: "/tmp/terraform-infraflux"
+  state_file: "terraform.tfstate"
+  plan_file: "terraform.plan"
+  
+# Backend configuration (optional)
+terraform_backend:
+  enabled: false
+  type: "local"  # local, s3, gcs, azurerm
+  config: {}
+
+# Provider configuration
+terraform_providers:
+  proxmox:
+    source: "telmate/proxmox"
+    version: "~> 2.9"
+  random:
+    source: "hashicorp/random"
+    version: "~> 3.4"
+  local:
+    source: "hashicorp/local"
+    version: "~> 2.4"
+
+# Template configuration
+terraform_templates:
+  main_template: "terraform/templates/main.tf.j2"
+  variables_template: "terraform/templates/variables.tf.j2"
+  output_dir: "{{ terraform_config.workspace_dir }}"
+  
+# Generation options
+terraform_generation:
+  validate_syntax: true
+  format_files: true
+  create_tfvars: true
+  backup_existing: true
+  cleanup_on_error: true
+  
+# Execution options
+terraform_execution:
+  auto_approve: false
+  detailed_exitcode: true
+  refresh: true
+  timeout: 1800  # 30 minutes
+  retry_attempts: 3
+  retry_delay: 30
+
+# Logging configuration
+terraform_logging:
+  enabled: true
+  level: "INFO"  # TRACE, DEBUG, INFO, WARN, ERROR
+  file: "{{ terraform_config.workspace_dir }}/terraform.log"

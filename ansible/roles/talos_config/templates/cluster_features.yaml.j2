@@ -1,0 +1,55 @@
+# Cluster features configuration
+cluster:
+  discovery:
+    enabled: {{ features.cluster_discovery | default(true) }}
+    registries:
+      kubernetes:
+        disabled: false
+      service:
+        disabled: true
+
+{% if features.stable_hostname | default(true) %}
+  extraManifests:
+    - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/main/deploy/standalone-install.yaml
+{% endif %}
+
+  inlineManifests:
+    - name: audit-policy
+      contents: |
+        apiVersion: audit.k8s.io/v1
+        kind: Policy
+        rules:
+          - level: None
+            users: ["system:kube-proxy"]
+            verbs: ["watch"]
+            resources:
+              - group: ""
+                resources: ["endpoints", "services", "services/status"]
+          - level: None
+            namespaces: ["kube-system"]
+            verbs: ["get"]
+            resources:
+              - group: ""
+                resources: ["configmaps"]
+          - level: Request
+            omitStages:
+              - RequestReceived
+            resources:
+              - group: ""
+                resources: ["events"]
+    
+{% if kubernetes_config.encryption_config | default(true) %}
+    - name: encryption-config
+      contents: |
+        apiVersion: apiserver.config.k8s.io/v1
+        kind: EncryptionConfiguration
+        resources:
+          - resources:
+              - secrets
+            providers:
+              - aescbc:
+                  keys:
+                    - name: key1
+                      secret: {{ 'PLACEHOLDER_ENCRYPTION_KEY' if base_config is not defined else (ansible_date_time.epoch | string | hash('sha256'))[:32] | b64encode }}
+              - identity: {}
+{% endif %}

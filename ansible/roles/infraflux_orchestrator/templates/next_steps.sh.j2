@@ -1,0 +1,92 @@
+#!/bin/bash
+# InfraFlux v2.0 - Next Steps Script
+# Generated on: {{ ansible_date_time.iso8601 }}
+# This script provides the next steps to complete your Talos cluster setup
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Configuration
+CLUSTER_NAME="{{ cluster_name }}"
+CLUSTER_ENDPOINT="{{ cluster_endpoint }}"
+
+echo -e "${BLUE}======================================${NC}"
+echo -e "${BLUE}  InfraFlux v2.0 - Next Steps${NC}"
+echo -e "${BLUE}======================================${NC}"
+echo
+
+echo -e "${GREEN}Your infrastructure has been deployed successfully!${NC}"
+echo -e "Cluster: ${YELLOW}${CLUSTER_NAME}${NC}"
+echo -e "Endpoint: ${YELLOW}${CLUSTER_ENDPOINT}${NC}"
+echo
+
+echo -e "${BLUE}Next Steps:${NC}"
+echo
+
+echo -e "${YELLOW}1. Install talosctl (if not already installed)${NC}"
+echo "   curl -Lo /usr/local/bin/talosctl https://github.com/siderolabs/talos/releases/latest/download/talosctl-\$(uname -s | tr '[:upper:]' '[:lower:]')-amd64"
+echo "   chmod +x /usr/local/bin/talosctl"
+echo
+
+echo -e "${YELLOW}2. Generate Talos configuration${NC}"
+echo "   talosctl gen config ${CLUSTER_NAME} https://${CLUSTER_ENDPOINT}:6443"
+echo
+
+echo -e "${YELLOW}3. Apply configuration to control plane nodes${NC}"
+echo "   # Replace <CONTROL_PLANE_IP> with actual IP addresses"
+echo "   talosctl apply-config --insecure --nodes <CONTROL_PLANE_IP> --file controlplane.yaml"
+echo
+
+echo -e "${YELLOW}4. Apply configuration to worker nodes${NC}"
+echo "   # Replace <WORKER_IP> with actual IP addresses"
+echo "   talosctl apply-config --insecure --nodes <WORKER_IP> --file worker.yaml"
+echo
+
+echo -e "${YELLOW}5. Bootstrap the cluster${NC}"
+echo "   # Wait for control plane to be ready, then bootstrap"
+echo "   talosctl bootstrap --nodes <FIRST_CONTROL_PLANE_IP> --endpoints <FIRST_CONTROL_PLANE_IP> --talosconfig talosconfig"
+echo
+
+echo -e "${YELLOW}6. Configure kubectl${NC}"
+echo "   talosctl kubeconfig --nodes <CONTROL_PLANE_IP> --endpoints <CONTROL_PLANE_IP> --talosconfig talosconfig"
+echo
+
+echo -e "${YELLOW}7. Verify cluster status${NC}"
+echo "   kubectl get nodes"
+echo "   kubectl get pods -A"
+echo
+
+echo -e "${YELLOW}8. Deploy Cilium CNI${NC}"
+echo "   helm repo add cilium https://helm.cilium.io/"
+echo "   helm install cilium cilium/cilium --version 1.14.5 \\"
+echo "     --namespace kube-system \\"
+echo "     --set ipam.mode=kubernetes"
+echo
+
+echo -e "${YELLOW}9. Deploy Longhorn storage${NC}"
+echo "   kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.5.3/deploy/longhorn.yaml"
+echo
+
+echo -e "${YELLOW}10. Set up Flux for GitOps${NC}"
+echo "    flux bootstrap github \\"
+echo "      --owner=<your-github-username> \\"
+echo "      --repository=<your-repo> \\"
+echo "      --branch=main \\"
+echo "      --path=./clusters/${CLUSTER_NAME}"
+echo
+
+echo -e "${GREEN}For detailed instructions, refer to:${NC}"
+echo "- Talos documentation: https://www.talos.dev/v1.5/introduction/getting-started/"
+echo "- Kubernetes documentation: https://kubernetes.io/docs/"
+echo "- Flux documentation: https://fluxcd.io/flux/get-started/"
+echo
+
+echo -e "${BLUE}======================================${NC}"
+echo -e "${GREEN}Happy clustering! 🚀${NC}"
+echo -e "${BLUE}======================================${NC}"

@@ -1,0 +1,31 @@
+{
+  "backup_info": {
+    "created_at": "{{ ansible_date_time.iso8601 }}",
+    "backup_id": "{{ ansible_date_time.iso8601_basic_short }}",
+    "infraflux_version": "v2.0",
+    "cluster_name": "{{ cluster.name }}"
+  },
+  "cluster_configuration": {
+    "talos_version": "{{ cluster.talos.version }}",
+    "kubernetes_version": "{{ cluster.talos.kubernetes_version }}",
+    "endpoint": "{{ cluster.talos.networking.cluster_endpoint }}"
+  },
+  "backed_up_files": {
+    "talosconfig": "talosconfig",
+    "controlplane_configs": "controlplane/",
+{% if groups['workers'] is defined and groups['workers'] | length > 0 %}
+    "worker_configs": "worker/",
+{% endif %}
+    "secrets": {{ 'secrets.yaml' if backup.include_secrets and config_generation.generate_secrets else 'null' | to_json }},
+    "patches": {{ 'patches/' if config_generation.generate_patches else 'null' | to_json }}
+  },
+  "node_counts": {
+    "control_plane": {{ groups['control_plane'] | length if groups['control_plane'] is defined else 0 }},
+    "workers": {{ groups['workers'] | length if groups['workers'] is defined else 0 }}
+  },
+  "restore_instructions": {
+    "note": "To restore, copy files back to their original locations in the Talos config directory",
+    "talosconfig_path": "{{ talos_config.output_directory }}/talosconfig",
+    "config_directory": "{{ talos_config.output_directory }}"
+  }
+}

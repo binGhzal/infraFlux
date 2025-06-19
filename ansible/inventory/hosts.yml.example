@@ -1,0 +1,116 @@
+# InfraFlux v2.0 Ansible Inventory Template
+# Copy this file to hosts.yml and customize for your environment
+
+---
+all:
+  vars:
+    # Global variables applied to all hosts
+    ansible_user: "root"
+    ansible_ssh_private_key_file: "{{ vault_ssh_private_key_path }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    
+  children:
+    # Proxmox hypervisor nodes
+    proxmox_servers:
+      hosts:
+        proxmox-1:
+          ansible_host: "192.168.0.10"
+          node_id: 1
+          
+        proxmox-2:
+          ansible_host: "192.168.0.11"
+          node_id: 2
+          
+        proxmox-3:
+          ansible_host: "192.168.0.12"
+          node_id: 3
+          
+      vars:
+        ansible_user: "root"
+        proxmox_datacenter: "datacenter"
+        
+    # Kubernetes cluster nodes
+    kubernetes:
+      children:
+        # Control plane nodes
+        control_plane:
+          hosts:
+            k8s-cp-1:
+              ansible_host: "192.168.1.10"
+              talos_role: "controlplane"
+              vm_id: 100
+              proxmox_node: "proxmox-1"
+              
+            k8s-cp-2:
+              ansible_host: "192.168.1.11"
+              talos_role: "controlplane"
+              vm_id: 101
+              proxmox_node: "proxmox-2"
+              
+            k8s-cp-3:
+              ansible_host: "192.168.1.12"
+              talos_role: "controlplane"
+              vm_id: 102
+              proxmox_node: "proxmox-3"
+              
+          vars:
+            node_type: "control_plane"
+            cpu_cores: "{{ cluster.nodes.control_plane.resources.cpu }}"
+            memory_mb: "{{ cluster.nodes.control_plane.resources.memory }}"
+            disk_size_gb: "{{ cluster.nodes.control_plane.resources.disk_size }}"
+            
+        # Worker nodes
+        workers:
+          hosts:
+            k8s-worker-1:
+              ansible_host: "192.168.1.20"
+              talos_role: "worker"
+              vm_id: 200
+              proxmox_node: "proxmox-1"
+              
+            k8s-worker-2:
+              ansible_host: "192.168.1.21"
+              talos_role: "worker"
+              vm_id: 201
+              proxmox_node: "proxmox-2"
+              
+            k8s-worker-3:
+              ansible_host: "192.168.1.22"
+              talos_role: "worker"
+              vm_id: 202
+              proxmox_node: "proxmox-3"
+              
+            k8s-worker-4:
+              ansible_host: "192.168.1.23"
+              talos_role: "worker"
+              vm_id: 203
+              proxmox_node: "proxmox-1"
+              
+            k8s-worker-5:
+              ansible_host: "192.168.1.24"
+              talos_role: "worker"
+              vm_id: 204
+              proxmox_node: "proxmox-2"
+              
+            k8s-worker-6:
+              ansible_host: "192.168.1.25"
+              talos_role: "worker"
+              vm_id: 205
+              proxmox_node: "proxmox-3"
+              
+          vars:
+            node_type: "worker"
+            cpu_cores: "{{ cluster.nodes.workers.resources.cpu }}"
+            memory_mb: "{{ cluster.nodes.workers.resources.memory }}"
+            disk_size_gb: "{{ cluster.nodes.workers.resources.disk_size }}"
+            
+      vars:
+        cluster_name: "{{ cluster.name }}"
+        talos_version: "{{ cluster.talos.version }}"
+        kubernetes_version: "{{ cluster.talos.kubernetes_version }}"
+        cluster_endpoint: "{{ cluster.talos.networking.cluster_endpoint }}"
+        
+        # VM configuration
+        vm_template: "talos-{{ cluster.talos.version }}-template"
+        vm_bridge: "{{ proxmox.network.vm_bridge }}"
+        vm_storage: "{{ proxmox.storage.vm_storage }}"

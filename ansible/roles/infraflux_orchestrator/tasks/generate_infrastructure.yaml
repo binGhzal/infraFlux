@@ -1,0 +1,131 @@
+---
+# Phase 4: Generate Infrastructure
+
+- name: "Set orchestration phase"
+  set_fact:
+    orchestration_phase: "infrastructure_generation"
+
+- name: "Create Terraform workspace directory"
+  file:
+    path: "{{ terraform_config.workspace_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: "Generate Terraform configuration"
+  include_role:
+    name: terraform_generator
+  vars:
+    terraform_force_regenerate: "{{ infrastructure_deployment.plan_only | bool }}"
+    terraform_workspace: "{{ terraform_config.workspace_dir }}"
+
+- name: "Validate Terraform generation completed"
+  assert:
+    that:
+      - terraform_generation_complete | default(false)
+      - terraform_files_generated is defined
+    fail_msg: "Terraform generation did not complete successfully"
+
+- name: "Create Terraform backend configuration"
+  template:
+    src: backend.tf.j2
+    dest: "{{ terraform_config.workspace_dir }}/backend.tf"
+    mode: '0644'
+  vars:
+    backend_type: "{{ terraform_config.backend.type | default('local') }}"
+    backend_config: "{{ terraform_config.backend.config | default({}) }}"
+
+- name: "Initialize Terraform workspace"
+  command: terraform init
+  args:
+    chdir: "{{ terraform_config.workspace_dir }}"
+  register: terraform_init_workspace
+  environment:
+    TF_INPUT: "false"
+
+- name: "Create Terraform workspace"
+  command: "terraform workspace new {{ project.environment }}"
+  args:
+    chdir: "{{ terraform_config.workspace_dir }}"
+  register: terraform_workspace_create
+  failed_when: 
+    - terraform_workspace_create.rc != 0
+    - "'already exists' not in terraform_workspace_create.stderr"
+  environment:
+    TF_INPUT: "false"
+
+- name: "Select Terraform workspace"
+  command: "terraform workspace select {{ project.environment }}"
+  args:
+    chdir: "{{ terraform_config.workspace_dir }}"
+  register: terraform_workspace_select
+  environment:
+    TF_INPUT: "false"
+
+- name: "Generate Terraform plan"
+  command: terraform plan -out={{ project.environment }}.tfplan
+  args:
+    chdir: "{{ terraform_config.workspace_dir }}"
+  register: terraform_plan_result
+  environment:
+    TF_INPUT: "false"
+
+- name: "Parse Terraform plan output"
+  set_fact:
+    terraform_plan_summary:
+      resources_to_add: "{{ terraform_plan_result.stdout | regex_findall('Plan: (\\d+) to add') | first | default('0') }}"
+      resources_to_change: "{{ terraform_plan_result.stdout | regex_findall('(\\d+) to change') | first | default('0') }}"
+      resources_to_destroy: "{{ terraform_plan_result.stdout | regex_findall('(\\d+) to destroy') | first | default('0') }}"
+
+- name: "Validate plan contains expected resources"
+  assert:
+    that:
+      - terraform_plan_summary.resources_to_add | int > 0
+    fail_msg: "Terraform plan does not contain any resources to create"
+
+- name: "Save plan summary to file"
+  template:
+    src: plan_summary.json.j2
+    dest: "{{ terraform_config.workspace_dir }}/plan_summary.json"
+    mode: '0644'
+  vars:
+    plan_timestamp: "{{ ansible_date_time.iso8601 }}"
+    plan_details: "{{ terraform_plan_summary }}"
+    cluster_info:
+      name: "{{ cluster.name }}"
+      control_plane_count: "{{ groups['control_plane'] | length if groups['control_plane'] is defined else 0 }}"
+      worker_count: "{{ groups['workers'] | length if groups['workers'] is defined else 0 }}"
+
+- name: "Display plan results for approval"
+  debug:
+    msg:
+      - "Terraform Plan Generated"
+      - "======================="
+      - "Resources to add: {{ terraform_plan_summary.resources_to_add }}"
+      - "Resources to change: {{ terraform_plan_summary.resources_to_change }}"
+      - "Resources to destroy: {{ terraform_plan_summary.resources_to_destroy }}"
+      - "Plan file: {{ terraform_config.workspace_dir }}/{{ project.environment }}.tfplan"
+      - "Summary: {{ terraform_config.workspace_dir }}/plan_summary.json"
+      - ""
+      - "Control plane VMs: {{ groups['control_plane'] | length if groups['control_plane'] is defined else 0 }}"
+      - "Worker VMs: {{ groups['workers'] | length if groups['workers'] is defined else 0 }}"
+      - "Total VMs to create: {{ (groups['control_plane'] | default([]) | length) + (groups['workers'] | default([]) | length) }}"
+
+- name: "Pause for plan review"
+  pause:
+    prompt: |
+      
+      Review the Terraform plan above. 
+      
+      The plan will create {{ terraform_plan_summary.resources_to_add }} resources.
+      
+      Press ENTER to continue or Ctrl+C to abort.
+  when: 
+    - not infrastructure_deployment.auto_approve | bool
+    - not infrastructure_deployment.plan_only | bool
+
+- name: "Set infrastructure generation facts"
+  set_fact:
+    terraform_plan_generated: true
+    terraform_plan_file: "{{ terraform_config.workspace_dir }}/{{ project.environment }}.tfplan"
+    terraform_workspace_ready: true
+    infrastructure_generation_complete: true

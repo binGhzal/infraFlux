@@ -1,0 +1,16 @@
+# Network configuration patch for {{ node_hostname }}
+machine:
+  network:
+    hostname: {{ node_hostname }}
+    interfaces:
+      - interface: {{ network_interface }}
+        addresses:
+          - {{ node_ip }}/{{ hostvars[node_hostname]['network_prefix'] | default('24') }}
+        routes:
+          - network: 0.0.0.0/0
+            gateway: {{ gateway }}
+        mtu: {{ hostvars[node_hostname]['network_mtu'] | default(1500) }}
+    nameservers:
+{% for dns in dns_servers %}
+      - {{ dns }}
+{% endfor %}

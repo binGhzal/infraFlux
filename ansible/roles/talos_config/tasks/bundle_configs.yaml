@@ -1,0 +1,98 @@
+---
+# Bundle configurations for deployment
+
+- name: "Create deployment bundle directory"
+  file:
+    path: "{{ talos_config.output_directory }}/bundle"
+    state: directory
+    mode: '0750'
+
+- name: "Copy talosconfig to bundle"
+  copy:
+    src: "{{ talos_config.output_directory }}/talosconfig"
+    dest: "{{ talos_config.output_directory }}/bundle/talosconfig"
+    mode: '0600'
+
+- name: "Bundle control plane configurations"
+  archive:
+    path: "{{ talos_config.output_directory }}/controlplane/"
+    dest: "{{ talos_config.output_directory }}/bundle/controlplane_configs.tar.gz"
+    format: gz
+    mode: '0600'
+
+- name: "Bundle worker configurations"
+  archive:
+    path: "{{ talos_config.output_directory }}/worker/"
+    dest: "{{ talos_config.output_directory }}/bundle/worker_configs.tar.gz"
+    format: gz
+    mode: '0600'
+  when: groups['workers'] is defined and groups['workers'] | length > 0
+
+- name: "Bundle patch files"
+  archive:
+    path: "{{ talos_config.output_directory }}/patches/"
+    dest: "{{ talos_config.output_directory }}/bundle/patches.tar.gz"
+    format: gz
+    mode: '0644'
+  when: config_generation.generate_patches | bool
+
+- name: "Create deployment script"
+  template:
+    src: deploy_configs.sh.j2
+    dest: "{{ talos_config.output_directory }}/bundle/deploy_configs.sh"
+    mode: '0755'
+
+- name: "Create node mapping file"
+  template:
+    src: node_mapping.json.j2
+    dest: "{{ talos_config.output_directory }}/bundle/node_mapping.json"
+    mode: '0644'
+
+- name: "Generate deployment instructions"
+  template:
+    src: DEPLOYMENT_INSTRUCTIONS.md.j2
+    dest: "{{ talos_config.output_directory }}/bundle/DEPLOYMENT_INSTRUCTIONS.md"
+    mode: '0644'
+
+- name: "Create complete deployment bundle"
+  archive:
+    path: "{{ talos_config.output_directory }}/bundle/"
+    dest: "{{ talos_config.output_directory }}/{{ cluster.name }}_talos_configs_{{ ansible_date_time.date }}.tar.gz"
+    format: gz
+    mode: '0600'
+
+- name: "Calculate bundle checksums"
+  stat:
+    path: "{{ talos_config.output_directory }}/{{ cluster.name }}_talos_configs_{{ ansible_date_time.date }}.tar.gz"
+    checksum_algorithm: sha256
+  register: bundle_checksum
+
+- name: "Create bundle manifest"
+  template:
+    src: bundle_manifest.json.j2
+    dest: "{{ talos_config.output_directory }}/bundle_manifest.json"
+    mode: '0644'
+  vars:
+    bundle_file: "{{ cluster.name }}_talos_configs_{{ ansible_date_time.date }}.tar.gz"
+    bundle_checksum: "{{ bundle_checksum.stat.checksum }}"
+    bundle_size: "{{ bundle_checksum.stat.size }}"
+
+- name: "Set bundle facts"
+  set_fact:
+    config_bundle_created: true
+    bundle_file_path: "{{ talos_config.output_directory }}/{{ cluster.name }}_talos_configs_{{ ansible_date_time.date }}.tar.gz"
+    bundle_checksum: "{{ bundle_checksum.stat.checksum }}"
+    bundle_directory: "{{ talos_config.output_directory }}/bundle"
+
+- name: "Display bundle information"
+  debug:
+    msg:
+      - "Configuration Bundle Created"
+      - "=========================="
+      - "Bundle file: {{ bundle_file_path }}"
+      - "Bundle size: {{ (bundle_checksum.stat.size / 1024) | round(2) }}KB"
+      - "SHA256: {{ bundle_checksum.stat.checksum }}"
+      - "Bundle directory: {{ bundle_directory }}"
+      - "Deployment script: {{ bundle_directory }}/deploy_configs.sh"
+      - "Instructions: {{ bundle_directory }}/DEPLOYMENT_INSTRUCTIONS.md"
+      - "Manifest: {{ talos_config.output_directory }}/bundle_manifest.json"

@@ -1,0 +1,66 @@
+---
+# VM template management defaults
+
+# Template configuration
+vm_template_config:
+  base_vm_id: 9000
+  template_name_format: "talos-{{ talos_version }}-template"
+  description_format: "Talos {{ talos_version }} VM Template - Created by InfraFlux {{ ansible_date_time.iso8601 }}"
+  
+# VM specifications
+vm_template_specs:
+  cpu:
+    cores: 2
+    type: "host"
+    flags: "+aes"
+  memory:
+    size: 4096  # MB
+    balloon: false
+  disks:
+    boot:
+      size: "20G"
+      interface: "scsi0"
+      format: "raw"
+      storage: "{{ proxmox.storage.vm_storage }}"
+    data:
+      size: "50G" 
+      interface: "scsi1"
+      format: "raw"
+      storage: "{{ proxmox.storage.vm_storage }}"
+  network:
+    bridge: "{{ proxmox.network.vm_bridge }}"
+    model: "virtio"
+    firewall: true
+    
+# Cloud-init configuration
+vm_template_cloudinit:
+  enabled: true
+  storage: "{{ proxmox.storage.vm_storage }}"
+  user: "talos"
+  ssh_keys: "{{ vault_ssh_public_key }}"
+  upgrade: false
+  
+# BIOS and boot configuration
+vm_template_boot:
+  bios: "ovmf"
+  machine: "q35"
+  boot_order: "scsi0"
+  
+# QEMU agent configuration
+vm_template_agent:
+  enabled: true
+  fstrim_cloned_disks: true
+  
+# Template creation options
+vm_template_creation:
+  timeout: 300
+  wait_for_completion: true
+  validate_after_creation: true
+  cleanup_on_failure: true
+  
+# Packer integration
+packer_config:
+  template_file: "packer/templates/talos-vm-template.pkr.hcl"
+  variables_file: "packer/variables.pkrvars.hcl"
+  output_directory: "/tmp/packer-output"
+  log_level: "INFO"

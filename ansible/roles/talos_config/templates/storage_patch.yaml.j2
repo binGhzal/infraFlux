@@ -1,0 +1,29 @@
+# Storage configuration patch for {{ node_hostname }}
+{% if storage_config.type == 'longhorn' %}
+machine:
+  sysctls:
+    vm.max_map_count: 262144
+  
+  install:
+    extensions:
+      - image: ghcr.io/siderolabs/iscsi-tools:{{ cluster.talos.version }}
+  
+  files:
+    - content: |
+        #!/bin/bash
+        modprobe iscsi_tcp
+        echo 'iscsi_tcp' >> /etc/modules-load.d/iscsi.conf
+      path: /etc/extensions/longhorn-setup.sh
+      mode: 0755
+
+{% if storage_config.dedicated_disks is defined %}
+  disks:
+{% for disk in storage_config.dedicated_disks %}
+    - device: {{ disk.device }}
+      partitions:
+        - mountpoint: {{ disk.mountpoint }}
+          size: {{ disk.size | default('0') }}
+          format: {{ disk.format | default('ext4') }}
+{% endfor %}
+{% endif %}
+{% endif %}

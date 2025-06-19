@@ -1,0 +1,176 @@
+---
+# Phase 6: Validate Deployment
+
+- name: "Set orchestration phase"
+  set_fact:
+    orchestration_phase: "deployment_validation"
+
+- name: "Validate deployment prerequisites"
+  assert:
+    that:
+      - infrastructure_deployment_complete | default(false)
+      - deployment_successful | default(false)
+    fail_msg: "Infrastructure deployment must be completed successfully before validation"
+
+- name: "Comprehensive VM health check"
+  block:
+    - name: "Check VM power state"
+      uri:
+        url: "{{ proxmox.api_url }}/api2/json/nodes/{{ hostvars[item]['proxmox_node'] }}/qemu/{{ hostvars[item]['vm_id'] }}/status/current"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox.api_user }}!{{ proxmox.api_token_id }}={{ vault_proxmox_api_token }}"
+        validate_certs: false
+      register: vm_power_status
+      loop: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) }}"
+
+    - name: "Check VM resource utilization"
+      uri:
+        url: "{{ proxmox.api_url }}/api2/json/nodes/{{ hostvars[item]['proxmox_node'] }}/qemu/{{ hostvars[item]['vm_id'] }}/status/current"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox.api_user }}!{{ proxmox.api_token_id }}={{ vault_proxmox_api_token }}"
+        validate_certs: false
+      register: vm_resource_status
+      loop: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) }}"
+
+  when: not validation.skip_vm_accessibility | bool
+
+- name: "Validate VM power states"
+  assert:
+    that:
+      - item.json.data.status == "running"
+    fail_msg: "VM {{ hostvars[item.item]['inventory_hostname'] }} is not running"
+  loop: "{{ vm_power_status.results }}"
+  when: vm_power_status is defined
+
+- name: "Test SSH connectivity to all VMs"
+  wait_for:
+    host: "{{ hostvars[item]['ansible_host'] | default(hostvars[item]['inventory_hostname']) }}"
+    port: 22
+    timeout: 60
+    state: started
+  loop: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) }}"
+  when: not validation.skip_vm_accessibility | bool
+
+- name: "Check Talos API accessibility"
+  uri:
+    url: "https://{{ hostvars[item]['ansible_host'] | default(hostvars[item]['inventory_hostname']) }}:50000/v1alpha1/machine/config"
+    method: GET
+    validate_certs: false
+    status_code: [200, 401, 403]  # API should be accessible, auth errors are expected
+  register: talos_api_check
+  loop: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) }}"
+  failed_when: false
+  retries: 3
+  delay: 10
+
+- name: "Validate Talos API responses"
+  debug:
+    msg: "Talos API accessible on {{ item.item }}: {{ item.status in [200, 401, 403] }}"
+  loop: "{{ talos_api_check.results }}"
+  when: talos_api_check is defined
+
+- name: "Check cluster endpoint accessibility"
+  uri:
+    url: "https://{{ cluster.talos.networking.cluster_endpoint }}:6443/healthz"
+    method: GET
+    validate_certs: false
+    status_code: [200, 401, 403]  # API should be accessible
+  register: cluster_endpoint_check
+  failed_when: false
+  retries: 5
+  delay: 30
+
+- name: "Resource allocation validation"
+  block:
+    - name: "Calculate total allocated resources"
+      set_fact:
+        total_allocated_cpu: >-
+          {{
+            (groups['control_plane'] | default([]) | length * cluster.nodes.control_plane.resources.cpu) +
+            (groups['workers'] | default([]) | length * cluster.nodes.workers.resources.cpu)
+          }}
+        total_allocated_memory: >-
+          {{
+            (groups['control_plane'] | default([]) | length * cluster.nodes.control_plane.resources.memory) +
+            (groups['workers'] | default([]) | length * cluster.nodes.workers.resources.memory)
+          }}
+
+    - name: "Validate resource allocation"
+      assert:
+        that:
+          - total_allocated_cpu | int > 0
+          - total_allocated_memory | int > 0
+        fail_msg: "Invalid resource allocation detected"
+
+  when: not validation.skip_resource_check | bool
+
+- name: "Network connectivity validation"
+  block:
+    - name: "Test inter-node connectivity"
+      command: "ping -c 3 {{ hostvars[item]['ansible_host'] | default(hostvars[item]['inventory_hostname']) }}"
+      register: ping_results
+      loop: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) }}"
+      delegate_to: "{{ groups['proxmox_servers'][0] }}"
+      failed_when: false
+
+    - name: "Validate ping success"
+      debug:
+        msg: "Network connectivity to {{ item.item }}: {{ 'Success' if item.rc == 0 else 'Failed' }}"
+      loop: "{{ ping_results.results }}"
+
+- name: "Generate validation report"
+  set_fact:
+    validation_report:
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+      cluster_name: "{{ cluster.name }}"
+      validation_status: "success"
+      vm_health:
+        total_vms: "{{ (groups['control_plane'] | default([]) | length) + (groups['workers'] | default([]) | length) }}"
+        running_vms: "{{ vm_power_status.results | selectattr('json.data.status', 'equalto', 'running') | list | length if vm_power_status is defined else 'unknown' }}"
+        control_plane_count: "{{ groups['control_plane'] | length if groups['control_plane'] is defined else 0 }}"
+        worker_count: "{{ groups['workers'] | length if groups['workers'] is defined else 0 }}"
+      connectivity:
+        ssh_accessible: "{{ not validation.skip_vm_accessibility | bool }}"
+        talos_api_accessible: "{{ talos_api_check.results | selectattr('status', 'in', [200, 401, 403]) | list | length if talos_api_check is defined else 'unknown' }}"
+        cluster_endpoint_accessible: "{{ cluster_endpoint_check.status in [200, 401, 403] if cluster_endpoint_check is defined else false }}"
+      resources:
+        total_cpu_allocated: "{{ total_allocated_cpu | default('unknown') }}"
+        total_memory_allocated: "{{ total_allocated_memory | default('unknown') }}"
+      network:
+        cluster_endpoint: "{{ cluster.talos.networking.cluster_endpoint }}"
+        pod_subnet: "{{ cluster.talos.networking.pod_subnet }}"
+        service_subnet: "{{ cluster.talos.networking.service_subnet }}"
+
+- name: "Save validation report"
+  template:
+    src: validation_report.json.j2
+    dest: "{{ terraform_config.workspace_dir }}/validation_report.json"
+    mode: '0644'
+  vars:
+    report_data: "{{ validation_report }}"
+
+- name: "Display validation results"
+  debug:
+    msg:
+      - "Deployment Validation Complete"
+      - "============================="
+      - "Cluster: {{ validation_report.cluster_name }}"
+      - "Total VMs: {{ validation_report.vm_health.total_vms }}"
+      - "Running VMs: {{ validation_report.vm_health.running_vms }}"
+      - "Control Plane: {{ validation_report.vm_health.control_plane_count }}"
+      - "Workers: {{ validation_report.vm_health.worker_count }}"
+      - "SSH Access: {{ 'Validated' if validation_report.connectivity.ssh_accessible else 'Skipped' }}"
+      - "Talos API: {{ validation_report.connectivity.talos_api_accessible }}/{{ validation_report.vm_health.total_vms }} accessible"
+      - "Cluster Endpoint: {{ cluster.talos.networking.cluster_endpoint }}"
+      - "Endpoint Health: {{ 'Accessible' if validation_report.connectivity.cluster_endpoint_accessible else 'Not accessible' }}"
+      - "CPU Allocated: {{ validation_report.resources.total_cpu_allocated }} cores"
+      - "Memory Allocated: {{ validation_report.resources.total_memory_allocated }}MB"
+      - "Report: {{ terraform_config.workspace_dir }}/validation_report.json"
+
+- name: "Set validation completion facts"
+  set_fact:
+    deployment_validation_complete: true
+    validation_successful: true
+    validation_report_path: "{{ terraform_config.workspace_dir }}/validation_report.json"

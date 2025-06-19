@@ -1,0 +1,130 @@
+---
+# Pre-bootstrap validation
+
+- name: "Validate required configurations exist"
+  stat:
+    path: "{{ item }}"
+  register: config_files_check
+  loop:
+    - "{{ talos_config.output_directory | default(playbook_dir + '/generated/talos') }}/talosconfig"
+    - "{{ talos_config.output_directory | default(playbook_dir + '/generated/talos') }}/controlplane/{{ bootstrap_config.bootstrap_node }}.yaml"
+  failed_when: not item.stat.exists
+  loop_control:
+    label: "{{ item }}"
+
+- name: "Check SSH connectivity to all nodes"
+  wait_for_connection:
+    timeout: 30
+  delegate_to: "{{ item }}"
+  loop: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) }}"
+  when: pre_bootstrap.test_ssh_access | bool
+
+- name: "Check time synchronization"
+  command: timedatectl status
+  register: time_sync_check
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['control_plane'] | default([]) }}"
+  failed_when: "'synchronized: yes' not in time_sync_check.stdout"
+  when: pre_bootstrap.check_time_sync | bool
+
+- name: "Verify cluster endpoint DNS resolution"
+  command: nslookup {{ cluster.talos.networking.cluster_endpoint }}
+  register: dns_check
+  failed_when: dns_check.rc != 0
+  when: pre_bootstrap.check_connectivity | bool
+
+- name: "Check Proxmox VM status"
+  uri:
+    url: "{{ proxmox.api_url }}/api2/json/nodes/{{ hostvars[item]['proxmox_node'] }}/qemu/{{ hostvars[item]['vm_id'] }}/status/current"
+    method: GET
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox.api_user }}!{{ proxmox.api_token_id }}={{ vault_proxmox_api_token }}"
+    validate_certs: false
+  register: vm_status_check
+  loop: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) }}"
+  when: pre_bootstrap.verify_resources | bool
+
+- name: "Validate all VMs are running"
+  assert:
+    that:
+      - item.json.data.status == "running"
+    fail_msg: "VM {{ hostvars[item.item]['inventory_hostname'] }} is not running"
+  loop: "{{ vm_status_check.results }}"
+  when: 
+    - pre_bootstrap.verify_resources | bool
+    - vm_status_check is defined
+
+- name: "Test Talos API accessibility"
+  uri:
+    url: "https://{{ hostvars[item]['ansible_host'] | default(hostvars[item]['inventory_hostname']) }}:50000/v1alpha1/machine/stats"
+    method: GET
+    validate_certs: false
+    status_code: [200, 401, 403]
+  register: talos_api_check
+  loop: "{{ groups['control_plane'] | default([]) }}"
+  retries: 3
+  delay: 10
+  when: pre_bootstrap.check_connectivity | bool
+
+- name: "Validate Talos API responses"
+  assert:
+    that:
+      - item.status in [200, 401, 403]
+    fail_msg: "Talos API not accessible on {{ item.item }}"
+  loop: "{{ talos_api_check.results }}"
+  when: 
+    - pre_bootstrap.check_connectivity | bool
+    - talos_api_check is defined
+
+- name: "Check for existing cluster state"
+  command: >
+    talosctl --talosconfig {{ talos_config.output_directory | default(playbook_dir + '/generated/talos') }}/talosconfig
+    --nodes {{ bootstrap_node_ip }}
+    --endpoints {{ bootstrap_node_ip }}
+    version
+  register: existing_cluster_check
+  failed_when: false
+
+- name: "Warn if cluster already exists"
+  debug:
+    msg:
+      - "WARNING: Cluster may already be bootstrapped"
+      - "Bootstrap node is responding to talosctl commands"
+      - "This may be a re-run or recovery operation"
+  when: 
+    - existing_cluster_check is defined
+    - existing_cluster_check.rc == 0
+
+- name: "Create pre-bootstrap validation report"
+  set_fact:
+    pre_bootstrap_validation:
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+      config_files_valid: "{{ config_files_check.results | selectattr('stat.exists', 'equalto', true) | list | length == config_files_check.results | length }}"
+      ssh_connectivity: "{{ 'tested' if pre_bootstrap.test_ssh_access else 'skipped' }}"
+      time_sync: "{{ 'verified' if pre_bootstrap.check_time_sync else 'skipped' }}"
+      dns_resolution: "{{ 'verified' if pre_bootstrap.check_connectivity and dns_check.rc == 0 else 'skipped' }}"
+      vm_status: "{{ 'all running' if pre_bootstrap.verify_resources else 'skipped' }}"
+      talos_api: "{{ 'accessible' if pre_bootstrap.check_connectivity else 'skipped' }}"
+      existing_cluster: "{{ 'detected' if existing_cluster_check.rc == 0 else 'none' }}"
+      validation_passed: true
+
+- name: "Save pre-bootstrap validation report"
+  copy:
+    content: "{{ pre_bootstrap_validation | to_nice_json(indent=2) }}"
+    dest: "{{ logging.log_directory }}/pre_bootstrap_validation.json"
+    mode: '0644'
+  when: logging.save_logs | bool
+
+- name: "Display pre-bootstrap validation results"
+  debug:
+    msg:
+      - "Pre-Bootstrap Validation Complete"
+      - "================================="
+      - "Config files: {{ 'Valid' if pre_bootstrap_validation.config_files_valid else 'Invalid' }}"
+      - "SSH connectivity: {{ pre_bootstrap_validation.ssh_connectivity | title }}"
+      - "Time synchronization: {{ pre_bootstrap_validation.time_sync | title }}"
+      - "DNS resolution: {{ pre_bootstrap_validation.dns_resolution | title }}"
+      - "VM status: {{ pre_bootstrap_validation.vm_status | title }}"
+      - "Talos API: {{ pre_bootstrap_validation.talos_api | title }}"
+      - "Existing cluster: {{ pre_bootstrap_validation.existing_cluster | title }}"
+      - "Overall: {{ 'PASSED' if pre_bootstrap_validation.validation_passed else 'FAILED' }}"

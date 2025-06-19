@@ -1,0 +1,38 @@
+{
+  "metadata": {
+    "generated_at": "{{ report_data.timestamp }}",
+    "infraflux_version": "v2.0",
+    "cluster_name": "{{ report_data.cluster_name }}",
+    "validation_status": "{{ report_data.validation_status }}"
+  },
+  "vm_health": {
+    "total_vms": {{ report_data.vm_health.total_vms }},
+    "running_vms": {{ report_data.vm_health.running_vms | to_json }},
+    "control_plane_count": {{ report_data.vm_health.control_plane_count }},
+    "worker_count": {{ report_data.vm_health.worker_count }}
+  },
+  "connectivity_tests": {
+    "ssh_accessible": {{ report_data.connectivity.ssh_accessible | to_json }},
+    "talos_api_accessible": {{ report_data.connectivity.talos_api_accessible | to_json }},
+    "cluster_endpoint_accessible": {{ report_data.connectivity.cluster_endpoint_accessible | to_json }}
+  },
+  "resource_allocation": {
+    "total_cpu_allocated": {{ report_data.resources.total_cpu_allocated | to_json }},
+    "total_memory_allocated": {{ report_data.resources.total_memory_allocated | to_json }}
+  },
+  "network_configuration": {
+    "cluster_endpoint": "{{ report_data.network.cluster_endpoint }}",
+    "pod_subnet": "{{ report_data.network.pod_subnet }}",
+    "service_subnet": "{{ report_data.network.service_subnet }}"
+  },
+  "validation_summary": {
+    "overall_status": "{{ report_data.validation_status }}",
+    "issues_found": [],
+    "recommendations": [
+      "Proceed with Talos cluster bootstrap",
+      "Verify all nodes are accessible via SSH",
+      "Confirm network connectivity between nodes",
+      "Validate storage and resource allocation"
+    ]
+  }
+}

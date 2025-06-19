@@ -1,0 +1,18 @@
+# Cluster networking configuration
+cluster:
+  network:
+    dnsDomain: {{ cluster.talos.networking.dns_domain }}
+    podSubnets:
+      - {{ cluster.talos.networking.pod_subnet }}
+    serviceSubnets:
+      - {{ cluster.talos.networking.service_subnet }}
+    cni:
+      name: none  # Cilium will be installed post-bootstrap
+
+{% if network.vlans.enabled | default(false) %}
+  proxy:
+    disabled: false
+    extraArgs:
+      bind-address: 0.0.0.0
+      metrics-bind-address: 0.0.0.0:10249
+{% endif %}

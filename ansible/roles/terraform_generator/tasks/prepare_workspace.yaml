@@ -1,0 +1,96 @@
+---
+# Prepare Terraform workspace
+
+- name: "Validate Terraform installation"
+  command: terraform version
+  register: terraform_version_check
+  failed_when: false
+  changed_when: false
+
+- name: "Fail if Terraform is not installed"
+  fail:
+    msg: "Terraform is not installed. Please install Terraform >= {{ terraform_config.version }}."
+  when: terraform_version_check.rc != 0
+
+- name: "Extract Terraform version"
+  set_fact:
+    terraform_installed_version: "{{ terraform_version_check.stdout | regex_search('v([0-9.]+)', '\\1') | first }}"
+
+- name: "Display Terraform version"
+  debug:
+    msg: "Using Terraform v{{ terraform_installed_version }}"
+
+- name: "Validate required variables"
+  assert:
+    that:
+      - cluster is defined
+      - cluster.name is defined
+      - cluster.talos is defined
+      - proxmox is defined
+      - vault_proxmox_api_token is defined
+      - groups['proxmox_servers'] is defined
+    fail_msg: "Required configuration variables are missing"
+
+- name: "Create Terraform workspace directory"
+  file:
+    path: "{{ terraform_config.workspace_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: "Clean existing Terraform files"
+  find:
+    paths: "{{ terraform_config.workspace_dir }}"
+    patterns: 
+      - "*.tf"
+      - "*.tfvars"
+      - "*.tfstate*"
+      - "*.plan"
+    file_type: file
+  register: existing_tf_files
+
+- name: "Backup existing Terraform files"
+  block:
+    - name: "Create backup directory"
+      file:
+        path: "{{ terraform_config.workspace_dir }}/backup-{{ ansible_date_time.epoch }}"
+        state: directory
+        mode: '0755'
+      register: backup_dir
+      when: existing_tf_files.files | length > 0
+
+    - name: "Move existing files to backup"
+      copy:
+        src: "{{ item.path }}"
+        dest: "{{ backup_dir.path }}/{{ item.path | basename }}"
+        remote_src: true
+      loop: "{{ existing_tf_files.files }}"
+      when: 
+        - terraform_generation.backup_existing | bool
+        - existing_tf_files.files | length > 0
+
+    - name: "Remove original files"
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ existing_tf_files.files }}"
+      when: existing_tf_files.files | length > 0
+
+  rescue:
+    - name: "Handle backup failure"
+      debug:
+        msg: "Warning: Failed to backup some existing files, continuing..."
+
+- name: "Set Terraform workspace facts"
+  set_fact:
+    terraform_workspace_ready: true
+    terraform_main_file: "{{ terraform_config.workspace_dir }}/main.tf"
+    terraform_variables_file: "{{ terraform_config.workspace_dir }}/variables.tf"
+    terraform_tfvars_file: "{{ terraform_config.workspace_dir }}/terraform.tfvars"
+    terraform_output_file: "{{ terraform_config.workspace_dir }}/terraform-output.json"
+
+- name: "Display workspace information"
+  debug:
+    msg:
+      - "Terraform workspace prepared: {{ terraform_config.workspace_dir }}"
+      - "Backup created: {{ backup_dir.path if backup_dir is defined else 'No backup needed' }}"
+      - "Files cleaned: {{ existing_tf_files.files | length }}"

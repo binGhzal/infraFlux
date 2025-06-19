@@ -1,0 +1,293 @@
+---
+# InfraFlux v2.0 Configuration Validation Playbook
+# This playbook validates all configuration files against schema and requirements
+
+- name: "Validate InfraFlux Configuration"
+  hosts: localhost
+  gather_facts: false
+  vars:
+    config_file: "../../configs/global.yaml"
+    schema_file: "../../docs/specs/config-schema.json"
+    
+  tasks:
+    - name: "Check if configuration file exists"
+      stat:
+        path: "{{ config_file }}"
+      register: config_stat
+      
+    - name: "Fail if configuration file doesn't exist"
+      fail:
+        msg: "Configuration file not found: {{ config_file }}. Copy from configs/global.yaml.example"
+      when: not config_stat.stat.exists
+      
+    - name: "Load configuration file"
+      include_vars:
+        file: "{{ config_file }}"
+        name: config
+      register: config_load
+      
+    - name: "Validate basic configuration structure"
+      assert:
+        that:
+          - config.project is defined
+          - config.proxmox is defined
+          - config.cluster is defined
+          - config.network is defined
+        fail_msg: "Missing required configuration sections"
+        
+    - name: "Validate project configuration"
+      assert:
+        that:
+          - config.project.name is defined
+          - config.project.name | regex_search('^[a-z][a-z0-9-]*$')
+          - config.project.name | length >= 3
+          - config.project.name | length <= 32
+          - config.project.version is defined
+          - config.project.version | regex_search('^v[0-9]+\.[0-9]+\.[0-9]+$')
+          - config.project.environment in ['development', 'staging', 'production']
+        fail_msg: "Invalid project configuration"
+        
+    - name: "Validate Proxmox configuration"
+      assert:
+        that:
+          - config.proxmox.api_url is defined
+          - config.proxmox.api_url | regex_search('^https://.*:8006$')
+          - config.proxmox.api_user is defined
+          - config.proxmox.api_token_id is defined
+          - config.proxmox.node_name is defined
+        fail_msg: "Invalid Proxmox configuration"
+        
+    - name: "Validate cluster configuration"
+      assert:
+        that:
+          - config.cluster.name is defined
+          - config.cluster.name | regex_search('^[a-z][a-z0-9-]*$')
+          - config.cluster.type in ['talos', 'k3s']
+          - config.cluster.talos is defined when config.cluster.type == 'talos'
+        fail_msg: "Invalid cluster configuration"
+        
+    - name: "Validate Talos configuration"
+      assert:
+        that:
+          - config.cluster.talos.version is defined
+          - config.cluster.talos.version | regex_search('^v[0-9]+\.[0-9]+\.[0-9]+$')
+          - config.cluster.talos.kubernetes_version is defined
+          - config.cluster.talos.kubernetes_version | regex_search('^v[0-9]+\.[0-9]+\.[0-9]+$')
+          - config.cluster.talos.image is defined
+          - config.cluster.talos.networking is defined
+        fail_msg: "Invalid Talos configuration"
+      when: config.cluster.type == 'talos'
+      
+    - name: "Validate network configuration"
+      assert:
+        that:
+          - config.network.domain is defined
+          - config.network.dns is defined
+          - config.network.dns.servers is defined
+          - config.network.dns.servers | length > 0
+          - config.network.ip_ranges is defined
+        fail_msg: "Invalid network configuration"
+        
+    - name: "Validate node resources"
+      assert:
+        that:
+          - config.cluster.nodes.control_plane.resources.cpu >= 2
+          - config.cluster.nodes.control_plane.resources.cpu <= 128
+          - config.cluster.nodes.control_plane.resources.memory >= 4096
+          - config.cluster.nodes.control_plane.resources.memory <= 1048576
+          - config.cluster.nodes.control_plane.resources.disk_size >= 20
+          - config.cluster.nodes.control_plane.resources.disk_size <= 10240
+        fail_msg: "Invalid control plane node resources"
+        
+    - name: "Validate worker node resources"
+      assert:
+        that:
+          - config.cluster.nodes.workers.resources.cpu >= 2
+          - config.cluster.nodes.workers.resources.cpu <= 128
+          - config.cluster.nodes.workers.resources.memory >= 4096
+          - config.cluster.nodes.workers.resources.memory <= 1048576
+          - config.cluster.nodes.workers.resources.disk_size >= 20
+          - config.cluster.nodes.workers.resources.disk_size <= 10240
+        fail_msg: "Invalid worker node resources"
+        
+    - name: "Check for common security issues"
+      assert:
+        that:
+          - config.security.encryption.at_rest | bool
+          - config.security.encryption.in_transit | bool
+          - config.backup.enabled | bool or config.project.environment == 'development'
+        fail_msg: "Security configuration issues detected"
+        
+    - name: "Display configuration summary"
+      debug:
+        msg:
+          - "Project: {{ config.project.name }} ({{ config.project.environment }})"
+          - "Cluster Type: {{ config.cluster.type }}"
+          - "Talos Version: {{ config.cluster.talos.version }}"
+          - "Kubernetes Version: {{ config.cluster.talos.kubernetes_version }}"
+          - "Domain: {{ config.network.domain }}"
+          - "Backup Enabled: {{ config.backup.enabled }}"
+          
+    - name: "Success message"
+      debug:
+        msg: "✅ Configuration validation passed!"
+
+- name: "Validate Inventory Configuration"
+  hosts: localhost
+  gather_facts: false
+  
+  tasks:
+    - name: "Check if inventory file exists"
+      stat:
+        path: "ansible/inventory/hosts.yml"
+      register: inventory_stat
+      
+    - name: "Fail if inventory file doesn't exist"
+      fail:
+        msg: "Inventory file not found. Copy from ansible/inventory/hosts.yml.example"
+      when: not inventory_stat.stat.exists
+      
+    - name: "Validate required groups exist"
+      assert:
+        that:
+          - groups['proxmox_servers'] is defined
+          - groups['proxmox_servers'] | length > 0
+        fail_msg: "proxmox_servers group is required and must have at least one host"
+        
+    - name: "Validate Proxmox server configuration"
+      assert:
+        that:
+          - hostvars[item]['ansible_host'] is defined
+          - hostvars[item]['ansible_host'] | ipaddr
+          - hostvars[item]['node_id'] is defined
+          - hostvars[item]['node_id'] | int > 0
+        fail_msg: "Invalid Proxmox server configuration for {{ item }}"
+      loop: "{{ groups['proxmox_servers'] }}"
+      
+    - name: "Validate Kubernetes nodes if defined"
+      block:
+        - name: "Check control plane nodes"
+          assert:
+            that:
+              - groups['control_plane'] | length is odd
+              - groups['control_plane'] | length >= 1
+              - groups['control_plane'] | length <= 7
+            fail_msg: "Control plane nodes must be odd number between 1-7"
+          when: groups['control_plane'] is defined
+          
+        - name: "Validate control plane node configuration"
+          assert:
+            that:
+              - hostvars[item]['ansible_host'] is defined
+              - hostvars[item]['ansible_host'] | ipaddr
+              - hostvars[item]['vm_id'] is defined
+              - hostvars[item]['vm_id'] | int >= 100
+              - hostvars[item]['vm_id'] | int <= 999
+              - hostvars[item]['proxmox_node'] in groups['proxmox_servers']
+              - hostvars[item]['talos_role'] == 'controlplane'
+            fail_msg: "Invalid control plane node configuration for {{ item }}"
+          loop: "{{ groups['control_plane'] }}"
+          when: groups['control_plane'] is defined
+          
+        - name: "Validate worker node configuration"
+          assert:
+            that:
+              - hostvars[item]['ansible_host'] is defined
+              - hostvars[item]['ansible_host'] | ipaddr
+              - hostvars[item]['vm_id'] is defined
+              - hostvars[item]['vm_id'] | int >= 100
+              - hostvars[item]['vm_id'] | int <= 999
+              - hostvars[item]['proxmox_node'] in groups['proxmox_servers']
+              - hostvars[item]['talos_role'] == 'worker'
+            fail_msg: "Invalid worker node configuration for {{ item }}"
+          loop: "{{ groups['workers'] }}"
+          when: groups['workers'] is defined
+          
+        - name: "Check for duplicate VM IDs"
+          assert:
+            that:
+              - vm_ids | length == vm_ids | unique | length
+            fail_msg: "Duplicate VM IDs found in inventory"
+          vars:
+            vm_ids: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) | map('extract', hostvars, 'vm_id') | list }}"
+            
+        - name: "Check for duplicate IP addresses"
+          assert:
+            that:
+              - ip_addresses | length == ip_addresses | unique | length
+            fail_msg: "Duplicate IP addresses found in inventory"
+          vars:
+            ip_addresses: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) | map('extract', hostvars, 'ansible_host') | list }}"
+            
+      when: groups['kubernetes'] is defined
+      
+    - name: "Display inventory summary"
+      debug:
+        msg:
+          - "Proxmox Servers: {{ groups['proxmox_servers'] | length }}"
+          - "Control Plane Nodes: {{ groups['control_plane'] | length if groups['control_plane'] is defined else 0 }}"
+          - "Worker Nodes: {{ groups['workers'] | length if groups['workers'] is defined else 0 }}"
+          - "Total Kubernetes Nodes: {{ (groups['control_plane'] | default([])) | length + (groups['workers'] | default([])) | length }}"
+          
+    - name: "Success message"
+      debug:
+        msg: "✅ Inventory validation passed!"
+
+- name: "Validate Vault Configuration"
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "../group_vars/all/vault.yml"
+    
+  tasks:
+    - name: "Check if vault file exists and is encrypted"
+      stat:
+        path: "group_vars/all/vault.yml"
+      register: vault_stat
+      
+    - name: "Fail if vault file doesn't exist"
+      fail:
+        msg: "Vault file not found. Run scripts/setup-vault.sh first"
+      when: not vault_stat.stat.exists
+      
+    - name: "Validate required vault variables"
+      assert:
+        that:
+          - vault_proxmox_api_token is defined
+          - vault_proxmox_api_token | length > 0
+          - vault_ssh_private_key_path is defined
+          - vault_ssh_public_key is defined
+        fail_msg: "Required vault variables are missing or empty"
+        
+    - name: "Check SSH key exists"
+      stat:
+        path: "{{ vault_ssh_private_key_path }}"
+      register: ssh_key_stat
+      
+    - name: "Warn if SSH key file doesn't exist"
+      debug:
+        msg: "WARNING: SSH key file not found at {{ vault_ssh_private_key_path }}"
+      when: not ssh_key_stat.stat.exists
+      
+    - name: "Success message"
+      debug:
+        msg: "✅ Vault validation passed!"
+
+- name: "Final Validation Summary"
+  hosts: localhost
+  gather_facts: false
+  
+  tasks:
+    - name: "Display validation results"
+      debug:
+        msg:
+          - "=================================="
+          - "✅ InfraFlux Configuration Valid!"
+          - "=================================="
+          - ""
+          - "All validation checks passed successfully."
+          - "You can now proceed with:"
+          - "1. Test Proxmox connectivity: ansible-playbook ansible/playbooks/test-proxmox-connection.yaml"
+          - "2. Deploy infrastructure: ansible-playbook ansible/deploy.yaml"
+          - ""
+          - "For help: ansible-playbook --help"

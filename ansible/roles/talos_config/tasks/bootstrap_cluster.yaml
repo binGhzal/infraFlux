@@ -1,0 +1,160 @@
+---
+# Bootstrap Talos cluster
+
+- name: "Validate bootstrap prerequisites"
+  assert:
+    that:
+      - config_generation_complete | default(false)
+      - validation_successful | default(false)
+      - bootstrap.bootstrap_node | length > 0
+    fail_msg: "Prerequisites not met for cluster bootstrap"
+
+- name: "Set bootstrap facts"
+  set_fact:
+    bootstrap_node_ip: "{{ hostvars[bootstrap.bootstrap_node]['ansible_host'] | default(hostvars[bootstrap.bootstrap_node]['inventory_hostname']) }}"
+    bootstrap_node_config: "{{ talos_config.output_directory }}/controlplane/{{ bootstrap.bootstrap_node }}.yaml"
+
+- name: "Apply configuration to bootstrap node"
+  command: >
+    talosctl apply-config
+    --insecure
+    --nodes {{ bootstrap_node_ip }}
+    --file {{ bootstrap_node_config }}
+  register: bootstrap_apply_result
+  retries: 3
+  delay: 30
+
+- name: "Wait for bootstrap node to be ready"
+  uri:
+    url: "https://{{ bootstrap_node_ip }}:50000/v1alpha1/machine/stats"
+    method: GET
+    validate_certs: false
+    status_code: [200, 401, 403]
+  register: bootstrap_node_ready
+  retries: "{{ (bootstrap.timeout / bootstrap.check_interval) | int }}"
+  delay: "{{ bootstrap.check_interval }}"
+  until: bootstrap_node_ready.status in [200, 401, 403]
+
+- name: "Bootstrap the cluster"
+  command: >
+    talosctl bootstrap
+    --nodes {{ bootstrap_node_ip }}
+    --endpoints {{ bootstrap_node_ip }}
+    --talosconfig {{ talos_config.output_directory }}/talosconfig
+  register: bootstrap_cluster_result
+  retries: 2
+  delay: 60
+
+- name: "Apply configuration to remaining control plane nodes"
+  command: >
+    talosctl apply-config
+    --insecure
+    --nodes {{ hostvars[item]['ansible_host'] | default(hostvars[item]['inventory_hostname']) }}
+    --file {{ talos_config.output_directory }}/controlplane/{{ item }}.yaml
+  loop: "{{ groups['control_plane'] | default([]) }}"
+  when: item != bootstrap.bootstrap_node
+  register: controlplane_apply_results
+  retries: 3
+  delay: 30
+
+- name: "Apply configuration to worker nodes"
+  command: >
+    talosctl apply-config
+    --insecure
+    --nodes {{ hostvars[item]['ansible_host'] | default(hostvars[item]['inventory_hostname']) }}
+    --file {{ talos_config.output_directory }}/worker/{{ item }}.yaml
+  loop: "{{ groups['workers'] | default([]) }}"
+  register: worker_apply_results
+  retries: 3
+  delay: 30
+
+- name: "Wait for all control plane nodes to be ready"
+  uri:
+    url: "https://{{ hostvars[item]['ansible_host'] | default(hostvars[item]['inventory_hostname']) }}:50000/v1alpha1/machine/stats"
+    method: GET
+    validate_certs: false
+    status_code: [200, 401, 403]
+  loop: "{{ groups['control_plane'] | default([]) }}"
+  register: controlplane_ready_check
+  retries: "{{ (bootstrap.timeout / bootstrap.check_interval) | int }}"
+  delay: "{{ bootstrap.check_interval }}"
+  until: controlplane_ready_check.status in [200, 401, 403]
+
+- name: "Wait for cluster to be ready"
+  command: >
+    talosctl health
+    --nodes {{ groups['control_plane'] | map('extract', hostvars, 'ansible_host') | map('default', groups['control_plane']) | join(',') }}
+    --endpoints {{ groups['control_plane'] | map('extract', hostvars, 'ansible_host') | map('default', groups['control_plane']) | join(',') }}
+    --talosconfig {{ talos_config.output_directory }}/talosconfig
+  register: cluster_health_check
+  retries: "{{ (bootstrap.timeout / bootstrap.check_interval) | int }}"
+  delay: "{{ bootstrap.check_interval }}"
+  until: cluster_health_check.rc == 0
+  when: bootstrap.wait_for_cluster | bool
+
+- name: "Generate kubeconfig"
+  command: >
+    talosctl kubeconfig
+    --nodes {{ bootstrap_node_ip }}
+    --endpoints {{ bootstrap_node_ip }}
+    --talosconfig {{ talos_config.output_directory }}/talosconfig
+    {{ talos_config.output_directory }}/kubeconfig
+  register: kubeconfig_generation
+
+- name: "Test Kubernetes cluster access"
+  command: kubectl get nodes --kubeconfig {{ talos_config.output_directory }}/kubeconfig
+  register: kubectl_test
+  retries: 5
+  delay: 30
+  until: kubectl_test.rc == 0
+
+- name: "Get cluster node information"
+  command: kubectl get nodes -o json --kubeconfig {{ talos_config.output_directory }}/kubeconfig
+  register: cluster_nodes_info
+
+- name: "Parse cluster nodes"
+  set_fact:
+    cluster_nodes: "{{ cluster_nodes_info.stdout | from_json }}"
+
+- name: "Create bootstrap summary"
+  set_fact:
+    bootstrap_summary:
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+      cluster_name: "{{ cluster.name }}"
+      bootstrap_node: "{{ bootstrap.bootstrap_node }}"
+      bootstrap_ip: "{{ bootstrap_node_ip }}"
+      status: "{{ 'success' if bootstrap_cluster_result.rc == 0 else 'failed' }}"
+      nodes:
+        control_plane: "{{ groups['control_plane'] | length if groups['control_plane'] is defined else 0 }}"
+        workers: "{{ groups['workers'] | length if groups['workers'] is defined else 0 }}"
+        total: "{{ (groups['control_plane'] | default([]) | length) + (groups['workers'] | default([]) | length) }}"
+        ready: "{{ cluster_nodes.items | selectattr('status.conditions', 'selectattr', 'type', 'equalto', 'Ready') | selectattr('status.conditions', 'selectattr', 'status', 'equalto', 'True') | list | length }}"
+      cluster_endpoint: "{{ cluster.talos.networking.cluster_endpoint }}"
+
+- name: "Save bootstrap summary"
+  copy:
+    content: "{{ bootstrap_summary | to_nice_json(indent=2) }}"
+    dest: "{{ talos_config.output_directory }}/bootstrap_summary.json"
+    mode: '0644'
+
+- name: "Set bootstrap completion facts"
+  set_fact:
+    cluster_bootstrap_complete: true
+    bootstrap_successful: "{{ bootstrap_cluster_result.rc == 0 }}"
+    bootstrap_ready: true
+    kubeconfig_path: "{{ talos_config.output_directory }}/kubeconfig"
+
+- name: "Display bootstrap results"
+  debug:
+    msg:
+      - "Cluster Bootstrap Complete"
+      - "========================="
+      - "Status: {{ 'SUCCESS' if bootstrap_successful else 'FAILED' }}"
+      - "Cluster: {{ bootstrap_summary.cluster_name }}"
+      - "Bootstrap node: {{ bootstrap_summary.bootstrap_node }} ({{ bootstrap_summary.bootstrap_ip }})"
+      - "Control plane nodes: {{ bootstrap_summary.nodes.control_plane }}"
+      - "Worker nodes: {{ bootstrap_summary.nodes.workers }}"
+      - "Ready nodes: {{ bootstrap_summary.nodes.ready }}/{{ bootstrap_summary.nodes.total }}"
+      - "Cluster endpoint: {{ bootstrap_summary.cluster_endpoint }}"
+      - "Kubeconfig: {{ kubeconfig_path }}"
+      - "Summary: {{ talos_config.output_directory }}/bootstrap_summary.json"

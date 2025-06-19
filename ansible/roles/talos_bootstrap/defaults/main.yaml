@@ -1,0 +1,86 @@
+---
+# Talos Bootstrap automation defaults
+
+# Bootstrap configuration
+bootstrap_config:
+  enabled: true
+  bootstrap_node: "{{ groups['control_plane'][0] if groups['control_plane'] is defined else '' }}"
+  wait_for_ready: true
+  timeout: 900  # 15 minutes
+  check_interval: 30
+  retry_attempts: 3
+  retry_delay: 60
+
+# Pre-bootstrap validation
+pre_bootstrap:
+  validate_configs: true
+  check_connectivity: true
+  verify_resources: true
+  test_ssh_access: true
+  check_time_sync: true
+
+# Bootstrap process control
+bootstrap_process:
+  apply_control_plane_first: true
+  sequential_application: true
+  wait_between_nodes: 30
+  bootstrap_timeout: 600
+  post_bootstrap_wait: 120
+
+# Worker node management
+worker_management:
+  apply_after_bootstrap: true
+  parallel_application: false
+  wait_for_join: true
+  join_timeout: 300
+  validate_join: true
+
+# Cluster validation
+cluster_validation:
+  check_api_server: true
+  verify_etcd_health: true
+  test_dns_resolution: true
+  validate_networking: true
+  check_storage_classes: false  # Will be available after CSI installation
+
+# Kubeconfig management
+kubeconfig:
+  generate: true
+  output_path: "{{ talos_config.output_directory | default(playbook_dir + '/generated/talos') }}/kubeconfig"
+  validate_access: true
+  test_commands: true
+
+# Health monitoring
+health_monitoring:
+  enabled: true
+  check_interval: 15
+  max_checks: 20
+  monitor_services: true
+  check_node_status: true
+
+# Recovery and rollback
+recovery:
+  enabled: true
+  save_state: true
+  auto_recover: false
+  rollback_on_failure: false
+
+# Logging and reporting
+logging:
+  detailed_output: true
+  save_logs: true
+  log_directory: "{{ talos_config.output_directory | default(playbook_dir + '/generated/talos') }}/logs"
+  preserve_logs: true
+
+# CNI preparation
+cni_preparation:
+  prepare_for_cilium: true
+  create_manifests: false  # Will be handled by GitOps
+  validate_readiness: true
+
+# Security settings
+security:
+  verify_certificates: true
+  check_encryption: true
+  validate_rbac: true
+  test_service_accounts: true

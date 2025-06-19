@@ -1,0 +1,155 @@
+---
+# Proxmox image management tasks
+
+- name: "Validate Proxmox configuration"
+  assert:
+    that:
+      - proxmox.api_url is defined
+      - proxmox.api_user is defined
+      - proxmox.api_token_id is defined
+      - vault_proxmox_api_token is defined
+      - groups['proxmox_servers'] is defined
+      - groups['proxmox_servers'] | length > 0
+    fail_msg: "Proxmox configuration or inventory is invalid"
+
+- name: "Set Proxmox API facts"
+  set_fact:
+    proxmox_api_host: "{{ proxmox.api_url | regex_replace('^https?://([^:]+):.*', '\\1') }}"
+    proxmox_api_token: "{{ proxmox.api_user }}!{{ proxmox.api_token_id }}={{ vault_proxmox_api_token }}"
+
+- name: "Check if image already exists on Proxmox nodes"
+  uri:
+    url: "{{ proxmox.api_url }}/api2/json/nodes/{{ hostvars[item]['inventory_hostname'] }}/storage/{{ proxmox.storage.template_storage | default('local') }}/content"
+    method: GET
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_token }}"
+    validate_certs: false
+    timeout: 30
+  register: proxmox_storage_content
+  loop: "{{ groups['proxmox_servers'] }}"
+  failed_when: false
+
+- name: "Parse existing images"
+  set_fact:
+    existing_images: >-
+      {{
+        proxmox_storage_content.results | 
+        selectattr('status', 'equalto', 200) |
+        map(attribute='json.data') |
+        flatten |
+        selectattr('content', 'equalto', 'iso') |
+        map(attribute='volid') |
+        select('match', '.*' + talos_image_info.filename + '.*') |
+        list
+      }}
+
+- name: "Display existing images"
+  debug:
+    msg: "Found existing Talos images: {{ existing_images }}"
+  when: existing_images | length > 0
+
+- name: "Upload Talos image to Proxmox nodes"
+  block:
+    - name: "Upload image to each Proxmox node"
+      uri:
+        url: "{{ proxmox.api_url }}/api2/json/nodes/{{ hostvars[item]['inventory_hostname'] }}/storage/{{ proxmox.storage.template_storage | default('local') }}/upload"
+        method: POST
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_api_token }}"
+        body_format: form-multipart
+        body:
+          content: "{{ proxmox_image_config.content_type }}"
+          filename: "{{ talos_image_info.filename }}"
+        timeout: "{{ proxmox_image_config.timeout }}"
+        validate_certs: false
+      register: upload_initiate
+      loop: "{{ groups['proxmox_servers'] }}"
+      when: >
+        talos_image_info.filename not in 
+        (existing_images | map('regex_replace', '^[^:]+:', '') | map('regex_replace', '\\.iso$', '') | list)
+
+    - name: "Upload image file via curl"
+      shell: >
+        curl -k -X POST 
+        -H "Authorization: PVEAPIToken={{ proxmox_api_token }}"
+        -F "content={{ proxmox_image_config.content_type }}"
+        -F "filename=@{{ talos_image_info.local_path }}"
+        "{{ proxmox.api_url }}/api2/json/nodes/{{ hostvars[item]['inventory_hostname'] }}/storage/{{ proxmox.storage.template_storage | default('local') }}/upload"
+      register: upload_result
+      loop: "{{ groups['proxmox_servers'] }}"
+      when: >
+        talos_image_info.filename not in 
+        (existing_images | map('regex_replace', '^[^:]+:', '') | map('regex_replace', '\\.iso$', '') | list)
+      async: 600
+      poll: 30
+
+    - name: "Verify upload success"
+      debug:
+        msg: "Upload completed for {{ item.item }}"
+      loop: "{{ upload_result.results | default([]) }}"
+      when: 
+        - item is not skipped
+        - item.rc is defined
+        - item.rc == 0
+
+  when: existing_images | length == 0 or not proxmox_image_config.overwrite
+
+- name: "Verify images are available on all nodes"
+  uri:
+    url: "{{ proxmox.api_url }}/api2/json/nodes/{{ hostvars[item]['inventory_hostname'] }}/storage/{{ proxmox.storage.template_storage | default('local') }}/content"
+    method: GET
+    headers:
+      Authorization: "PVEAPIToken={{ proxmox_api_token }}"
+    validate_certs: false
+    timeout: 30
+  register: verify_images
+  loop: "{{ groups['proxmox_servers'] }}"
+  retries: 3
+  delay: 10
+
+- name: "Parse verified images"
+  set_fact:
+    verified_images: >-
+      {{
+        verify_images.results |
+        selectattr('status', 'equalto', 200) |
+        map(attribute='json.data') |
+        flatten |
+        selectattr('content', 'equalto', 'iso') |
+        selectattr('volid', 'match', '.*' + talos_image_info.filename + '.*') |
+        list
+      }}
+
+- name: "Display verification results"
+  debug:
+    msg:
+      - "Verified Talos images on Proxmox nodes:"
+      - "{{ verified_images | map(attribute='volid') | list }}"
+
+- name: "Ensure images are available on all required nodes"
+  assert:
+    that:
+      - verified_images | length >= groups['proxmox_servers'] | length
+    fail_msg: "Talos image not available on all Proxmox nodes"
+
+- name: "Update Talos image facts with Proxmox information"
+  set_fact:
+    talos_image_info: "{{ talos_image_info | combine({
+      'proxmox_volumes': verified_images | map(attribute='volid') | list,
+      'proxmox_nodes': groups['proxmox_servers'],
+      'uploaded_to_proxmox': true,
+      'upload_completed': ansible_date_time.iso8601
+    }) }}"
+
+- name: "Display final Talos image information"
+  debug:
+    msg:
+      - "Talos Image Management Complete"
+      - "================================"
+      - "Version: {{ talos_image_info.version }}"
+      - "Schematic ID: {{ talos_image_info.schematic_id }}"
+      - "Filename: {{ talos_image_info.filename }}"
+      - "Local Path: {{ talos_image_info.local_path }}"
+      - "Size: {{ talos_image_info.size_bytes | human_readable }}"
+      - "Proxmox Nodes: {{ talos_image_info.proxmox_nodes | join(', ') }}"
+      - "Available Volumes: {{ talos_image_info.proxmox_volumes | length }}"

@@ -1,0 +1,117 @@
+---
+# Validate generated Talos configurations
+
+- name: "Validate control plane configurations"
+  command: talosctl validate --config {{ talos_config.output_directory }}/controlplane/{{ hostvars[item]['inventory_hostname'] }}.yaml
+  register: controlplane_validation
+  loop: "{{ groups['control_plane'] | default([]) }}"
+  failed_when: false
+
+- name: "Validate worker configurations"
+  command: talosctl validate --config {{ talos_config.output_directory }}/worker/{{ hostvars[item]['inventory_hostname'] }}.yaml
+  register: worker_validation
+  loop: "{{ groups['workers'] | default([]) }}"
+  failed_when: false
+
+- name: "Check for validation failures"
+  set_fact:
+    validation_failures: >-
+      {{
+        (controlplane_validation.results | default([]) | selectattr('rc', 'ne', 0) | list) +
+        (worker_validation.results | default([]) | selectattr('rc', 'ne', 0) | list)
+      }}
+
+- name: "Display validation failures"
+  debug:
+    msg:
+      - "Configuration validation failed for {{ item.item }}:"
+      - "Error: {{ item.stderr }}"
+  loop: "{{ validation_failures }}"
+  when: validation_failures | length > 0
+
+- name: "Fail if validations failed"
+  fail:
+    msg: "{{ validation_failures | length }} configuration(s) failed validation"
+  when: 
+    - validation_failures | length > 0
+    - validation.syntax_check | bool
+
+- name: "Validate cluster endpoint accessibility"
+  uri:
+    url: "https://{{ cluster.talos.networking.cluster_endpoint }}:6443"
+    method: GET
+    validate_certs: false
+    status_code: [200, 401, 403, 404]  # Various acceptable responses
+  register: endpoint_validation
+  failed_when: false
+  when: validation.connectivity_test | bool
+
+- name: "Test dry-run configuration application"
+  block:
+    - name: "Dry-run apply control plane config"
+      command: >
+        talosctl apply-config
+        --dry-run
+        --nodes {{ hostvars[item]['ansible_host'] | default(hostvars[item]['inventory_hostname']) }}
+        --file {{ talos_config.output_directory }}/controlplane/{{ hostvars[item]['inventory_hostname'] }}.yaml
+      register: controlplane_dryrun
+      loop: "{{ groups['control_plane'] | default([]) }}"
+      failed_when: false
+
+    - name: "Dry-run apply worker config"
+      command: >
+        talosctl apply-config
+        --dry-run
+        --nodes {{ hostvars[item]['ansible_host'] | default(hostvars[item]['inventory_hostname']) }}
+        --file {{ talos_config.output_directory }}/worker/{{ hostvars[item]['inventory_hostname'] }}.yaml
+      register: worker_dryrun
+      loop: "{{ groups['workers'] | default([]) }}"
+      failed_when: false
+
+  when: validation.dry_run_apply | bool
+
+- name: "Generate validation report"
+  set_fact:
+    validation_report:
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+      cluster_name: "{{ cluster.name }}"
+      validation_results:
+        control_plane:
+          total: "{{ groups['control_plane'] | length if groups['control_plane'] is defined else 0 }}"
+          passed: "{{ controlplane_validation.results | default([]) | selectattr('rc', 'equalto', 0) | list | length }}"
+          failed: "{{ controlplane_validation.results | default([]) | selectattr('rc', 'ne', 0) | list | length }}"
+        workers:
+          total: "{{ groups['workers'] | length if groups['workers'] is defined else 0 }}"
+          passed: "{{ worker_validation.results | default([]) | selectattr('rc', 'equalto', 0) | list | length }}"
+          failed: "{{ worker_validation.results | default([]) | selectattr('rc', 'ne', 0) | list | length }}"
+      endpoint_test:
+        enabled: "{{ validation.connectivity_test | bool }}"
+        accessible: "{{ endpoint_validation.status in [200, 401, 403] if validation.connectivity_test else null }}"
+      dry_run_test:
+        enabled: "{{ validation.dry_run_apply | bool }}"
+        control_plane_success: "{{ controlplane_dryrun.results | default([]) | selectattr('rc', 'equalto', 0) | list | length if validation.dry_run_apply else null }}"
+        worker_success: "{{ worker_dryrun.results | default([]) | selectattr('rc', 'equalto', 0) | list | length if validation.dry_run_apply else null }}"
+
+- name: "Save validation report"
+  copy:
+    content: "{{ validation_report | to_nice_json(indent=2) }}"
+    dest: "{{ talos_config.output_directory }}/validation_report.json"
+    mode: '0644'
+
+- name: "Set validation completion facts"
+  set_fact:
+    config_validation_complete: true
+    validation_successful: "{{ validation_failures | length == 0 }}"
+    validation_report_file: "{{ talos_config.output_directory }}/validation_report.json"
+
+- name: "Display validation summary"
+  debug:
+    msg:
+      - "Configuration Validation Complete"
+      - "================================"
+      - "Control plane configs: {{ validation_report.validation_results.control_plane.passed }}/{{ validation_report.validation_results.control_plane.total }} passed"
+      - "Worker configs: {{ validation_report.validation_results.workers.passed }}/{{ validation_report.validation_results.workers.total }} passed"
+      - "Endpoint test: {{ 'Passed' if validation_report.endpoint_test.accessible else 'Failed' if validation.connectivity_test else 'Skipped' }}"
+      - "Dry-run test: {{ 'Enabled' if validation.dry_run_apply else 'Skipped' }}"
+      - "Overall status: {{ 'PASSED' if validation_successful else 'FAILED' }}"
+      - "Report: {{ validation_report_file }}"

@@ -1,60 +1,48 @@
-# InfraFlux v2.0 - Git Ignore Configuration
-
-# Environment and Secrets
-.env
-config/.env
-*.key
-*.pem
-*.crt
-**/secrets.yaml
-**/talosconfig
-/.ansible
-
-# Python Environment
-venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.pytest_cache/
-
-# Deployment Artifacts
-_out/
-.terraform/
-*.tfstate
-*.tfstate.backup
-.terraform.lock.hcl
-kubeconfig*
-*-kubeconfig
-
-# Temporary Files
-*.tmp
-*.temp
-/tmp/
-cleanup-backup/
-.DS_Store
-Thumbs.db
-/example
-
-# IDE Files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# InfraFlux specific
+.vault_pass
+group_vars/all/vault.yml
+configs/global.yaml
+ansible/inventory/hosts.yml
 
 # Logs
-*.log
-logs/
 ansible.log
+*.log
 
-# OS Generated Files
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# SSH keys
+*.pem
+*.key
+id_*
+
+# OS specific
 .DS_Store
 .DS_Store?
 ._*
@@ -62,3 +50,29 @@ ansible.log
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Backup files
+*.bak
+*.backup
+
+# Test results
+.pytest_cache/
+test-results/
+coverage.xml
+*.cover
+.coverage
+
+# Pre-commit
+.pre-commit-config.yaml.backup

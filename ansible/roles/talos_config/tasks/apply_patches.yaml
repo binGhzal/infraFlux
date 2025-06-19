@@ -1,0 +1,131 @@
+---
+# Apply node-specific configuration patches
+
+- name: "Generate installation disk patches"
+  template:
+    src: install_disk_patch.yaml.j2
+    dest: "{{ talos_config.output_directory }}/patches/{{ hostvars[item]['inventory_hostname'] }}_install_disk.yaml"
+    mode: '0644'
+  loop: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) }}"
+  vars:
+    node_hostname: "{{ hostvars[item]['inventory_hostname'] }}"
+    install_disk: "{{ hostvars[item]['install_disk'] | default(node_config.control_plane.install_disk if item in groups['control_plane'] else node_config.worker.install_disk) }}"
+
+- name: "Generate network configuration patches"
+  template:
+    src: network_patch.yaml.j2
+    dest: "{{ talos_config.output_directory }}/patches/{{ hostvars[item]['inventory_hostname'] }}_network.yaml"
+    mode: '0644'
+  loop: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) }}"
+  vars:
+    node_hostname: "{{ hostvars[item]['inventory_hostname'] }}"
+    node_ip: "{{ hostvars[item]['ansible_host'] | default(hostvars[item]['inventory_hostname']) }}"
+    network_interface: "{{ hostvars[item]['network_interface'] | default('eth0') }}"
+    gateway: "{{ hostvars[item]['gateway'] | default(network.gateway) }}"
+    dns_servers: "{{ hostvars[item]['dns_servers'] | default(network_config.dns_servers) }}"
+  when: not network_config.force_dhcp | bool
+
+- name: "Generate kubelet configuration patches"
+  template:
+    src: kubelet_patch.yaml.j2
+    dest: "{{ talos_config.output_directory }}/patches/{{ hostvars[item]['inventory_hostname'] }}_kubelet.yaml"
+    mode: '0644'
+  loop: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) }}"
+  vars:
+    node_hostname: "{{ hostvars[item]['inventory_hostname'] }}"
+    node_labels: "{{ hostvars[item]['node_labels'] | default({}) }}"
+    node_taints: "{{ hostvars[item]['node_taints'] | default([]) }}"
+    is_control_plane: "{{ item in groups['control_plane'] }}"
+
+- name: "Generate system configuration patches"
+  template:
+    src: system_patch.yaml.j2
+    dest: "{{ talos_config.output_directory }}/patches/{{ hostvars[item]['inventory_hostname'] }}_system.yaml"
+    mode: '0644'
+  loop: "{{ (groups['control_plane'] | default([])) + (groups['workers'] | default([])) }}"
+  vars:
+    node_hostname: "{{ hostvars[item]['inventory_hostname'] }}"
+    extra_kernel_args: "{{ hostvars[item]['extra_kernel_args'] | default([]) }}"
+    extra_mounts: "{{ hostvars[item]['extra_mounts'] | default([]) }}"
+    sysctls: "{{ hostvars[item]['sysctls'] | default({}) }}"
+    ntp_servers: "{{ network_config.ntp_servers }}"
+
+- name: "Generate storage configuration patches"
+  template:
+    src: storage_patch.yaml.j2
+    dest: "{{ talos_config.output_directory }}/patches/{{ hostvars[item]['inventory_hostname'] }}_storage.yaml"
+    mode: '0644'
+  loop: "{{ groups['workers'] | default([]) }}"
+  vars:
+    node_hostname: "{{ hostvars[item]['inventory_hostname'] }}"
+    storage_config: "{{ hostvars[item]['storage'] | default({}) }}"
+  when: hostvars[item]['storage'] is defined
+
+- name: "Generate cluster-level patches"
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ talos_config.output_directory }}/patches/{{ item }}"
+    mode: '0644'
+  loop:
+    - cluster_networking.yaml
+    - cluster_security.yaml
+    - cluster_features.yaml
+
+- name: "Apply patches to control plane configurations"
+  shell: |
+    cd {{ talos_config.output_directory }}
+    talosctl machineconfig patch controlplane/{{ hostvars[item]['inventory_hostname'] }}.yaml \
+      --patch @patches/{{ hostvars[item]['inventory_hostname'] }}_install_disk.yaml \
+      {{ '--patch @patches/' + hostvars[item]['inventory_hostname'] + '_network.yaml' if not network_config.force_dhcp else '' }} \
+      --patch @patches/{{ hostvars[item]['inventory_hostname'] }}_kubelet.yaml \
+      --patch @patches/{{ hostvars[item]['inventory_hostname'] }}_system.yaml \
+      --patch @patches/cluster_networking.yaml \
+      --patch @patches/cluster_security.yaml \
+      --patch @patches/cluster_features.yaml \
+      --output controlplane/{{ hostvars[item]['inventory_hostname'] }}_patched.yaml
+  loop: "{{ groups['control_plane'] | default([]) }}"
+  register: controlplane_patch_results
+
+- name: "Apply patches to worker configurations"
+  shell: |
+    cd {{ talos_config.output_directory }}
+    talosctl machineconfig patch worker/{{ hostvars[item]['inventory_hostname'] }}.yaml \
+      --patch @patches/{{ hostvars[item]['inventory_hostname'] }}_install_disk.yaml \
+      {{ '--patch @patches/' + hostvars[item]['inventory_hostname'] + '_network.yaml' if not network_config.force_dhcp else '' }} \
+      --patch @patches/{{ hostvars[item]['inventory_hostname'] }}_kubelet.yaml \
+      --patch @patches/{{ hostvars[item]['inventory_hostname'] }}_system.yaml \
+      {{ '--patch @patches/' + hostvars[item]['inventory_hostname'] + '_storage.yaml' if hostvars[item]['storage'] is defined else '' }} \
+      --patch @patches/cluster_networking.yaml \
+      --patch @patches/cluster_security.yaml \
+      --patch @patches/cluster_features.yaml \
+      --output worker/{{ hostvars[item]['inventory_hostname'] }}_patched.yaml
+  loop: "{{ groups['workers'] | default([]) }}"
+  register: worker_patch_results
+
+- name: "Replace original configs with patched versions"
+  shell: |
+    cd {{ talos_config.output_directory }}
+    mv controlplane/{{ hostvars[item]['inventory_hostname'] }}_patched.yaml controlplane/{{ hostvars[item]['inventory_hostname'] }}.yaml
+  loop: "{{ groups['control_plane'] | default([]) }}"
+
+- name: "Replace original worker configs with patched versions"
+  shell: |
+    cd {{ talos_config.output_directory }}
+    mv worker/{{ hostvars[item]['inventory_hostname'] }}_patched.yaml worker/{{ hostvars[item]['inventory_hostname'] }}.yaml
+  loop: "{{ groups['workers'] | default([]) }}"
+
+- name: "Set patch application facts"
+  set_fact:
+    patches_applied: true
+    patch_files_generated: "{{ (groups['control_plane'] | default([]) | length + groups['workers'] | default([]) | length) * 4 + 3 }}"
+
+- name: "Display patch application results"
+  debug:
+    msg:
+      - "Configuration Patches Applied"
+      - "============================"
+      - "Control plane nodes patched: {{ groups['control_plane'] | length if groups['control_plane'] is defined else 0 }}"
+      - "Worker nodes patched: {{ groups['workers'] | length if groups['workers'] is defined else 0 }}"
+      - "Patch files generated: {{ patch_files_generated }}"
+      - "Network patches: {{ 'Applied' if not network_config.force_dhcp else 'Skipped (DHCP mode)' }}"
+      - "Storage patches: {{ 'Applied where configured' if groups['workers'] | default([]) | length > 0 else 'None needed' }}"

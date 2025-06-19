@@ -1,0 +1,95 @@
+---
+# Backup Talos configurations
+
+- name: "Create backup directory with timestamp"
+  file:
+    path: "{{ backup.backup_directory }}/{{ ansible_date_time.iso8601_basic_short }}"
+    state: directory
+    mode: '0750'
+
+- name: "Set backup path"
+  set_fact:
+    current_backup_path: "{{ backup.backup_directory }}/{{ ansible_date_time.iso8601_basic_short }}"
+
+- name: "Backup talosconfig"
+  copy:
+    src: "{{ talos_config.output_directory }}/talosconfig"
+    dest: "{{ current_backup_path }}/talosconfig"
+    mode: '0600'
+
+- name: "Backup control plane configurations"
+  copy:
+    src: "{{ talos_config.output_directory }}/controlplane/"
+    dest: "{{ current_backup_path }}/controlplane/"
+    mode: '0600'
+
+- name: "Backup worker configurations"
+  copy:
+    src: "{{ talos_config.output_directory }}/worker/"
+    dest: "{{ current_backup_path }}/worker/"
+    mode: '0600'
+  when: groups['workers'] is defined and groups['workers'] | length > 0
+
+- name: "Backup secrets file"
+  copy:
+    src: "{{ talos_config.output_directory }}/secrets.yaml"
+    dest: "{{ current_backup_path }}/secrets.yaml"
+    mode: '0600'
+  when: 
+    - backup.include_secrets | bool
+    - config_generation.generate_secrets | bool
+
+- name: "Backup patch files"
+  copy:
+    src: "{{ talos_config.output_directory }}/patches/"
+    dest: "{{ current_backup_path }}/patches/"
+    mode: '0644'
+  when: config_generation.generate_patches | bool
+
+- name: "Create backup metadata"
+  template:
+    src: backup_metadata.json.j2
+    dest: "{{ current_backup_path }}/backup_metadata.json"
+    mode: '0644'
+
+- name: "Find old backups"
+  find:
+    paths: "{{ backup.backup_directory }}"
+    file_type: directory
+    age: "1d"
+  register: old_backups
+  when: backup.keep_backups > 0
+
+- name: "Sort backups by modification time"
+  set_fact:
+    sorted_backups: "{{ old_backups.files | sort(attribute='mtime') | reverse }}"
+  when: 
+    - backup.keep_backups > 0
+    - old_backups is defined
+
+- name: "Remove old backups"
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ sorted_backups[backup.keep_backups:] }}"
+  when: 
+    - backup.keep_backups > 0
+    - sorted_backups is defined
+    - sorted_backups | length > backup.keep_backups
+
+- name: "Set backup completion facts"
+  set_fact:
+    config_backup_created: true
+    backup_path: "{{ current_backup_path }}"
+    backup_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+
+- name: "Display backup information"
+  debug:
+    msg:
+      - "Configuration Backup Created"
+      - "==========================="
+      - "Backup path: {{ backup_path }}"
+      - "Backup timestamp: {{ backup_timestamp }}"
+      - "Secrets included: {{ 'Yes' if backup.include_secrets and config_generation.generate_secrets else 'No' }}"
+      - "Patches included: {{ 'Yes' if config_generation.generate_patches else 'No' }}"
+      - "Old backups cleaned: {{ sorted_backups[backup.keep_backups:] | length if sorted_backups is defined and sorted_backups | length > backup.keep_backups else 0 }}"

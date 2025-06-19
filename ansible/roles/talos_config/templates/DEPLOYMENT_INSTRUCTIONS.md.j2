@@ -1,0 +1,228 @@
+# Talos Cluster Deployment Instructions
+
+## Cluster Information
+
+- **Cluster Name:** {{ cluster.name }}
+- **Talos Version:** {{ cluster.talos.version }}
+- **Kubernetes Version:** {{ cluster.talos.kubernetes_version }}
+- **Cluster Endpoint:** {{ cluster.talos.networking.cluster_endpoint }}
+- **Generated:** {{ ansible_date_time.iso8601 }}
+
+## Prerequisites
+
+Before deploying, ensure you have:
+
+1. **talosctl** installed and accessible in your PATH
+2. **kubectl** installed and accessible in your PATH
+3. Network connectivity to all cluster nodes
+4. This deployment bundle extracted
+
+## Quick Deployment
+
+For automated deployment, simply run:
+
+```bash
+chmod +x deploy_configs.sh
+./deploy_configs.sh
+```
+
+This script will:
+- Extract configuration files
+- Apply configurations to all nodes
+- Bootstrap the cluster
+- Generate kubeconfig
+- Perform health checks
+
+## Manual Deployment
+
+If you prefer manual deployment or need to troubleshoot:
+
+### 1. Extract Configurations
+
+```bash
+tar -xzf controlplane_configs.tar.gz
+{% if groups['workers'] is defined and groups['workers'] | length > 0 %}
+tar -xzf worker_configs.tar.gz
+{% endif %}
+```
+
+### 2. Apply Control Plane Configurations
+
+{% for cp_node in groups['control_plane'] | default([]) %}
+```bash
+# Apply to {{ cp_node }}
+talosctl apply-config \
+    --insecure \
+    --nodes {{ hostvars[cp_node]['ansible_host'] | default(hostvars[cp_node]['inventory_hostname']) }} \
+    --file controlplane/{{ cp_node }}.yaml
+```
+{% endfor %}
+
+### 3. Bootstrap the Cluster
+
+Bootstrap using the first control plane node:
+
+```bash
+talosctl bootstrap \
+    --nodes {{ hostvars[bootstrap.bootstrap_node]['ansible_host'] | default(hostvars[bootstrap.bootstrap_node]['inventory_hostname']) }} \
+    --endpoints {{ hostvars[bootstrap.bootstrap_node]['ansible_host'] | default(hostvars[bootstrap.bootstrap_node]['inventory_hostname']) }} \
+    --talosconfig talosconfig
+```
+
+### 4. Generate Kubeconfig
+
+```bash
+talosctl kubeconfig \
+    --nodes {{ hostvars[bootstrap.bootstrap_node]['ansible_host'] | default(hostvars[bootstrap.bootstrap_node]['inventory_hostname']) }} \
+    --endpoints {{ hostvars[bootstrap.bootstrap_node]['ansible_host'] | default(hostvars[bootstrap.bootstrap_node]['inventory_hostname']) }} \
+    --talosconfig talosconfig
+```
+
+{% if groups['workers'] is defined and groups['workers'] | length > 0 %}
+### 5. Apply Worker Configurations
+
+{% for worker_node in groups['workers'] %}
+```bash
+# Apply to {{ worker_node }}
+talosctl apply-config \
+    --insecure \
+    --nodes {{ hostvars[worker_node]['ansible_host'] | default(hostvars[worker_node]['inventory_hostname']) }} \
+    --file worker/{{ worker_node }}.yaml
+```
+{% endfor %}
+{% endif %}
+
+## Verification
+
+### Check Cluster Health
+
+```bash
+# Using talosctl
+talosctl health \
+    --nodes {{ groups['control_plane'] | map('extract', hostvars, 'ansible_host') | map('default', groups['control_plane']) | join(',') }} \
+    --endpoints {{ groups['control_plane'] | map('extract', hostvars, 'ansible_host') | map('default', groups['control_plane']) | join(',') }} \
+    --talosconfig talosconfig
+
+# Using kubectl
+export KUBECONFIG=$(pwd)/kubeconfig
+kubectl get nodes -o wide
+kubectl get pods -A
+```
+
+### Check Individual Nodes
+
+{% for node in (groups['control_plane'] | default([])) + (groups['workers'] | default([])) %}
+```bash
+# {{ node }} ({{ hostvars[node]['ansible_host'] | default(hostvars[node]['inventory_hostname']) }})
+talosctl --talosconfig talosconfig --nodes {{ hostvars[node]['ansible_host'] | default(hostvars[node]['inventory_hostname']) }} --endpoints {{ hostvars[node]['ansible_host'] | default(hostvars[node]['inventory_hostname']) }} version
+```
+{% endfor %}
+
+## Post-Deployment Steps
+
+### 1. Install CNI (Cilium)
+
+```bash
+helm repo add cilium https://helm.cilium.io/
+helm install cilium cilium/cilium \
+    --namespace kube-system \
+    --set ipam.mode=kubernetes \
+    --set kubeProxyReplacement=strict \
+    --set securityContext.capabilities.ciliumAgent="{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}" \
+    --set securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}" \
+    --set cgroup.autoMount.enabled=false \
+    --set cgroup.hostRoot=/sys/fs/cgroup
+```
+
+### 2. Install CSI Storage (Longhorn)
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.5.3/deploy/longhorn.yaml
+```
+
+### 3. Set Up Monitoring
+
+```bash
+# Prometheus Operator
+kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml
+
+# Or use Helm
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack
+```
+
+### 4. Configure Ingress
+
+```bash
+# Traefik
+helm repo add traefik https://helm.traefik.io/traefik
+helm install traefik traefik/traefik --namespace traefik-system --create-namespace
+
+# Or NGINX
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Node not joining cluster**
+   - Check network connectivity
+   - Verify time synchronization
+   - Check firewall rules
+
+2. **Bootstrap fails**
+   - Ensure only one node is bootstrapped
+   - Check control plane endpoint accessibility
+   - Verify etcd health
+
+3. **Pods stuck in Pending**
+   - Install CNI plugin
+   - Check node resources
+   - Verify scheduler health
+
+### Useful Commands
+
+```bash
+# View system logs
+talosctl --talosconfig talosconfig --nodes <NODE_IP> logs
+
+# Get machine configuration
+talosctl --talosconfig talosconfig --nodes <NODE_IP> get machineconfig
+
+# Restart a service
+talosctl --talosconfig talosconfig --nodes <NODE_IP> restart kubelet
+
+# Emergency etcd maintenance
+talosctl --talosconfig talosconfig --nodes <NODE_IP> etcd members
+```
+
+## Node Information
+
+### Control Plane Nodes
+{% for cp_node in groups['control_plane'] | default([]) %}
+- **{{ cp_node }}**: {{ hostvars[cp_node]['ansible_host'] | default(hostvars[cp_node]['inventory_hostname']) }}
+{% endfor %}
+
+{% if groups['workers'] is defined and groups['workers'] | length > 0 %}
+### Worker Nodes
+{% for worker_node in groups['workers'] %}
+- **{{ worker_node }}**: {{ hostvars[worker_node]['ansible_host'] | default(hostvars[worker_node]['inventory_hostname']) }}
+{% endfor %}
+{% endif %}
+
+### Network Configuration
+
+- **Pod Subnet:** {{ cluster.talos.networking.pod_subnet }}
+- **Service Subnet:** {{ cluster.talos.networking.service_subnet }}
+- **DNS Domain:** {{ cluster.talos.networking.dns_domain }}
+
+## Support
+
+For issues and documentation:
+- Talos Documentation: https://www.talos.dev/
+- Kubernetes Documentation: https://kubernetes.io/docs/
+- InfraFlux Project: Check your project repository
+
+---
+*Generated by InfraFlux v2.0 - Talos Configuration Generator*

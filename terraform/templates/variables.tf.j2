@@ -1,0 +1,239 @@
+# InfraFlux v2.0 - Terraform Variables
+# Generated on: {{ ansible_date_time.iso8601 }}
+
+variable "proxmox_api_token" {
+  description = "Proxmox API token secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "ssh_public_key" {
+  description = "SSH public key for VM access"
+  type        = string
+  default     = "{{ vault_ssh_public_key | default('') }}"
+}
+
+variable "cluster_name" {
+  description = "Kubernetes cluster name"
+  type        = string
+  default     = "{{ cluster.name }}"
+  
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]*$", var.cluster_name))
+    error_message = "Cluster name must start with a letter and contain only lowercase letters, numbers, and hyphens."
+  }
+}
+
+variable "talos_version" {
+  description = "Talos version"
+  type        = string
+  default     = "{{ cluster.talos.version }}"
+  
+  validation {
+    condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.talos_version))
+    error_message = "Talos version must follow semantic versioning (e.g., v1.6.0)."
+  }
+}
+
+variable "kubernetes_version" {
+  description = "Kubernetes version"
+  type        = string
+  default     = "{{ cluster.talos.kubernetes_version }}"
+  
+  validation {
+    condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.kubernetes_version))
+    error_message = "Kubernetes version must follow semantic versioning (e.g., v1.29.0)."
+  }
+}
+
+variable "cluster_endpoint" {
+  description = "Kubernetes cluster endpoint"
+  type        = string
+  default     = "{{ cluster.talos.networking.cluster_endpoint }}"
+  
+  validation {
+    condition     = can(regex("^https://.*:6443$", var.cluster_endpoint))
+    error_message = "Cluster endpoint must be a valid HTTPS URL with port 6443."
+  }
+}
+
+variable "pod_subnet" {
+  description = "Pod subnet CIDR"
+  type        = string
+  default     = "{{ cluster.talos.networking.pod_subnet }}"
+  
+  validation {
+    condition     = can(cidrhost(var.pod_subnet, 0))
+    error_message = "Pod subnet must be a valid CIDR block."
+  }
+}
+
+variable "service_subnet" {
+  description = "Service subnet CIDR"
+  type        = string
+  default     = "{{ cluster.talos.networking.service_subnet }}"
+  
+  validation {
+    condition     = can(cidrhost(var.service_subnet, 0))
+    error_message = "Service subnet must be a valid CIDR block."
+  }
+}
+
+variable "dns_domain" {
+  description = "DNS domain for the cluster"
+  type        = string
+  default     = "{{ cluster.talos.networking.dns_domain }}"
+}
+
+# VM Configuration Variables
+variable "vm_template" {
+  description = "Proxmox VM template name"
+  type        = string
+  default     = "{{ vm_template_info.name if vm_template_info is defined else 'talos-' + cluster.talos.version + '-template' }}"
+}
+
+variable "vm_storage" {
+  description = "Proxmox storage pool for VMs"
+  type        = string
+  default     = "{{ proxmox.storage.vm_storage }}"
+}
+
+variable "vm_bridge" {
+  description = "Proxmox network bridge"
+  type        = string
+  default     = "{{ proxmox.network.vm_bridge }}"
+}
+
+# Control Plane Configuration
+variable "control_plane_count" {
+  description = "Number of control plane nodes"
+  type        = number
+  default     = {{ groups['control_plane'] | length if groups['control_plane'] is defined else 3 }}
+  
+  validation {
+    condition     = var.control_plane_count % 2 == 1 && var.control_plane_count >= 1 && var.control_plane_count <= 7
+    error_message = "Control plane count must be an odd number between 1 and 7."
+  }
+}
+
+variable "control_plane_cpu" {
+  description = "CPU cores for control plane nodes"
+  type        = number
+  default     = {{ cluster.nodes.control_plane.resources.cpu }}
+  
+  validation {
+    condition     = var.control_plane_cpu >= 2 && var.control_plane_cpu <= 32
+    error_message = "Control plane CPU must be between 2 and 32 cores."
+  }
+}
+
+variable "control_plane_memory" {
+  description = "Memory for control plane nodes (MB)"
+  type        = number
+  default     = {{ cluster.nodes.control_plane.resources.memory }}
+  
+  validation {
+    condition     = var.control_plane_memory >= 4096 && var.control_plane_memory <= 131072
+    error_message = "Control plane memory must be between 4096 MB and 131072 MB."
+  }
+}
+
+variable "control_plane_disk" {
+  description = "Disk size for control plane nodes (GB)"
+  type        = number
+  default     = {{ cluster.nodes.control_plane.resources.disk_size }}
+  
+  validation {
+    condition     = var.control_plane_disk >= 20 && var.control_plane_disk <= 1024
+    error_message = "Control plane disk size must be between 20 GB and 1024 GB."
+  }
+}
+
+# Worker Configuration
+variable "worker_count" {
+  description = "Number of worker nodes"
+  type        = number
+  default     = {{ groups['workers'] | length if groups['workers'] is defined else 3 }}
+  
+  validation {
+    condition     = var.worker_count >= 1 && var.worker_count <= 50
+    error_message = "Worker count must be between 1 and 50."
+  }
+}
+
+variable "worker_cpu" {
+  description = "CPU cores for worker nodes"
+  type        = number
+  default     = {{ cluster.nodes.workers.resources.cpu }}
+  
+  validation {
+    condition     = var.worker_cpu >= 2 && var.worker_cpu <= 64
+    error_message = "Worker CPU must be between 2 and 64 cores."
+  }
+}
+
+variable "worker_memory" {
+  description = "Memory for worker nodes (MB)"
+  type        = number
+  default     = {{ cluster.nodes.workers.resources.memory }}
+  
+  validation {
+    condition     = var.worker_memory >= 4096 && var.worker_memory <= 262144
+    error_message = "Worker memory must be between 4096 MB and 262144 MB."
+  }
+}
+
+variable "worker_disk" {
+  description = "Disk size for worker nodes (GB)"
+  type        = number
+  default     = {{ cluster.nodes.workers.resources.disk_size }}
+  
+  validation {
+    condition     = var.worker_disk >= 20 && var.worker_disk <= 2048
+    error_message = "Worker disk size must be between 20 GB and 2048 GB."
+  }
+}
+
+# Network Configuration
+{% if network.vlans.enabled | default(false) %}
+variable "vlan_enabled" {
+  description = "Enable VLAN tagging"
+  type        = bool
+  default     = {{ network.vlans.enabled | lower }}
+}
+
+variable "production_vlan" {
+  description = "Production VLAN ID"
+  type        = number
+  default     = {{ network.vlans.production_vlan | default(200) }}
+  
+  validation {
+    condition     = var.production_vlan >= 1 && var.production_vlan <= 4094
+    error_message = "VLAN ID must be between 1 and 4094."
+  }
+}
+{% endif %}
+
+# Tagging and Metadata
+variable "environment" {
+  description = "Environment (development, staging, production)"
+  type        = string
+  default     = "{{ project.environment }}"
+  
+  validation {
+    condition     = contains(["development", "staging", "production"], var.environment)
+    error_message = "Environment must be one of: development, staging, production."
+  }
+}
+
+variable "project_name" {
+  description = "Project name"
+  type        = string
+  default     = "{{ project.name }}"
+}
+
+variable "additional_tags" {
+  description = "Additional tags to apply to all resources"
+  type        = list(string)
+  default     = []
+}

@@ -1,0 +1,54 @@
+# InfraFlux v2.0 - Terraform Variables
+# Generated on: {{ ansible_date_time.iso8601 }}
+# This file contains variable values for Terraform execution
+
+# Proxmox API configuration
+proxmox_api_token = "{{ vault_proxmox_api_token }}"
+
+# SSH configuration
+ssh_public_key = "{{ vault_ssh_public_key }}"
+
+# Cluster configuration
+cluster_name       = "{{ cluster.name }}"
+talos_version      = "{{ cluster.talos.version }}"
+kubernetes_version = "{{ cluster.talos.kubernetes_version }}"
+cluster_endpoint   = "{{ cluster.talos.networking.cluster_endpoint }}"
+
+# Network configuration
+pod_subnet     = "{{ cluster.talos.networking.pod_subnet }}"
+service_subnet = "{{ cluster.talos.networking.service_subnet }}"
+dns_domain     = "{{ cluster.talos.networking.dns_domain }}"
+
+# VM configuration
+vm_template = "{{ vm_template_info.name if vm_template_info is defined else 'talos-' + cluster.talos.version + '-template' }}"
+vm_storage  = "{{ proxmox.storage.vm_storage }}"
+vm_bridge   = "{{ proxmox.network.vm_bridge }}"
+
+# Control plane configuration
+control_plane_count  = {{ groups['control_plane'] | length if groups['control_plane'] is defined else 3 }}
+control_plane_cpu    = {{ cluster.nodes.control_plane.resources.cpu }}
+control_plane_memory = {{ cluster.nodes.control_plane.resources.memory }}
+control_plane_disk   = {{ cluster.nodes.control_plane.resources.disk_size }}
+
+# Worker configuration  
+worker_count  = {{ groups['workers'] | length if groups['workers'] is defined else 3 }}
+worker_cpu    = {{ cluster.nodes.workers.resources.cpu }}
+worker_memory = {{ cluster.nodes.workers.resources.memory }}
+worker_disk   = {{ cluster.nodes.workers.resources.disk_size }}
+
+{% if network.vlans.enabled | default(false) %}
+# VLAN configuration
+vlan_enabled     = {{ network.vlans.enabled | lower }}
+production_vlan  = {{ network.vlans.production_vlan | default(200) }}
+{% endif %}
+
+# Project metadata
+environment   = "{{ project.environment }}"
+project_name  = "{{ project.name }}"
+
+# Additional tags
+additional_tags = [
+  "infraflux-v2.0",
+  "managed-by-ansible",
+  "created-{{ ansible_date_time.date }}"
+]

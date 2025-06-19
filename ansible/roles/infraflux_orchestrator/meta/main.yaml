@@ -1,0 +1,34 @@
+---
+galaxy_info:
+  role_name: infraflux_orchestrator
+  author: InfraFlux v2.0
+  description: Master orchestration role for InfraFlux infrastructure automation
+  company: InfraFlux
+  license: MIT
+  min_ansible_version: 2.12
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - infrastructure
+    - automation
+    - proxmox
+    - talos
+    - kubernetes
+    - terraform
+    - orchestration
+
+dependencies:
+  - role: talos_image
+    when: orchestration_flow.prepare_images | bool
+  - role: vm_template  
+    when: orchestration_flow.create_templates | bool
+  - role: terraform_generator
+    when: orchestration_flow.generate_terraform | bool

@@ -1,0 +1,198 @@
+---
+# Bootstrap Talos cluster
+
+- name: "Validate bootstrap prerequisites"
+  assert:
+    that:
+      - control_plane_configs_applied | default(false)
+      - bootstrap_config.bootstrap_node in control_plane_ready_nodes | default([])
+    fail_msg: "Bootstrap prerequisites not met - control plane configuration must be applied first"
+
+- name: "Wait before bootstrap attempt"
+  pause:
+    seconds: "{{ bootstrap_process.post_bootstrap_wait }}"
+
+- name: "Attempt cluster bootstrap"
+  block:
+    - name: "Bootstrap cluster on {{ bootstrap_config.bootstrap_node }}"
+      command: >
+        talosctl bootstrap
+        --nodes {{ bootstrap_node_ip }}
+        --endpoints {{ bootstrap_node_ip }}
+        --talosconfig {{ talos_config.output_directory | default(playbook_dir + '/generated/talos') }}/talosconfig
+      register: bootstrap_result
+      timeout: "{{ bootstrap_process.bootstrap_timeout }}"
+
+    - name: "Wait for bootstrap to initialize"
+      pause:
+        seconds: 60
+
+  rescue:
+    - name: "Handle bootstrap failure"
+      debug:
+        msg:
+          - "Bootstrap attempt failed"
+          - "Command: {{ bootstrap_result.cmd if bootstrap_result is defined else 'N/A' }}"
+          - "Error: {{ bootstrap_result.stderr if bootstrap_result is defined else 'Unknown' }}"
+          - "Attempting recovery..."
+
+    - name: "Check if cluster is already bootstrapped"
+      command: >
+        talosctl --talosconfig {{ talos_config.output_directory | default(playbook_dir + '/generated/talos') }}/talosconfig
+        --nodes {{ bootstrap_node_ip }}
+        --endpoints {{ bootstrap_node_ip }}
+        version
+      register: recovery_check
+      failed_when: false
+
+    - name: "Set bootstrap success if cluster exists"
+      set_fact:
+        bootstrap_result: 
+          rc: 0
+          stdout: "Cluster already exists"
+      when: recovery_check.rc == 0
+
+    - name: "Fail if recovery unsuccessful"
+      fail:
+        msg: "Bootstrap failed and cluster recovery was unsuccessful"
+      when: recovery_check.rc != 0
+
+- name: "Wait for etcd to be ready"
+  command: >
+    talosctl --talosconfig {{ talos_config.output_directory | default(playbook_dir + '/generated/talos') }}/talosconfig
+    --nodes {{ bootstrap_node_ip }}
+    --endpoints {{ bootstrap_node_ip }}
+    etcd members
+  register: etcd_check
+  retries: 20
+  delay: 15
+  until: etcd_check.rc == 0
+  when: bootstrap_config.wait_for_ready | bool
+
+- name: "Check API server accessibility"
+  uri:
+    url: "https://{{ cluster.talos.networking.cluster_endpoint }}:6443/healthz"
+    method: GET
+    validate_certs: false
+    status_code: [200, 401, 403]
+  register: api_server_check
+  retries: 15
+  delay: 20
+  until: api_server_check.status in [200, 401, 403]
+  when: bootstrap_config.wait_for_ready | bool
+
+- name: "Verify cluster health via talosctl"
+  command: >
+    talosctl --talosconfig {{ talos_config.output_directory | default(playbook_dir + '/generated/talos') }}/talosconfig
+    --nodes {{ bootstrap_node_ip }}
+    --endpoints {{ bootstrap_node_ip }}
+    health
+  register: cluster_health_check
+  retries: 10
+  delay: 30
+  until: cluster_health_check.rc == 0
+  when: bootstrap_config.wait_for_ready | bool
+
+- name: "Wait for all control plane nodes to join"
+  command: >
+    talosctl --talosconfig {{ talos_config.output_directory | default(playbook_dir + '/generated/talos') }}/talosconfig
+    --nodes {{ groups['control_plane'] | map('extract', hostvars, 'ansible_host') | map('default', groups['control_plane']) | join(',') }}
+    --endpoints {{ bootstrap_node_ip }}
+    health
+  register: all_cp_health_check
+  retries: 15
+  delay: 30
+  until: all_cp_health_check.rc == 0
+  when: 
+    - bootstrap_config.wait_for_ready | bool
+    - groups['control_plane'] | length > 1
+
+- name: "Get cluster member status"
+  command: >
+    talosctl --talosconfig {{ talos_config.output_directory | default(playbook_dir + '/generated/talos') }}/talosconfig
+    --nodes {{ bootstrap_node_ip }}
+    --endpoints {{ bootstrap_node_ip }}
+    etcd members
+  register: etcd_members
+  when: bootstrap_config.wait_for_ready | bool
+
+- name: "Set bootstrap completion facts"
+  set_fact:
+    cluster_bootstrap_complete: true
+    bootstrap_successful: "{{ bootstrap_result.rc == 0 }}"
+    etcd_ready: "{{ etcd_check.rc == 0 if etcd_check is defined else false }}"
+    api_server_ready: "{{ api_server_check.status in [200, 401, 403] if api_server_check is defined else false }}"
+    cluster_health_ok: "{{ cluster_health_check.rc == 0 if cluster_health_check is defined else false }}"
+
+- name: "Create bootstrap status report"
+  set_fact:
+    bootstrap_status_report:
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+      cluster_name: "{{ cluster.name }}"
+      bootstrap_node: "{{ bootstrap_config.bootstrap_node }}"
+      bootstrap_ip: "{{ bootstrap_node_ip }}"
+      bootstrap_successful: "{{ bootstrap_successful }}"
+      etcd_status: "{{ 'ready' if etcd_ready else 'not ready' }}"
+      api_server_status: "{{ 'accessible' if api_server_ready else 'not accessible' }}"
+      cluster_health: "{{ 'healthy' if cluster_health_ok else 'unhealthy' }}"
+      control_plane_nodes: "{{ groups['control_plane'] | length if groups['control_plane'] is defined else 0 }}"
+      cluster_endpoint: "{{ cluster.talos.networking.cluster_endpoint }}"
+
+- name: "Save bootstrap status report"
+  copy:
+    content: "{{ bootstrap_status_report | to_nice_json(indent=2) }}"
+    dest: "{{ logging.log_directory }}/bootstrap_status.json"
+    mode: '0644'
+  when: logging.save_logs | bool
+
+- name: "Create detailed bootstrap log"
+  copy:
+    content: |
+      Talos Cluster Bootstrap Log
+      ==========================
+      Timestamp: {{ ansible_date_time.iso8601 }}
+      Cluster: {{ cluster.name }}
+      Bootstrap Node: {{ bootstrap_config.bootstrap_node }} ({{ bootstrap_node_ip }})
+      
+      Bootstrap Command Result:
+      RC: {{ bootstrap_result.rc if bootstrap_result is defined else 'N/A' }}
+      STDOUT: {{ bootstrap_result.stdout if bootstrap_result is defined else 'N/A' }}
+      STDERR: {{ bootstrap_result.stderr if bootstrap_result is defined else 'N/A' }}
+      
+      Health Check Results:
+      {% if etcd_check is defined %}
+      etcd Status: {{ 'Ready' if etcd_check.rc == 0 else 'Failed' }}
+      etcd Output: {{ etcd_check.stdout if etcd_check.rc == 0 else etcd_check.stderr }}
+      {% endif %}
+      
+      {% if api_server_check is defined %}
+      API Server Status: {{ api_server_check.status }}
+      API Server URL: https://{{ cluster.talos.networking.cluster_endpoint }}:6443/healthz
+      {% endif %}
+      
+      {% if cluster_health_check is defined %}
+      Cluster Health: {{ 'Healthy' if cluster_health_check.rc == 0 else 'Unhealthy' }}
+      Health Output: {{ cluster_health_check.stdout if cluster_health_check.rc == 0 else cluster_health_check.stderr }}
+      {% endif %}
+      
+      {% if etcd_members is defined %}
+      etcd Members:
+      {{ etcd_members.stdout }}
+      {% endif %}
+    dest: "{{ logging.log_directory }}/bootstrap_detailed.log"
+    mode: '0644'
+  when: logging.save_logs | bool
+
+- name: "Display bootstrap results"
+  debug:
+    msg:
+      - "Cluster Bootstrap {{ 'Complete' if bootstrap_successful else 'Failed' }}"
+      - "========================================="
+      - "Cluster: {{ cluster.name }}"
+      - "Bootstrap Node: {{ bootstrap_config.bootstrap_node }} ({{ bootstrap_node_ip }})"
+      - "Bootstrap Status: {{ 'SUCCESS' if bootstrap_successful else 'FAILED' }}"
+      - "etcd Status: {{ 'Ready' if etcd_ready else 'Not Ready' }}"
+      - "API Server: {{ 'Accessible' if api_server_ready else 'Not Accessible' }}"
+      - "Cluster Health: {{ 'Healthy' if cluster_health_ok else 'Unhealthy' }}"
+      - "Cluster Endpoint: {{ cluster.talos.networking.cluster_endpoint }}"
+      - "Control Plane Nodes: {{ groups['control_plane'] | length if groups['control_plane'] is defined else 0 }}"

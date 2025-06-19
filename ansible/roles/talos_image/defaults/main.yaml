@@ -1,0 +1,50 @@
+---
+# Talos Image Factory defaults
+
+# Talos Image Factory configuration
+talos_image_factory:
+  url: "https://factory.talos.dev"
+  timeout: 30
+  retries: 3
+
+# Default schematic for Talos images with required extensions
+talos_default_schematic:
+  customization:
+    systemExtensions:
+      officialExtensions:
+        - siderolabs/qemu-guest-agent  # VM guest agent for Proxmox
+        - siderolabs/intel-ucode       # Intel CPU microcode
+        - siderolabs/i915-ucode        # Intel GPU drivers
+
+# Image configuration
+talos_image_config:
+  platform: "nocloud"
+  architecture: "amd64"
+  compression: "gz"
+
+# Download configuration
+talos_download_config:
+  timeout: 600  # 10 minutes
+  retries: 3
+  chunk_size: 8192
+  verify_checksum: true
+
+# Cache configuration
+talos_image_cache:
+  enabled: true
+  directory: "/tmp/talos-images"
+  max_age_days: 7
+  cleanup_on_success: false
+
+# Proxmox integration
+proxmox_image_config:
+  content_type: "iso"
+  overwrite: false
+  timeout: 300
+  node_storage_map: {}  # Override per node if needed
+
+# Version management
+talos_version_config:
+  check_latest: true
+  allow_prerelease: false
+  version_pattern: "^v[0-9]+\\.[0-9]+\\.[0-9]+$"

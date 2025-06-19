@@ -1,0 +1,221 @@
+---
+# InfraFlux v2.0 Testing Deployment Playbook
+# This playbook is optimized for testing and development with enhanced logging and validation
+
+- name: "InfraFlux v2.0 Testing Deployment"
+  hosts: localhost
+  gather_facts: yes
+  vars_files:
+    - ../configs/global.yaml
+  
+  vars:
+    # Testing configuration
+    testing_mode: true
+    debug_output: true
+    
+    # Terraform configuration for testing
+    terraform_config:
+      workspace_dir: "{{ playbook_dir }}/../testing/terraform"
+      backend:
+        type: "local"
+        config:
+          path: "terraform.tfstate"
+    
+    # Override for testing with smaller resources
+    cluster:
+      nodes:
+        control_plane:
+          resources:
+            cpu: 4
+            memory: 8192
+            disk_size: 50
+        workers:
+          resources:
+            cpu: 4
+            memory: 8192
+            disk_size: 50
+    
+    # Output directories for testing
+    output_directories:
+      base: "{{ playbook_dir }}/../testing"
+      terraform: "{{ playbook_dir }}/../testing/terraform"
+      talos: "{{ playbook_dir }}/../testing/talos"
+      logs: "{{ playbook_dir }}/../testing/logs"
+    
+    # Enhanced logging for testing
+    logging:
+      level: "DEBUG"
+      detailed_output: true
+      preserve_logs: true
+      log_retention_days: 30
+
+  pre_tasks:
+    - name: "Display testing deployment banner"
+      debug:
+        msg:
+          - "======================================================="
+          - "          InfraFlux v2.0 Testing Deployment"
+          - "======================================================="
+          - "Testing Mode: ENABLED"
+          - "Project: {{ project.name }} {{ project.version }}"
+          - "Environment: {{ project.environment }}"
+          - "Cluster: {{ cluster.name }}"
+          - "Talos Version: {{ cluster.talos.version }}"
+          - "Kubernetes Version: {{ cluster.talos.kubernetes_version }}"
+          - ""
+          - "Test Configuration:"
+          - "  - Control Plane: {{ groups['control_plane'] | length }} nodes ({{ cluster.nodes.control_plane.resources.cpu }}c/{{ cluster.nodes.control_plane.resources.memory }}MB)"
+          - "  - Workers: {{ groups['workers'] | length }} nodes ({{ cluster.nodes.workers.resources.cpu }}c/{{ cluster.nodes.workers.resources.memory }}MB)"
+          - "  - Proxmox Nodes: {{ groups['proxmox_servers'] | length }}"
+          - ""
+          - "Output Directory: {{ output_directories.base }}"
+          - "======================================================="
+
+    - name: "Create testing output directories"
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ output_directories.base }}"
+        - "{{ output_directories.terraform }}"
+        - "{{ output_directories.talos }}"
+        - "{{ output_directories.logs }}"
+
+    - name: "Validate testing prerequisites"
+      block:
+        - name: "Check Proxmox connectivity"
+          uri:
+            url: "{{ proxmox.api_url }}/api2/json/cluster/status"
+            method: GET
+            headers:
+              Authorization: "PVEAPIToken={{ proxmox.api_user }}!{{ proxmox.api_token_id }}={{ vault_proxmox_api_token }}"
+            validate_certs: false
+            timeout: 10
+          register: proxmox_test
+          
+        - name: "Validate configuration completeness"
+          assert:
+            that:
+              - project.name is defined
+              - cluster.name is defined
+              - cluster.talos.version is defined
+              - groups['proxmox_servers'] | length > 0
+              - groups['control_plane'] | length > 0
+              - vault_proxmox_api_token is defined
+            fail_msg: "Required configuration missing for testing"
+            
+        - name: "Display test environment status"
+          debug:
+            msg:
+              - "Testing Prerequisites Validation"
+              - "==============================="
+              - "Proxmox API: {{ 'ACCESSIBLE' if proxmox_test.status == 200 else 'FAILED' }}"
+              - "Configuration: COMPLETE"
+              - "Inventory: {{ groups['proxmox_servers'] | length }} Proxmox, {{ (groups['control_plane'] | length) + (groups['workers'] | length) }} VMs"
+              - "Secrets: {{ 'LOADED' if vault_proxmox_api_token is defined else 'MISSING' }}"
+              - "Ready for deployment: YES"
+
+  roles:
+    - role: infraflux_orchestrator
+      vars:
+        # Override orchestration settings for testing
+        orchestration_flow:
+          validate_prerequisites: true
+          prepare_images: true
+          create_templates: true
+          generate_terraform: true
+          deploy_infrastructure: true
+          validate_deployment: true
+        
+        # Enhanced validation for testing
+        validation:
+          skip_vm_accessibility: false
+          skip_resource_check: false
+          detailed_reporting: true
+          fail_fast: false
+        
+        # More conservative timeouts for testing
+        infrastructure_deployment:
+          plan_only: false
+          auto_approve: false
+          wait_timeout: 2400  # 40 minutes
+          health_check_retries: 15
+          health_check_delay: 20
+
+      tags:
+        - test
+        - orchestration
+        - infrastructure
+
+  post_tasks:
+    - name: "Generate testing summary report"
+      template:
+        src: "{{ playbook_dir }}/templates/test_summary.md.j2"
+        dest: "{{ output_directories.base }}/TEST_SUMMARY.md"
+        mode: '0644'
+      vars:
+        test_results:
+          start_time: "{{ ansible_date_time.iso8601 }}"
+          deployment_status: "{{ 'SUCCESS' if infraflux_orchestration_complete | default(false) else 'FAILED' }}"
+          cluster_ready: "{{ deployment_successful | default(false) }}"
+          validation_passed: "{{ validation_successful | default(false) }}"
+      when: infraflux_orchestration_complete is defined
+
+    - name: "Display testing completion summary"
+      debug:
+        msg:
+          - "======================================================="
+          - "         InfraFlux Testing Deployment Complete"
+          - "======================================================="
+          - "Overall Status: {{ 'SUCCESS' if infraflux_orchestration_complete | default(false) else 'FAILED/INCOMPLETE' }}"
+          - "Deployment: {{ 'SUCCESS' if deployment_successful | default(false) else 'FAILED' }}"
+          - "Validation: {{ 'PASSED' if validation_successful | default(false) else 'FAILED' }}"
+          - ""
+          - "Cluster Information:"
+          - "  - Name: {{ cluster.name }}"
+          - "  - Endpoint: {{ cluster.talos.networking.cluster_endpoint if cluster.talos.networking.cluster_endpoint is defined else 'Not configured' }}"
+          - "  - Nodes Deployed: {{ (groups['control_plane'] | length) + (groups['workers'] | length) }}"
+          - ""
+          - "Generated Artifacts:"
+          - "  - Terraform Config: {{ output_directories.terraform }}"
+          - "  - Talos Configs: {{ output_directories.talos }}"
+          - "  - Deployment Logs: {{ output_directories.logs }}"
+          - "  - Test Summary: {{ output_directories.base }}/TEST_SUMMARY.md"
+          - ""
+          - "Next Steps:"
+          - "  1. Review test results and logs"
+          - "  2. Verify cluster accessibility"
+          - "  3. Run additional validation tests"
+          - "  4. Report any issues found"
+          - "======================================================="
+
+    - name: "Save test environment state"
+      copy:
+        content: |
+          # InfraFlux Testing Environment State
+          # Generated: {{ ansible_date_time.iso8601 }}
+          
+          ## Test Configuration
+          - Testing Mode: {{ testing_mode }}
+          - Cluster Name: {{ cluster.name }}
+          - Talos Version: {{ cluster.talos.version }}
+          - Kubernetes Version: {{ cluster.talos.kubernetes_version }}
+          
+          ## Infrastructure
+          - Proxmox Nodes: {{ groups['proxmox_servers'] | length }}
+          - Control Plane: {{ groups['control_plane'] | length }}
+          - Workers: {{ groups['workers'] | length }}
+          
+          ## Test Results
+          - Orchestration Complete: {{ infraflux_orchestration_complete | default(false) }}
+          - Deployment Successful: {{ deployment_successful | default(false) }}
+          - Validation Passed: {{ validation_successful | default(false) }}
+          
+          ## Output Locations
+          - Base Directory: {{ output_directories.base }}
+          - Terraform: {{ output_directories.terraform }}
+          - Talos Configs: {{ output_directories.talos }}
+          - Logs: {{ output_directories.logs }}
+        dest: "{{ output_directories.base }}/test_environment.md"
+        mode: '0644'

@@ -1,0 +1,50 @@
+# InfraFlux v2.0 Ansible Collection Requirements
+# Install with: ansible-galaxy collection install -r requirements.yaml
+
+---
+collections:
+  # Community collections for general automation
+  - name: community.general
+    version: ">=7.0.0"
+    
+  # Kubernetes automation
+  - name: kubernetes.core
+    version: ">=2.4.0"
+    
+  # Utilities and filters
+  - name: ansible.utils
+    version: ">=2.10.0"
+    
+  # POSIX system management
+  - name: ansible.posix
+    version: ">=1.5.0"
+    
+  # Proxmox VE management
+  - name: community.general  # Contains proxmox modules
+    
+  # Cloud automation (for future expansion)
+  - name: amazon.aws
+    version: ">=6.0.0"
+    
+  - name: google.cloud
+    version: ">=1.1.0"
+    
+  # Container and Docker management
+  - name: community.docker
+    version: ">=3.4.0"
+    
+  # Crypto and certificates
+  - name: community.crypto
+    version: ">=2.13.0"
+    
+  # MySQL/MariaDB (for future database automation)
+  - name: community.mysql
+    version: ">=3.7.0"
+    
+  # PostgreSQL (for future database automation)
+  - name: community.postgresql
+    version: ">=2.4.0"
+    
+  # Grafana automation
+  - name: community.grafana
+    version: ">=1.5.0"

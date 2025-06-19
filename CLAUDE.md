@@ -15,12 +15,15 @@ The whole project is designed to be deployable with a single command to create a
 git clone https://github.com/yourusername/infraflux.git
 cd infraflux
 
-# 2. Configure your Proxmox credentials
+# 2. Configure your environment
 cp configs/global.yaml.example configs/global.yaml
 # Edit configs/global.yaml with your Proxmox details
 
-# 3. Deploy your homelab
-ansible-playbook ansible/deploy.yaml
+# 3. Set up secrets
+./scripts/setup-vault.sh
+
+# 4. Deploy your infrastructure
+ansible-playbook -i ansible/inventory/hosts.ini ansible/site.yml
 ```
 
 ## Prerequisites and Dependencies
@@ -32,6 +35,7 @@ ansible-playbook ansible/deploy.yaml
 - Packer >= 1.9.0
 - Python >= 3.9
 - jinja2 >= 3.0
+- talosctl >= 1.5.0 (for Talos cluster management)
 
 ### Proxmox Requirements
 
@@ -52,10 +56,11 @@ ansible-playbook ansible/deploy.yaml
 
 ### Deployment Principles
 
-- **One-Command Deployment**: The entire infrastructure must be deployable with `ansible-playbook ansible/deploy.yaml`
+- **One-Command Deployment**: The entire infrastructure must be deployable with `ansible-playbook -i ansible/inventory/hosts.ini ansible/site.yml`
 - **Declarative Approach**: Users define desired state; the system applies necessary changes
 - **No Hardcoded Values**: All configurations use variables and templates
 - **Reproducible Environments**: Every deployment produces identical results
+- **Talos-First**: Use Talos Linux for immutable, secure Kubernetes clusters
 
 ### Code Quality Standards
 

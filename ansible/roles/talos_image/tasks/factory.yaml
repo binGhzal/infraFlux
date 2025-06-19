@@ -1,0 +1,104 @@
+---
+# Talos Image Factory integration tasks
+
+- name: "Validate Talos configuration"
+  assert:
+    that:
+      - cluster.talos.version is defined
+      - cluster.talos.version is match(talos_version_config.version_pattern)
+      - cluster.talos.image is defined
+      - cluster.talos.image.factory_url is defined
+    fail_msg: "Invalid Talos configuration. Check cluster.talos settings."
+
+- name: "Set Talos version facts"
+  set_fact:
+    talos_version: "{{ cluster.talos.version }}"
+    talos_factory_url: "{{ cluster.talos.image.factory_url | default(talos_image_factory.url) }}"
+    talos_platform: "{{ cluster.talos.image.platform | default(talos_image_config.platform) }}"
+    talos_architecture: "{{ cluster.talos.image.architecture | default(talos_image_config.architecture) }}"
+
+- name: "Create custom schematic configuration"
+  set_fact:
+    talos_schematic: "{{ cluster.talos.image.schematic | default(talos_default_schematic) }}"
+
+- name: "Display schematic configuration"
+  debug:
+    msg:
+      - "Talos version: {{ talos_version }}"
+      - "Platform: {{ talos_platform }}"
+      - "Architecture: {{ talos_architecture }}"
+      - "Factory URL: {{ talos_factory_url }}"
+      - "Extensions: {{ talos_schematic.customization.systemExtensions.officialExtensions }}"
+
+- name: "Create temporary directory for schematic"
+  tempfile:
+    state: directory
+    prefix: "talos-schematic-"
+  register: schematic_temp_dir
+
+- name: "Save schematic to file"
+  copy:
+    content: "{{ talos_schematic | to_nice_yaml }}"
+    dest: "{{ schematic_temp_dir.path }}/schematic.yaml"
+  register: schematic_file
+
+- name: "Submit schematic to Talos Image Factory"
+  uri:
+    url: "{{ talos_factory_url }}/schematics"
+    method: POST
+    body: "{{ talos_schematic | to_json }}"
+    body_format: json
+    headers:
+      Content-Type: "application/json"
+    timeout: "{{ talos_image_factory.timeout }}"
+    status_code: 200
+  register: schematic_response
+  retries: "{{ talos_image_factory.retries }}"
+  delay: 5
+
+- name: "Extract schematic ID"
+  set_fact:
+    talos_schematic_id: "{{ schematic_response.json.id }}"
+
+- name: "Display schematic ID"
+  debug:
+    msg: "Talos schematic ID: {{ talos_schematic_id }}"
+
+- name: "Construct image URL"
+  set_fact:
+    talos_image_url: "{{ talos_factory_url }}/image/{{ talos_schematic_id }}/{{ talos_version }}/{{ talos_platform }}-{{ talos_architecture }}.raw.{{ talos_image_config.compression }}"
+
+- name: "Display image URL"
+  debug:
+    msg: "Talos image URL: {{ talos_image_url }}"
+
+- name: "Set image filename"
+  set_fact:
+    talos_image_filename: "talos-{{ talos_version }}-{{ talos_platform }}-{{ talos_architecture }}-{{ talos_schematic_id[:8] }}.img"
+
+- name: "Verify image availability"
+  uri:
+    url: "{{ talos_image_url }}"
+    method: HEAD
+    timeout: "{{ talos_image_factory.timeout }}"
+    status_code: 200
+  register: image_availability
+  retries: "{{ talos_image_factory.retries }}"
+  delay: 10
+
+- name: "Clean up temporary directory"
+  file:
+    path: "{{ schematic_temp_dir.path }}"
+    state: absent
+
+- name: "Set Talos image facts for later use"
+  set_fact:
+    talos_image_info:
+      version: "{{ talos_version }}"
+      schematic_id: "{{ talos_schematic_id }}"
+      url: "{{ talos_image_url }}"
+      filename: "{{ talos_image_filename }}"
+      platform: "{{ talos_platform }}"
+      architecture: "{{ talos_architecture }}"
+      factory_url: "{{ talos_factory_url }}"
+      size: "{{ image_availability.content_length | default('unknown') }}"

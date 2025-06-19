@@ -1,0 +1,42 @@
+# InfraFlux v2.0 - Terraform Backend Configuration
+# Generated on: {{ ansible_date_time.iso8601 }}
+
+terraform {
+{% if backend_type == "local" %}
+  backend "local" {
+    path = "{{ backend_config.path | default('terraform.tfstate') }}"
+  }
+{% elif backend_type == "s3" %}
+  backend "s3" {
+    bucket = "{{ backend_config.bucket }}"
+    key    = "{{ backend_config.key | default('infraflux/' + project.environment + '/terraform.tfstate') }}"
+    region = "{{ backend_config.region }}"
+{% if backend_config.dynamodb_table is defined %}
+    dynamodb_table = "{{ backend_config.dynamodb_table }}"
+{% endif %}
+{% if backend_config.encrypt is defined %}
+    encrypt = {{ backend_config.encrypt | lower }}
+{% endif %}
+  }
+{% elif backend_type == "consul" %}
+  backend "consul" {
+    address = "{{ backend_config.address }}"
+    scheme  = "{{ backend_config.scheme | default('http') }}"
+    path    = "{{ backend_config.path | default('infraflux/' + project.environment + '/terraform.tfstate') }}"
+  }
+{% elif backend_type == "etcd" %}
+  backend "etcd" {
+    endpoints = [{{ backend_config.endpoints | map('to_json') | join(', ') }}]
+    path      = "{{ backend_config.path | default('/infraflux/' + project.environment + '/terraform.tfstate') }}"
+  }
+{% endif %}
+
+  required_providers {
+    proxmox = {
+      source  = "telmate/proxmox"
+      version = "~> 2.9"
+    }
+  }
+
+  required_version = ">= 1.0"
+}

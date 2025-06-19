@@ -1,0 +1,42 @@
+{
+  "metadata": {
+    "generated_at": "{{ summary_data.timestamp }}",
+    "infraflux_version": "v2.0",
+    "deployment_status": "{{ summary_data.status }}"
+  },
+  "deployment_results": {
+    "terraform_resources_created": {{ summary_data.resources_created }},
+    "infrastructure_status": "{{ summary_data.status }}",
+    "cluster_endpoint": "{{ summary_data.cluster_endpoint }}"
+  },
+  "virtual_machines": {
+    "control_plane_count": {{ summary_data.vms_deployed.control_plane }},
+    "worker_count": {{ summary_data.vms_deployed.workers }},
+    "total_deployed": {{ summary_data.vms_deployed.total }},
+    "ip_addresses": {{ summary_data.vm_ip_addresses | to_json }}
+  },
+  "cluster_configuration": {
+    "name": "{{ cluster.name }}",
+    "talos_version": "{{ cluster.talos.version }}",
+    "kubernetes_version": "{{ cluster.talos.kubernetes_version }}",
+    "networking": {
+      "cluster_endpoint": "{{ summary_data.cluster_endpoint }}",
+      "pod_subnet": "{{ cluster.talos.networking.pod_subnet }}",
+      "service_subnet": "{{ cluster.talos.networking.service_subnet }}",
+      "dns_domain": "{{ cluster.talos.networking.dns_domain }}"
+    }
+  },
+  "infrastructure": {
+    "proxmox_nodes": {{ groups['proxmox_servers'] | length }},
+    "vm_template": "{{ vm_template_info.name if vm_template_info is defined else 'unknown' }}",
+    "storage": "{{ proxmox.storage.vm_storage }}",
+    "network_bridge": "{{ proxmox.network.vm_bridge }}"
+  },
+  "next_steps": [
+    "Bootstrap Talos cluster with talosctl",
+    "Configure kubectl access",
+    "Deploy CNI (Cilium)",
+    "Deploy CSI (Longhorn)",
+    "Set up monitoring and logging"
+  ]
+}

@@ -1,0 +1,158 @@
+---
+# InfraFlux v2.0 Proxmox Connection Test Playbook
+# This playbook tests connectivity to Proxmox servers and validates API access
+
+- name: "Test Proxmox API Connectivity"
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "../group_vars/all/vault.yml"
+    - "../../configs/global.yaml"
+    
+  tasks:
+    - name: "Validate required variables"
+      assert:
+        that:
+          - proxmox.api_url is defined
+          - proxmox.api_user is defined
+          - proxmox.api_token_id is defined
+          - vault_proxmox_api_token is defined
+        fail_msg: "Required Proxmox configuration variables are missing"
+        
+    - name: "Test Proxmox API connectivity"
+      uri:
+        url: "{{ proxmox.api_url }}/api2/json/cluster/status"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox.api_user }}!{{ proxmox.api_token_id }}={{ vault_proxmox_api_token }}"
+        validate_certs: false
+        timeout: 10
+      register: proxmox_api_test
+      
+    - name: "Display API test results"
+      debug:
+        msg: "Proxmox API connectivity: SUCCESS"
+      when: proxmox_api_test.status == 200
+      
+    - name: "Display cluster information"
+      debug:
+        var: proxmox_api_test.json.data
+      when: proxmox_api_test.status == 200
+      
+    - name: "Fail if API test failed"
+      fail:
+        msg: "Proxmox API connectivity failed: {{ proxmox_api_test.msg | default('Unknown error') }}"
+      when: proxmox_api_test.status != 200
+
+- name: "Test SSH Connectivity to Proxmox Nodes"
+  hosts: proxmox_servers
+  gather_facts: true
+  vars_files:
+    - "../group_vars/all/vault.yml"
+    
+  tasks:
+    - name: "Test SSH connectivity"
+      ping:
+      register: ssh_test
+      
+    - name: "Display SSH test results"
+      debug:
+        msg: "SSH connectivity to {{ inventory_hostname }}: SUCCESS"
+      when: ssh_test is succeeded
+      
+    - name: "Get Proxmox version"
+      command: pveversion
+      register: pve_version
+      changed_when: false
+      
+    - name: "Display Proxmox version"
+      debug:
+        msg: "{{ inventory_hostname }}: {{ pve_version.stdout }}"
+        
+    - name: "Check Proxmox cluster status"
+      command: pvecm status
+      register: cluster_status
+      changed_when: false
+      failed_when: false
+      
+    - name: "Display cluster status"
+      debug:
+        var: cluster_status.stdout_lines
+      when: cluster_status.rc == 0
+      
+    - name: "Check available storage"
+      command: pvesm status
+      register: storage_status
+      changed_when: false
+      
+    - name: "Display storage information"
+      debug:
+        var: storage_status.stdout_lines
+        
+    - name: "Check network bridges"
+      command: brctl show
+      register: bridge_status
+      changed_when: false
+      failed_when: false
+      
+    - name: "Display network bridges"
+      debug:
+        var: bridge_status.stdout_lines
+      when: bridge_status.rc == 0
+
+- name: "Validate Configuration Consistency"
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "../group_vars/all/vault.yml"
+    - "../../configs/global.yaml"
+    
+  tasks:
+    - name: "Validate node references in inventory"
+      assert:
+        that:
+          - hostvars[item]['proxmox_node'] in groups['proxmox_servers']
+        fail_msg: "Node {{ hostvars[item]['proxmox_node'] }} referenced in {{ item }} does not exist in proxmox_servers group"
+      loop: "{{ groups['kubernetes'] }}"
+      when: groups['kubernetes'] is defined
+      
+    - name: "Validate VM ID uniqueness"
+      assert:
+        that:
+          - vm_ids | length == vm_ids | unique | length
+        fail_msg: "Duplicate VM IDs found in inventory"
+      vars:
+        vm_ids: "{{ groups['kubernetes'] | map('extract', hostvars, 'vm_id') | list }}"
+      when: groups['kubernetes'] is defined
+      
+    - name: "Validate IP address uniqueness"
+      assert:
+        that:
+          - ip_addresses | length == ip_addresses | unique | length
+        fail_msg: "Duplicate IP addresses found in inventory"
+      vars:
+        ip_addresses: "{{ groups['kubernetes'] | map('extract', hostvars, 'ansible_host') | list }}"
+      when: groups['kubernetes'] is defined
+      
+    - name: "Display configuration summary"
+      debug:
+        msg:
+          - "Cluster Name: {{ cluster.name }}"
+          - "Talos Version: {{ cluster.talos.version }}"
+          - "Kubernetes Version: {{ cluster.talos.kubernetes_version }}"
+          - "Control Plane Nodes: {{ groups['control_plane'] | length if groups['control_plane'] is defined else 0 }}"
+          - "Worker Nodes: {{ groups['workers'] | length if groups['workers'] is defined else 0 }}"
+          - "Proxmox Nodes: {{ groups['proxmox_servers'] | length }}"
+          
+    - name: "Check control plane node count"
+      assert:
+        that:
+          - groups['control_plane'] | length is odd
+          - groups['control_plane'] | length >= 1
+          - groups['control_plane'] | length <= 7
+        fail_msg: "Control plane nodes must be an odd number between 1 and 7 for etcd quorum"
+      when: groups['control_plane'] is defined
+      
+    - name: "Display success message"
+      debug:
+        msg: "✅ All connectivity and configuration tests passed! Ready for deployment."
