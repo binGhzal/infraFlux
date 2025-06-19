@@ -22,18 +22,25 @@
 
 ## 📋 PROJECT STATUS
 
-### Current State: v2.0 - UNIFIED DECLARATIVE SYSTEM
-- **Configuration**: Single `config/cluster.yaml` with intelligent defaults
-- **Deployment**: Pure Ansible - `ansible-playbook playbooks/main.yml`
-- **Secrets**: Sealed secrets for Git-safe encrypted storage
-- **Infrastructure**: Latest Terraform Proxmox provider v3.0.2-rc01
-- **Cross-Platform**: Identical commands on any OS
+### Current State: v2.0 COMPLETE OVERHAUL IN PROGRESS
+- **Status**: Major restructure based on example/talos-proxmox-tofu patterns
+- **Progress**: Phase 1 (Terraform Foundation) - 1/4 tasks completed
+- **Plan Tracking**: See IMPLEMENTATION_PLAN.md for detailed task tracking
+- **Total Tasks**: 43 micro-tasks across 9 phases
+
+### Key Architecture Decisions (FINAL)
+- **Storage**: ❌ Proxmox CSI → ✅ Longhorn distributed storage
+- **Security**: ✅ Sealed Secrets MANDATORY (not optional)
+- **Images**: ✅ Direct Talos Image Factory integration (HTTP API)
+- **Terraform**: ✅ Clean variables, no .env parsing in templates
+- **Bootstrap**: ✅ Cilium CNI with L2 announcements, Gateway API
 
 ### User Environment
-- **Proxmox Host**: 10.0.0.69
-- **Credentials**: PC@n0pus567200210 (in config/.env)
-- **Goal**: Production-ready Kubernetes with Talos Linux
-- **Requirements**: Zero shell scripts, pure declarative approach
+- **Proxmox Host**: 10.0.0.69  
+- **API Token**: root@pam!infraflux (configured, privilege separation disabled)
+- **Credentials**: Full setup in config/.env
+- **SSH Key**: Provided for future FluxCD integration
+- **Goal**: Production-grade Kubernetes with distributed storage
 
 ## 🎯 DEPLOYMENT COMMANDS (ONLY THESE)
 
@@ -73,19 +80,23 @@ ansible-playbook playbooks/main.yml \
 - **Smart Defaults**: 90% auto-configured, 10% manual overrides
 - **Validation**: Built-in validation and error checking
 
-### Deployment Pipeline
-1. **Prerequisites** - Check tools and connectivity
-2. **Configuration** - Generate Talos/Terraform configs via Jinja2
-3. **Infrastructure** - Create VMs via Terraform (Proxmox provider v3.0.2-rc01)
-4. **Bootstrap** - Initialize Talos cluster
-5. **Applications** - Install Cilium CNI, metrics server, monitoring
-6. **Validation** - Test cluster functionality
+### Deployment Pipeline (v2.0 NEW)
+1. **Prerequisites** - Check tools and Proxmox connectivity
+2. **Image Factory** - Generate custom Talos images via HTTP API
+3. **Configuration** - Generate Talos/Terraform configs via clean templates  
+4. **Infrastructure** - Create VMs with direct image integration
+5. **Talos Bootstrap** - Initialize immutable cluster
+6. **Cilium CNI** - Advanced networking with L2 announcements, Gateway API
+7. **Sealed Secrets** - MANDATORY encrypted secret management
+8. **Longhorn Storage** - Distributed block storage (replaces Proxmox CSI)
+9. **Validation** - End-to-end testing with persistent storage
 
-### Security Model
-- **Sealed Secrets** - Encrypted secrets safe for Git commits
-- **Environment Variables** - Runtime config only in `.env`
+### Security Model (ENHANCED)
+- **Sealed Secrets** - MANDATORY encrypted secrets, not optional
+- **Clean Terraform** - No .env parsing in templates, proper variables
 - **Immutable OS** - Talos Linux with API-only access
 - **Zero Trust** - No SSH, all operations via APIs
+- **GitOps Ready** - SSH keys configured for future FluxCD
 
 ## 📁 CURRENT FILE STRUCTURE
 
@@ -94,19 +105,43 @@ infraflux/
 ├── config/
 │   ├── cluster.yaml         # Main configuration (user edits this)
 │   ├── .env                 # Runtime secrets (not committed)
-│   └── secrets.yaml         # Sealed secrets (safe to commit)
+│   └── README.md            # Configuration documentation
 ├── playbooks/
 │   ├── main.yml            # Main Ansible playbook
 │   ├── tasks/              # Modular Ansible tasks
+│   │   ├── parse-env.yml   # NEW: .env parsing task
+│   │   └── ...             # Other deployment tasks
 │   └── templates/          # Jinja2 templates for configs
+│       ├── terraform-variables.tf.j2    # NEW: Clean Terraform variables
+│       ├── proxmox.auto.tfvars.j2       # NEW: Generated from .env
+│       ├── talos-schematic.yaml.j2      # NEW: Image Factory schematic
+│       ├── talos-controlplane.yaml.j2   # ENHANCED: With Cilium bootstrap
+│       └── talos-worker.yaml.j2         # ENHANCED: Longhorn ready
 ├── inventory/
 │   └── localhost           # Ansible inventory
 ├── requirements.txt         # Python dependencies
 ├── ansible.cfg             # Ansible configuration
+├── IMPLEMENTATION_PLAN.md   # NEW: Detailed task tracking (43 tasks)
 ├── DEPLOY.md               # Pure declarative deployment guide
 ├── CHANGELOG.md            # Version history
-└── CLAUDE.md               # This memory file
+├── CLAUDE.md               # This memory file
+└── example/                # Reference implementation patterns
+    └── talos-proxmox-tofu/ # Example we're following
 ```
+
+## 📋 TASK TRACKING SYSTEM
+
+### Implementation Progress
+- **See**: `IMPLEMENTATION_PLAN.md` for detailed task tracking
+- **Current**: Phase 1 - Task 1/43 completed (TODO-001 ✅)
+- **Next**: TODO-002 - Create Terraform variables structure
+- **Method**: Micro-tasks for easy progress tracking
+
+### Task Status Format
+- ✅ **COMPLETED** - Task finished and tested
+- 🔄 **IN PROGRESS** - Currently working on
+- ⏳ **BLOCKED** - Waiting on dependency  
+- ❌ **FAILED** - Needs rework
 
 ## 🔄 RECENT MAJOR CHANGES
 

@@ -37,7 +37,7 @@ cp config/.env.template config/.env
 ### 3. Deploy (Pure Declarative)
 
 ```bash
-# Full deployment - one command, works on any OS
+# Full deployment - ONE COMMAND, automatically loads .env secrets
 ansible-playbook playbooks/main.yml \
   --extra-vars config_file=config/cluster.yaml \
   --extra-vars deployment_phase=all

@@ -8,6 +8,7 @@ config/.env
 *.crt
 **/secrets.yaml
 **/talosconfig
+/.ansible
 
 # Python Environment
 venv/
@@ -39,6 +40,7 @@ kubeconfig*
 cleanup-backup/
 .DS_Store
 Thumbs.db
+/example
 
 # IDE Files
 .vscode/
