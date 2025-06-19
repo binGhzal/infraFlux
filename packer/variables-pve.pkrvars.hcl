@@ -9,11 +9,11 @@ proxmox_node             = "pve"
 
 # Storage configuration
 proxmox_storage_pool = "bigdisk"
-proxmox_iso_storage  = "local"
+proxmox_iso_storage  = "synology"
 
 # Talos configuration
 talos_version  = "v1.6.0"
-talos_iso_file = "talos-v1.6.0-nocloud-amd64-a6a72cde.iso"
+talos_iso_file = "talos_nocloud-amd64.iso"
 
 # VM template configuration
 vm_id             = 9000

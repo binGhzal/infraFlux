@@ -131,7 +131,6 @@ source "proxmox-iso" "talos" {
 
   # Boot configuration
   boot_wait = "10s"
-  boot      = "order=scsi1;scsi0"
   
   # SSH configuration (required by Packer, though Talos doesn't use SSH)
   ssh_username = "root"
