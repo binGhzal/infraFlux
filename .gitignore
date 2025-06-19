@@ -1,208 +1,61 @@
-# ============================================================================
-# InfraFlux v2.0 .gitignore
-# Next-Generation Immutable Kubernetes Platform
-# ============================================================================
+# InfraFlux v2.0 - Git Ignore Configuration
 
-# Legacy and archived directories
-/sample/
-/trash/
-/legacy/
-
-# Generated configuration output
-/_out/
-/generated/
-
-# Deployment working directories
-/tmp/
-/infraflux-*/
-
-# ============================================================================
-# Terraform State and Artifacts
-# ============================================================================
-
-# Terraform state files (contain sensitive data)
-*.tfstate
-*.tfstate.*
-*.tfvars
-.terraform/
-.terraform.lock.hcl
-terraform.tfplan
-infraflux.plan
-
-# ============================================================================
-# Talos Configuration and Secrets
-# ============================================================================
-
-# Talos secrets and keys (never commit these!)
-secrets.yaml
-talosconfig
+# Environment and Secrets
+.env
+config/.env
 *.key
-*.crt
 *.pem
+*.crt
+**/secrets.yaml
+**/talosconfig
 
-# Generated Talos machine configs
-controlplane-*.yaml
-worker-*.yaml
-
-# Kubeconfig files (contain cluster access credentials)
-kubeconfig
-*.kubeconfig
-config
-
-# ============================================================================
-# Python and Script Artifacts
-# ============================================================================
-
-# Python cache and virtual environments
+# Python Environment
+venv/
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
+*.pyc
+*.pyo
+*.pyd
 .Python
 env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.pytest_cache/
 
-# Python distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# Deployment Artifacts
+_out/
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+kubeconfig*
+*-kubeconfig
 
-# ============================================================================
-# System and Editor Files
-# ============================================================================
-
-# macOS
+# Temporary Files
+*.tmp
+*.temp
+/tmp/
 .DS_Store
-.AppleDouble
-.LSOverride
-._*
-
-# Linux
-*~
-.directory
-
-# Windows
 Thumbs.db
-ehthumbs.db
-Desktop.ini
 
-# Editor files
+# IDE Files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-.vim/
 
-# ============================================================================
-# Logs and Temporary Files
-# ============================================================================
-
-# Application logs
+# Logs
 *.log
 logs/
-deployment.log
-/infraflux-*.log
+ansible.log
 
-# Temporary files
-*.tmp
-*.temp
-.cache/
-.ansible/
-
-# ============================================================================
-# Security and Sensitive Data
-# ============================================================================
-
-# Sensitive configuration files
-*secret*
-*password*
-*token*
-*key*
-
-# SSL certificates and keys
-*.crt
-*.key
-*.pem
-*.p12
-*.pfx
-
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# ============================================================================
-# Container and Kubernetes Artifacts
-# ============================================================================
-
-# Docker
-.dockerignore
-
-# Kubernetes secrets (if accidentally generated locally)
-*-secret.yaml
-sealed-secret*.yaml
-
-# Helm charts cache
-.helm/
-
-# ============================================================================
-# Infrastructure Tools
-# ============================================================================
-
-# Ansible
-.ansible/
-*.retry
-host_vars/
-group_vars/secrets.yml
-
-# Packer
-packer_cache/
-*.box
-
-# Vagrant
-.vagrant/
-
-# ============================================================================
-# Development and Testing
-# ============================================================================
-
-# Test outputs
-test-results/
-coverage/
-.coverage
-.pytest_cache/
-.tox/
-
-# Backup files
-*.bak
-*.backup
-*.orig
-
-# ============================================================================
-# Flux and GitOps (local development only)
-# ============================================================================
-
-# Local flux bootstrap (these should be in Git for production)
-/clusters/local/
-/gotk-sync.yaml
-/gotk-system.yaml
-
-# Only ignore local development flux configs, not production ones!
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

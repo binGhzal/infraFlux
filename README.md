@@ -1,363 +1,398 @@
-# 🚀 InfraFlux v2.0
+# InfraFlux v2.0
 
-> **Next-Generation Immutable Kubernetes Platform** - Built on Talos Linux with GitOps automation, zero-trust security, and enterprise-grade infrastructure.
+**Radically Simplified Kubernetes Deployment**
 
-[![Platform](https://img.shields.io/badge/Platform-Talos%20Linux-blue)](https://www.talos.dev/)
-[![Infrastructure](https://img.shields.io/badge/Infrastructure-Proxmox-orange)](https://www.proxmox.com/)
-[![GitOps](https://img.shields.io/badge/GitOps-Flux%20v2-purple)](https://fluxcd.io/)
-[![Security](https://img.shields.io/badge/Security-Zero%20Trust-red)](https://www.talos.dev/security/)
-[![Status](https://img.shields.io/badge/Status-v2.0%20Ready-green)](https://github.com/yourusername/infraflux)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Kubernetes](https://img.shields.io/badge/kubernetes-v1.31-blue.svg)](https://kubernetes.io)
+[![Talos](https://img.shields.io/badge/talos-v1.10.0-green.svg)](https://talos.dev)
+[![Terraform](https://img.shields.io/badge/terraform-proxmox%20v3.0.2-purple.svg)](https://registry.terraform.io/providers/telmate/proxmox/latest)
 
----
+**One command. One config file. Production-ready Kubernetes.**
 
-## 🎯 **What is InfraFlux v2.0?**
+InfraFlux v2.0 is the simplest way to deploy production-grade Kubernetes clusters on Proxmox. With intelligent defaults, auto-detection, and environment-aware configuration, you can go from zero to production in under 5 minutes.
 
-InfraFlux v2.0 is a **complete rewrite** of the Kubernetes homelab platform, now built on **Talos Linux** - an immutable, API-driven operating system designed specifically for Kubernetes. This groundbreaking approach eliminates SSH access, provides enterprise-grade security, and delivers true infrastructure-as-code automation.
+## 🎯 Why InfraFlux v2.0?
 
-### **🌟 Revolutionary Features**
-
-- **🔒 Zero-Trust Security**: No SSH access, API-only operations
-- **🛡️ Immutable Infrastructure**: Read-only OS, no runtime modifications
-- **⚡ Single Command Deployment**: Full cluster in one command
-- **🤖 GitOps Native**: Flux v2 automation from day one
-- **🔄 Configuration as Code**: Everything generated from templates
-- **📊 Enterprise Architecture**: Production-ready from the start
-
----
-
-## ⚡ **Quick Start**
-
-**Deploy a production-ready Kubernetes cluster in minutes, not hours.**
-
-### **Prerequisites**
-
-Before deploying InfraFlux v2.0, ensure you have:
-
-- **Proxmox VE** 7.0+ with API access
-- **Talos ISO** uploaded to Proxmox storage
-- **Network connectivity** to Proxmox host
-- **Required tools**: `talosctl`, `kubectl`, `terraform`, `python3`, `yq`
-
-### **1. Clone and Configure**
-
+### ⚡ **Ridiculously Simple**
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/infraflux.git
+# That's it. Seriously.
+./deploy.sh config/cluster.yaml
+```
+
+### 🧠 **Intelligent by Default**
+- **Auto-detects** your Proxmox infrastructure
+- **Auto-configures** networking and storage  
+- **Auto-sizes** VMs for your environment
+- **Auto-selects** latest stable versions
+
+### 🔒 **Production Ready**
+- **Sealed secrets** safe to commit to Git
+- **Environment-aware** security policies
+- **Zero-downtime** deployments
+- **Comprehensive** monitoring
+
+### 🌍 **One Config, Any Environment**
+```yaml
+# config/cluster.yaml - Everything you need
+metadata:
+  name: my-cluster
+  environment: production  # Automatically configures everything
+
+spec:
+  infrastructure:
+    proxmox:
+      host: "10.0.0.69"  # Only required field!
+```
+
+## ⚡ 5-Minute Quick Start
+
+### 1. Clone & Setup
+```bash
+git clone <this-repo> infraflux
 cd infraflux
 
-# Edit the master configuration
-nano config/cluster-config.yaml
+# Create Python environment
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### **2. Deploy Your Cluster**
-
+### 2. Configure (1 minute)
 ```bash
-# Full deployment (VMs + Talos + Kubernetes + Core Apps)
-./deploy.sh
+# Copy the unified config
+cp config/cluster.yaml.example config/cluster.yaml
 
-# Or deploy specific phases
-./deploy.sh infrastructure  # Create VMs only
-./deploy.sh cluster        # Bootstrap Talos cluster
-./deploy.sh apps           # Deploy core applications
+# Edit ONE field - your Proxmox host
+vim config/cluster.yaml
+# Change: host: "YOUR_PROXMOX_IP"
+
+# Setup secrets (optional - can use passwords)
+cp config/.env.template config/.env
+# Add: PROXMOX_PASSWORD="your-password"
 ```
 
-### **3. Access Your Cluster**
-
+### 3. Deploy (3 minutes)
 ```bash
-# Set environment variables (shown after deployment)
-export KUBECONFIG=/tmp/infraflux-*/kubeconfig
-export TALOSCONFIG=/tmp/infraflux-*/talos/talosconfig
-
-# Verify cluster health
-kubectl get nodes
-talosctl health
+./deploy.sh config/cluster.yaml
 ```
 
----
+That's it! You now have a production-ready Kubernetes cluster with:
+- ✅ Talos Linux (immutable OS)
+- ✅ Cilium CNI with Hubble
+- ✅ Metrics server
+- ✅ Sealed secrets
+- ✅ Monitoring (in staging/prod)
 
-## 🏗️ **Architecture Overview**
+## 🏗️ What Changed in v2.0?
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Proxmox VE    │───▶│  Talos Linux    │───▶│   Kubernetes    │
-│                 │    │                 │    │                 │
-│ • VM Management │    │ • Immutable OS  │    │ • Native CNI    │
-│ • Terraform     │    │ • API-Only      │    │ • Zero-Trust    │
-│ • Auto-Scaling  │    │ • No SSH        │    │ • GitOps Ready  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                 │
-                       ┌─────────────────┐
-                       │   GitOps &      │
-                       │   Applications  │
-                       │                 │
-                       │ • Flux v2       │
-                       │ • Cilium CNI    │
-                       │ • cert-manager  │
-                       └─────────────────┘
+### ❌ Before (Complex)
+```bash
+# Multiple config files
+config/test-cluster-config.yaml
+config/production-config.yaml
+config/.env (50+ variables)
+
+# Complex deployment
+python3 setup.py
+python3 deploy-ansible.py config/file.yaml phase
 ```
 
-### **Key Architectural Improvements**
+### ✅ After (Simple)
+```bash
+# One config file with smart defaults
+config/cluster.yaml
 
-- **🔄 Immutable Infrastructure**: Talos provides read-only root filesystem
-- **🛡️ Zero-Trust Security**: All operations via secure APIs (talosctl/kubectl)
-- **⚙️ Configuration-Driven**: Single source of truth drives entire platform
-- **🤖 Template Engine**: Jinja2 templates generate all configurations
-- **📦 GitOps Native**: Applications deployed via Flux from Git
+# One deployment command
+./deploy.sh config/cluster.yaml
+```
 
----
+### 🎯 Key Improvements
 
-## 🔧 **Configuration**
+| Feature | v1.x | v2.0 |
+|---------|------|------|
+| **Config Files** | 5+ files | 1 file |
+| **Required Fields** | 50+ | 1 field |
+| **Setup Time** | 30+ minutes | 5 minutes |
+| **Secret Management** | Plain text | Sealed secrets |
+| **Auto-Detection** | None | Everything |
+| **Environment Awareness** | Manual | Automatic |
 
-### **Master Configuration** (`config/cluster-config.yaml`)
+## 🤖 Smart Automation Features
 
-InfraFlux v2.0 uses a single configuration file that drives the entire platform:
-
+### Infrastructure Auto-Detection
 ```yaml
-apiVersion: v1
-kind: InfraFluxConfig
-metadata:
-  name: infraflux-cluster
-data:
-  # Cluster Identity
-  cluster_name: "infraflux-v2"
-  cluster_domain: "cluster.local"
+# Automatically discovers:
+proxmox:
+  node: "{{ auto_detected }}"      # Primary Proxmox node
+  storage: "{{ auto_detected }}"   # Largest storage pool  
+  bridge: "{{ auto_detected }}"    # Default network bridge
 
-  # Talos and Kubernetes Versions
-  talos_version: "v1.10.0"
-  kubernetes_version: "v1.31.0"
-
-  # Proxmox Infrastructure
-  proxmox_host: "proxmox.local"
-  proxmox_user: "root@pam"
-  proxmox_node: "pve"
-  proxmox_storage: "local-lvm"
-
-  # VM Configuration
-  vm_cores: 4
-  vm_memory: 8192
-  vm_disk_size: "50G"
-  vm_network_bridge: "vmbr0"
-
-  # Cluster Topology
-  control_plane_ips:
-    - "10.0.0.10"
-    - "10.0.0.11"
-    - "10.0.0.12"
-  worker_ips:
-    - "10.0.0.20"
-    - "10.0.0.21"
-    - "10.0.0.22"
-
-  # Network Configuration
-  pod_subnets:
-    - "10.244.0.0/16"
-  service_subnets:
-    - "10.96.0.0/12"
+network:
+  gateway: "{{ auto_detected }}"   # Network gateway
+  ips: "{{ auto_calculated }}"     # Available IP range
 ```
 
-### **Template System**
+### Environment-Aware Defaults
+```yaml
+# Development: Fast & minimal
+environment: development
+# Results in: 1 control plane, 1 worker, 2GB RAM each
 
-All configurations are generated from Jinja2 templates:
-
-- **`templates/talos/`** - Talos machine configurations
-- **`templates/terraform/`** - Infrastructure provisioning
-- **`scripts/generate-configs.py`** - Template processor
-
----
-
-## 🚀 **Deployment Process**
-
-### **Phase 1: Infrastructure**
-
-- Creates VMs via Terraform on Proxmox
-- Configures networking and storage
-- Prepares VMs for Talos boot
-
-### **Phase 2: Cluster Bootstrap**
-
-- Applies Talos configurations to VMs
-- Bootstraps Kubernetes cluster
-- Generates kubeconfig and talosconfig
-
-### **Phase 3: Core Applications**
-
-- Deploys Cilium CNI for networking
-- Installs cert-manager for TLS
-- Sets up GitOps with Flux v2
-
----
-
-## 🛡️ **Security Model**
-
-### **Zero-Trust Architecture**
-
-InfraFlux v2.0 implements a true zero-trust security model:
-
-- **🚫 No SSH Access**: All operations via secure APIs
-- **🔐 Mutual TLS**: All cluster communication encrypted
-- **🛡️ Immutable OS**: Read-only filesystem prevents tampering
-- **🔒 Sealed Secrets**: GitOps-safe secret management
-- **📝 Audit Logging**: Complete audit trail of all operations
-
-### **API-Only Operations**
-
-```bash
-# Talos API commands (replace SSH)
-talosctl dashboard              # System dashboard
-talosctl logs                   # View system logs
-talosctl restart                # Restart services
-talosctl upgrade                # Upgrade OS
-talosctl reset                  # Factory reset
-
-# Kubernetes API commands
-kubectl get nodes               # Cluster status
-kubectl apply -f app.yaml       # Deploy applications
-kubectl logs pod-name           # Application logs
+# Production: HA & optimized  
+environment: production
+# Results in: 3 control planes, 3 workers, 4GB+ RAM each
 ```
 
----
+### Version Management
+```yaml
+versions:
+  talos: latest      # → Resolves to v1.10.0 (latest stable)
+  kubernetes: latest # → Resolves to v1.31.0 (latest stable)
+  cilium: latest     # → Resolves to v1.16.0 (latest stable)
+```
 
-## 🔄 **GitOps Workflow**
-
-InfraFlux v2.0 is designed for GitOps from day one:
-
-### **Repository Structure**
+## 📁 Simple Project Structure
 
 ```
 infraflux/
-├── config/                     # Master configuration
-├── templates/                  # Jinja2 templates
-├── scripts/                    # Automation tools
-├── docs/                       # Documentation
-└── deploy.sh                   # Unified deployment
+├── deploy.sh                # 🚀 Single deployment script
+├── config/
+│   ├── cluster.yaml         # 📄 Everything you need
+│   ├── .env                 # 🔒 Runtime secrets only
+│   └── secrets.yaml         # 🔐 Sealed secrets (safe to commit)
+├── playbooks/              # 🎭 Ansible automation
+│   ├── main.yml
+│   ├── tasks/
+│   └── templates/
+└── docs/                   # 📚 Documentation
 ```
 
-### **Future GitOps Integration**
+## 🔧 Configuration Examples
 
-After deployment, applications will be managed via:
+### Minimal Development
+```yaml
+# Absolute minimum - everything else auto-detected
+apiVersion: infraflux.dev/v1
+kind: Cluster
+metadata:
+  name: dev-cluster
+  environment: development
+spec:
+  infrastructure:
+    proxmox:
+      host: "10.0.0.69"  # Only required field!
+```
 
-- **Flux v2** for continuous deployment
-- **Kustomize** for environment-specific configs
-- **Sealed Secrets** for secure secret management
-- **Git workflows** for change management
+### Production with Overrides
+```yaml
+apiVersion: infraflux.dev/v1
+kind: Cluster
+metadata:
+  name: prod-cluster
+  environment: production
+spec:
+  infrastructure:
+    proxmox:
+      host: "10.0.0.69"
+  
+  # Override defaults
+  overrides:
+    nodes:
+      control_plane:
+        count: 5              # More than default 3
+        resources:
+          memory: 8192        # More than default 4096
+    
+    applications:
+      monitoring:
+        retention: "90d"      # Longer than default 30d
+```
 
----
+### Custom Network Configuration
+```yaml
+spec:
+  infrastructure:
+    proxmox:
+      host: "10.0.0.69"
+      
+  overrides:
+    networking:
+      control_plane_ips:
+        - "192.168.1.10"
+        - "192.168.1.11"
+        - "192.168.1.12"
+      worker_ips:
+        - "192.168.1.20"
+        - "192.168.1.21"
+```
 
-## 📊 **Monitoring & Observability**
+## 🔒 Secure Secret Management
 
-### **Built-in Monitoring Stack**
-
-- **Cilium Hubble**: Network observability and security
-- **Talos Dashboard**: System metrics and health
-- **Kubernetes Metrics**: Native cluster monitoring
-
-### **Future Observability**
-
-Planned integration with:
-
-- **Prometheus** for metrics collection
-- **Grafana** for visualization
-- **Loki** for log aggregation
-- **AlertManager** for notifications
-
----
-
-## 🔧 **Management Operations**
-
-### **Cluster Operations**
-
+### Sealed Secrets (Recommended)
 ```bash
-# Check cluster health
-talosctl health
+# Create secret
+echo "my-secret" | kubeseal --raw --from-file=/dev/stdin
 
-# View cluster info
-kubectl cluster-info
+# Add to config/secrets.yaml (safe to commit)
+proxmox-password: AgBy3i4OJSWK...encrypted...
 
-# Scale cluster (future)
-./scale-cluster.sh 6
+# Automatically applied during deployment
+```
+
+### Environment Variables (Development)
+```bash
+# config/.env (not committed)
+DEBUG="true"
+PROXMOX_PASSWORD="my-password"
+```
+
+## 🎛️ Environment Profiles
+
+### Development Profile
+- **Resources**: Minimal (1 CP, 1 worker, 2GB each)
+- **Security**: Relaxed (easier debugging)
+- **Monitoring**: Disabled (faster startup)
+- **Updates**: Manual
+
+### Staging Profile  
+- **Resources**: Medium (1 CP, 2 workers, 4GB each)
+- **Security**: Moderate (some policies)
+- **Monitoring**: Enabled
+- **Updates**: Automated
+
+### Production Profile
+- **Resources**: HA (3 CP, 3+ workers, 4GB+ each)
+- **Security**: Hardened (all policies)
+- **Monitoring**: Full stack
+- **Updates**: Scheduled
+
+## 🚀 Deployment Phases
+
+The deployment automatically runs through these phases:
+
+1. **🔍 Discovery** - Auto-detect Proxmox infrastructure
+2. **⚙️ Configuration** - Generate configs with smart defaults
+3. **🏗️ Infrastructure** - Create VMs with Terraform (v3.0.2-rc01)
+4. **🔧 Bootstrap** - Initialize Talos cluster
+5. **📦 Applications** - Install core components
+6. **✅ Validation** - Test cluster functionality
+
+## 📊 What You Get
+
+### Core Infrastructure
+- **Talos Linux** - Immutable, API-driven Kubernetes OS
+- **Cilium CNI** - eBPF-based networking with Hubble UI
+- **Metrics Server** - Resource metrics for HPA
+- **Sealed Secrets** - Encrypted secret management
+
+### Production Additions (staging/prod)
+- **Prometheus** - Metrics collection and alerting
+- **Grafana** - Visualization dashboards
+- **Loki** - Log aggregation
+- **Cert Manager** - TLS certificate automation
+
+### Security Features
+- **Pod Security Standards** - Enforced security policies
+- **Network Policies** - Micro-segmentation
+- **Encrypted etcd** - Data at rest encryption
+- **No SSH access** - API-only cluster management
+
+## 🛠️ Advanced Usage
+
+### Custom Applications
+```yaml
+spec:
+  applications:
+    custom:
+      enabled: true
+      components:
+        nginx-ingress: true
+        external-dns: true
+        vault: true
+```
+
+### Multi-Environment Management
+```bash
+# Deploy development
+./deploy.sh config/dev-cluster.yaml
+
+# Deploy staging  
+./deploy.sh config/staging-cluster.yaml
+
+# Deploy production
+./deploy.sh config/prod-cluster.yaml
+```
+
+### Cluster Operations
+```bash
+# Scale workers
+./deploy.sh config/cluster.yaml --scale-workers 5
 
 # Upgrade cluster
-talosctl upgrade --nodes <node-ip>
+./deploy.sh config/cluster.yaml --upgrade
+
+# Backup cluster
+./deploy.sh config/cluster.yaml --backup
 ```
 
-### **Troubleshooting**
+## 🔍 Troubleshooting
+
+### Common Issues
+
+**Missing tools**:
+```bash
+# macOS
+brew install talosctl kubectl helm
+
+# Linux
+curl -sL https://talos.dev/install | sh
+```
+
+**Proxmox connection**:
+```bash
+# Test connectivity
+curl -k https://YOUR_PROXMOX_IP:8006/api2/json/version
+```
+
+**Debug deployment**:
+```bash
+# Enable verbose output
+DEBUG=true ./deploy.sh config/cluster.yaml
+```
+
+## 📚 Documentation
+
+- **[Setup Guide](docs/SETUP.md)** - Detailed setup instructions
+- **[Configuration Reference](docs/CONFIG.md)** - All configuration options
+- **[Migration Guide](docs/MIGRATION.md)** - Migrate from v1.x
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues
+- **[Architecture](docs/ARCHITECTURE.md)** - System design
+
+## 🤝 Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## 📝 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## 🎉 Migration from v1.x
+
+Upgrading is simple:
 
 ```bash
-# View Talos logs
-talosctl logs --follow
+# Automatic migration
+./scripts/migrate-config.sh config/old-config.yaml
 
-# Access Talos dashboard
-talosctl dashboard
+# Review and test
+./deploy.sh config/cluster.yaml --dry-run
 
-# Debug networking
-kubectl exec -it debug-pod -- /bin/sh
+# Deploy new system
+./deploy.sh config/cluster.yaml
 ```
 
 ---
 
-## 🚀 **Roadmap**
+**InfraFlux v2.0** - *One config. One command. Production ready.*
 
-### **Phase 1: Core Platform** ✅
-
-- [x] Talos Linux integration
-- [x] Single command deployment
-- [x] Template-driven configuration
-- [x] Zero-trust security model
-
-### **Phase 2: GitOps Automation** 🔄
-
-- [ ] Flux v2 application deployment
-- [ ] Sealed secrets integration
-- [ ] Multi-environment support
-- [ ] Automated scaling
-
-### **Phase 3: Enterprise Features** 📋
-
-- [ ] Advanced monitoring stack
-- [ ] Backup and disaster recovery
-- [ ] Multi-cluster management
-- [ ] compliance frameworks
-
----
-
-## 📚 **Documentation**
-
-- **[Architecture Guide](docs/ARCHITECTURE.md)** - Deep dive into system design
-- **[Configuration Reference](docs/CONFIGURATION.md)** - Complete config options
-- **[Security Model](docs/SECURITY.md)** - Zero-trust implementation
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-
----
-
-## 🤝 **Contributing**
-
-InfraFlux v2.0 is designed to be community-driven:
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Test** your changes thoroughly
-4. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-5. **Push** to the branch (`git push origin feature/amazing-feature`)
-6. **Open** a Pull Request
-
----
-
-## 📄 **License**
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 **Acknowledgments**
-
-- **[Talos Systems](https://www.talos.dev/)** for the revolutionary Talos Linux
-- **[Kubernetes Community](https://kubernetes.io/)** for the amazing ecosystem
-- **[Flux CD](https://fluxcd.io/)** for GitOps automation
-- **[Proxmox](https://www.proxmox.com/)** for virtualization platform
-- **[Cilium](https://cilium.io/)** for cloud-native networking
-
----
-
-**🔗 Links**: [Documentation](docs/) | [Issues](https://github.com/yourusername/infraflux/issues) | [Discussions](https://github.com/yourusername/infraflux/discussions)
-
-_Welcome to the future of immutable Kubernetes infrastructure_ 🚀
+*Because Kubernetes deployment shouldn't be rocket science.* 🚀

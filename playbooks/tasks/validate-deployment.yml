@@ -1,0 +1,77 @@
+---
+# InfraFlux v2.0 - Deployment Validation Tasks
+
+- name: Check cluster connectivity
+  shell: kubectl cluster-info --kubeconfig {{ kubeconfig_path }}
+  register: cluster_info
+
+- name: Get node status
+  shell: kubectl get nodes --kubeconfig {{ kubeconfig_path }} -o wide
+  register: node_status
+
+- name: Get pod status
+  shell: kubectl get pods --all-namespaces --kubeconfig {{ kubeconfig_path }}
+  register: pod_status
+
+- name: Check Cilium status
+  shell: kubectl get pods -n kube-system -l k8s-app=cilium --kubeconfig {{ kubeconfig_path }}
+  register: cilium_status
+  when: applications_enabled | default(true)
+
+- name: Run connectivity test
+  shell: |
+    kubectl apply -f - <<EOF
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: connectivity-test
+      namespace: default
+    spec:
+      containers:
+      - name: test
+        image: busybox
+        command: ['sleep', '60']
+    EOF
+  args:
+    executable: /bin/bash
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  register: connectivity_test
+  
+- name: Wait for test pod
+  shell: |
+    kubectl wait --for=condition=ready pod/connectivity-test \
+      --timeout=60s \
+      --kubeconfig {{ kubeconfig_path }}
+  register: test_pod_ready
+
+- name: Test DNS resolution
+  shell: |
+    kubectl exec connectivity-test -- nslookup kubernetes.default.svc.cluster.local
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  register: dns_test
+
+- name: Cleanup test pod
+  shell: kubectl delete pod connectivity-test --kubeconfig {{ kubeconfig_path }}
+  
+- name: Display validation results
+  debug:
+    msg: |
+      🎉 InfraFlux Deployment Validation Results
+      
+      Cluster Info:
+      {{ cluster_info.stdout }}
+      
+      Node Status:
+      {{ node_status.stdout }}
+      
+      Connectivity Test: {{ 'PASSED' if test_pod_ready.rc == 0 else 'FAILED' }}
+      DNS Test: {{ 'PASSED' if dns_test.rc == 0 else 'FAILED' }}
+      
+      🚀 Cluster is ready for workloads!
+      
+      Quick start commands:
+      export KUBECONFIG={{ kubeconfig_path }}
+      kubectl get nodes
+      kubectl get pods --all-namespaces

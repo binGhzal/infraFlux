@@ -1,0 +1,59 @@
+---
+# Configuration generation tasks using Jinja2
+
+- name: Create configuration directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ work_dir }}/talos"
+    - "{{ work_dir }}/terraform"
+
+- name: Generate Talos secrets
+  shell: |
+    talosctl gen secrets --output-file {{ work_dir }}/talos/secrets.yaml
+  args:
+    creates: "{{ work_dir }}/talos/secrets.yaml"
+
+- name: Load Talos secrets
+  include_vars:
+    file: "{{ work_dir }}/talos/secrets.yaml"
+    name: talos_secrets
+
+- name: Generate Talos control plane configuration
+  template:
+    src: ../templates/talos-controlplane.yaml.j2
+    dest: "{{ work_dir }}/talos/controlplane.yaml"
+    mode: '0600'
+
+- name: Generate Talos worker configuration  
+  template:
+    src: ../templates/talos-worker.yaml.j2
+    dest: "{{ work_dir }}/talos/worker.yaml"
+    mode: '0600'
+
+- name: Generate talosconfig
+  shell: |
+    talosctl gen config {{ cluster_name }} https://{{ control_plane_ips[0] }}:6443 \
+      --output-dir {{ work_dir }}/talos \
+      --with-secrets {{ work_dir }}/talos/secrets.yaml \
+      --force
+  args:
+    creates: "{{ work_dir }}/talos/talosconfig"
+
+- name: Generate Terraform configuration
+  template:
+    src: ../templates/terraform-main.tf.j2
+    dest: "{{ work_dir }}/terraform/main.tf"
+    mode: '0644'
+
+- name: Display generated files
+  debug:
+    msg: |
+      ✅ Configuration files generated:
+      - {{ work_dir }}/talos/secrets.yaml
+      - {{ work_dir }}/talos/controlplane.yaml
+      - {{ work_dir }}/talos/worker.yaml
+      - {{ work_dir }}/talos/talosconfig
+      - {{ work_dir }}/terraform/main.tf

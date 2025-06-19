@@ -1,0 +1,94 @@
+---
+# Application installation tasks
+
+- name: Add Cilium Helm repository
+  kubernetes.core.helm_repository:
+    name: cilium
+    repo_url: https://helm.cilium.io/
+
+- name: Install Cilium CNI
+  kubernetes.core.helm:
+    name: cilium
+    chart_ref: cilium/cilium
+    release_namespace: kube-system
+    kubeconfig: "{{ work_dir }}/kubeconfig"
+    wait: true
+    wait_condition:
+      reason: "Ready"
+    values:
+      k8sServiceHost: "{{ control_plane_ips[0] }}"
+      k8sServicePort: 6443
+      hubble:
+        relay:
+          enabled: true
+        ui:
+          enabled: true
+      operator:
+        replicas: 1
+      cluster:
+        name: "{{ cluster_name }}"
+        id: 1
+
+- name: Wait for Cilium to be ready
+  shell: |
+    kubectl wait --for=condition=ready pod \
+      -l k8s-app=cilium \
+      -n kube-system \
+      --timeout=300s \
+      --kubeconfig {{ work_dir }}/kubeconfig
+
+- name: Install metrics-server
+  kubernetes.core.k8s:
+    kubeconfig: "{{ work_dir }}/kubeconfig"
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: metrics-server
+        namespace: kube-system
+        labels:
+          k8s-app: metrics-server
+      spec:
+        selector:
+          matchLabels:
+            k8s-app: metrics-server
+        template:
+          metadata:
+            labels:
+              k8s-app: metrics-server
+          spec:
+            containers:
+            - name: metrics-server
+              image: registry.k8s.io/metrics-server/metrics-server:v0.7.0
+              args:
+                - --cert-dir=/tmp
+                - --secure-port=4443
+                - --kubelet-preferred-address-types=InternalIP
+                - --kubelet-use-node-status-port
+                - --metric-resolution=15s
+                - --kubelet-insecure-tls
+              ports:
+              - containerPort: 4443
+                name: https
+                protocol: TCP
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                seccompProfile:
+                  type: RuntimeDefault
+
+- name: Display application installation summary
+  debug:
+    msg: |
+      ✅ Applications installed successfully!
+      
+      Installed:
+      - Cilium CNI with Hubble
+      - Metrics Server
+      
+      Next: Validate deployment

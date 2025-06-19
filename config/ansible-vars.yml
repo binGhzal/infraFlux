@@ -1,0 +1,36 @@
+---
+# InfraFlux v2.0 - Ansible Variables
+# Generated from InfraFlux configuration
+
+applications_enabled: true
+cilium_version: 1.16.0
+cluster_domain: test.local
+cluster_name: infraflux-test
+control_plane_ips:
+- 10.0.0.10
+environment: development
+flux_version: v2.4.0
+git_branch: main
+git_repository: ''
+gitops_enabled: false
+kubeconfig_path: /tmp/infraflux-test-kubeconfig
+kubernetes_version: v1.31.0
+pod_subnets:
+- 10.244.0.0/16
+proxmox_host: 10.0.0.69
+proxmox_node: pve
+proxmox_storage: bigdisk
+proxmox_tls_insecure: true
+proxmox_user: root@pam
+security_enabled: true
+service_subnets:
+- 10.96.0.0/12
+talos_config_dir: /tmp/infraflux-talos-configs
+talos_iso_name: talos-v1.10.0-amd64.iso
+talos_version: v1.10.0
+vm_cores: 2
+vm_disk_size: 20G
+vm_memory: 2048
+vm_network_bridge: vmbr0
+worker_ips:
+- 10.0.0.20

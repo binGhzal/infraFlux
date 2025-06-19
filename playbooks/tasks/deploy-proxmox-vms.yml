@@ -1,0 +1,156 @@
+---
+# InfraFlux v2.0 - Proxmox VM deployment tasks
+
+- name: Check if Talos ISO exists in Proxmox
+  community.general.proxmox:
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_user }}"
+    api_password: "{{ proxmox_password }}"
+    api_token_id: "{{ proxmox_api_token_id | default(omit) }}"
+    api_token_secret: "{{ proxmox_api_token_secret | default(omit) }}"
+    validate_certs: false
+    action: check_iso
+    iso: "{{ talos_iso_name }}"
+  register: iso_check
+  failed_when: false
+
+- name: Download Talos ISO to Proxmox if not present
+  uri:
+    url: "https://github.com/siderolabs/talos/releases/download/{{ talos_version }}/talos-{{ talos_version }}-amd64.iso"
+    dest: "/tmp/talos-{{ talos_version }}-amd64.iso"
+    creates: "/tmp/talos-{{ talos_version }}-amd64.iso"
+  when: iso_check.failed | default(true)
+  delegate_to: "{{ proxmox_host }}"
+
+- name: Create control plane VMs
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_user }}"
+    api_password: "{{ proxmox_password }}"
+    api_token_id: "{{ proxmox_api_token_id | default(omit) }}"
+    api_token_secret: "{{ proxmox_api_token_secret | default(omit) }}"
+    validate_certs: false
+    node: "{{ proxmox_node }}"
+    name: "{{ cluster_name }}-cp-{{ item.0 + 1 }}"
+    vmid: "{{ 200 + item.0 }}"
+    
+    # VM Configuration
+    cores: "{{ vm_cores }}"
+    memory: "{{ vm_memory }}"
+    balloon: 0
+    cpu: host
+    numa: false
+    
+    # Storage
+    scsi:
+      scsi0: "{{ proxmox_storage }}:{{ vm_disk_size }},discard=on,iothread=1,ssd=1"
+    
+    # Network
+    net:
+      net0: "virtio,bridge={{ vm_network_bridge }},macaddr=02:00:00:01:01:{{ '%02d'|format(item.0 + 1) }}"
+    
+    # Boot configuration
+    ide:
+      ide2: "{{ proxmox_storage }}:iso/talos-{{ talos_version }}-amd64.iso,media=cdrom"
+    boot: "order=ide2;scsi0"
+    
+    # Other settings
+    ostype: other
+    agent: true
+    onboot: true
+    
+    # Serial console
+    serial:
+      serial0: socket
+    
+    state: present
+    tags: "infraflux,talos,controlplane"
+    
+  loop: "{{ control_plane_ips | zip(range(control_plane_ips | length)) | list }}"
+  register: cp_vms_created
+
+- name: Create worker VMs
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_user }}"
+    api_password: "{{ proxmox_password }}"
+    api_token_id: "{{ proxmox_api_token_id | default(omit) }}"
+    api_token_secret: "{{ proxmox_api_token_secret | default(omit) }}"
+    validate_certs: false
+    node: "{{ proxmox_node }}"
+    name: "{{ cluster_name }}-worker-{{ item.0 + 1 }}"
+    vmid: "{{ 300 + item.0 }}"
+    
+    # VM Configuration
+    cores: "{{ vm_cores }}"
+    memory: "{{ vm_memory }}"
+    balloon: 0
+    cpu: host
+    numa: false
+    
+    # Storage
+    scsi:
+      scsi0: "{{ proxmox_storage }}:{{ vm_disk_size }},discard=on,iothread=1,ssd=1"
+    
+    # Network
+    net:
+      net0: "virtio,bridge={{ vm_network_bridge }},macaddr=02:00:00:02:01:{{ '%02d'|format(item.0 + 1) }}"
+    
+    # Boot configuration
+    ide:
+      ide2: "{{ proxmox_storage }}:iso/talos-{{ talos_version }}-amd64.iso,media=cdrom"
+    boot: "order=ide2;scsi0"
+    
+    # Other settings
+    ostype: other
+    agent: true
+    onboot: true
+    
+    # Serial console
+    serial:
+      serial0: socket
+    
+    state: present
+    tags: "infraflux,talos,worker"
+    
+  loop: "{{ worker_ips | zip(range(worker_ips | length)) | list }}"
+  register: worker_vms_created
+
+- name: Start control plane VMs
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_user }}"
+    api_password: "{{ proxmox_password }}"
+    api_token_id: "{{ proxmox_api_token_id | default(omit) }}"
+    api_token_secret: "{{ proxmox_api_token_secret | default(omit) }}"
+    validate_certs: false
+    name: "{{ cluster_name }}-cp-{{ item + 1 }}"
+    state: started
+  loop: "{{ range(control_plane_ips | length) | list }}"
+
+- name: Start worker VMs
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmox_host }}"
+    api_user: "{{ proxmox_user }}"
+    api_password: "{{ proxmox_password }}"
+    api_token_id: "{{ proxmox_api_token_id | default(omit) }}"
+    api_token_secret: "{{ proxmox_api_token_secret | default(omit) }}"
+    validate_certs: false
+    name: "{{ cluster_name }}-worker-{{ item + 1 }}"
+    state: started
+  loop: "{{ range(worker_ips | length) | list }}"
+
+- name: Wait for VMs to boot
+  wait_for:
+    timeout: 60
+  delegate_to: localhost
+
+- name: Display deployment summary
+  debug:
+    msg: |
+      VM Deployment Summary:
+      Control Plane: {{ control_plane_ips | length }} nodes
+      Workers: {{ worker_ips | length }} nodes
+      Total VMs: {{ (control_plane_ips | length) + (worker_ips | length) }}
+      
+      Next: Bootstrap Talos cluster

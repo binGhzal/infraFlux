@@ -1,0 +1,59 @@
+---
+# Prerequisites check tasks
+
+- name: Create work directory
+  file:
+    path: "{{ work_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Check required binaries
+  command: which {{ item }}
+  register: binary_check
+  failed_when: false
+  changed_when: false
+  loop:
+    - talosctl
+    - kubectl
+    - helm
+
+- name: Display binary check results
+  debug:
+    msg: "{{ item.item }}: {{ 'Found' if item.rc == 0 else 'Missing' }}"
+  loop: "{{ binary_check.results }}"
+
+- name: Fail if required binaries are missing
+  fail:
+    msg: |
+      Missing required tools. Please install:
+      
+      macOS: brew install talosctl kubectl helm
+      Linux: 
+        # kubectl
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+        
+        # helm  
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        
+        # talosctl
+        curl -sL https://talos.dev/install | sh
+  when: binary_check.results | selectattr('rc', 'ne', 0) | list | length > 0
+
+- name: Test Proxmox connectivity
+  uri:
+    url: "https://{{ proxmox_host }}:8006/api2/json/version"
+    method: GET
+    validate_certs: false
+    status_code: 200
+  register: proxmox_test
+  failed_when: false
+
+- name: Display Proxmox connectivity
+  debug:
+    msg: "Proxmox connectivity: {{ 'OK' if proxmox_test.status == 200 else 'Failed' }}"
+
+- name: Fail if Proxmox is not accessible
+  fail:
+    msg: "Cannot connect to Proxmox at {{ proxmox_host }}. Check network and credentials."
+  when: proxmox_test.status != 200
