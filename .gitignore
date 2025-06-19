@@ -36,6 +36,7 @@ kubeconfig*
 *.tmp
 *.temp
 /tmp/
+cleanup-backup/
 .DS_Store
 Thumbs.db
 
