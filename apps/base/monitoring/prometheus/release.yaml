@@ -1,0 +1,91 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitoring
+spec:
+  interval: 15m
+  timeout: 15m
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      version: "61.x"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: flux-system
+      interval: 15m
+  values:
+    # Prometheus configuration
+    prometheus:
+      prometheusSpec:
+        retention: 30d
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 50Gi
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          fsGroup: 2000
+        
+        # Resource management
+        resources:
+          requests:
+            cpu: 200m
+            memory: 2Gi
+          limits:
+            cpu: 1000m
+            memory: 4Gi
+    
+    # Grafana configuration
+    grafana:
+      enabled: true
+      
+      # Admin credentials (use sealed secrets in production)
+      adminPassword: admin # TODO: Replace with sealed secret
+      
+      # Persistence
+      persistence:
+        enabled: true
+        size: 10Gi
+      
+      # Ingress
+      ingress:
+        enabled: true
+        ingressClassName: traefik
+        hosts:
+          - grafana.local.cluster
+        tls:
+          - secretName: grafana-tls
+            hosts:
+              - grafana.local.cluster
+      
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        fsGroup: 472
+    
+    # AlertManager configuration
+    alertmanager:
+      alertmanagerSpec:
+        storage:
+          volumeClaimTemplate:
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 10Gi
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          fsGroup: 2000

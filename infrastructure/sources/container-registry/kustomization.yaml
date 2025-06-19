@@ -5,6 +5,11 @@ kind: Kustomization
 namespace: flux-system
 
 resources:
+  # Infrastructure controllers
   - cilium-repo.yaml
   - jetstack-repo.yaml
   - sealed-secrets-repo.yaml
+  
+  # Application repositories
+  - prometheus-repo.yaml
+  - grafana-repo.yaml
