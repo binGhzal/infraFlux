@@ -51,6 +51,9 @@ data:
   proxmox_user: "root@pam"
   proxmox_node: "pve"
   proxmox_storage: "local-lvm"
+  
+  # Security Configuration
+  proxmox_tls_insecure: false  # Use secure TLS - ensure Proxmox has valid certificates
 
   # VM Configuration
   vm_cores: 2
