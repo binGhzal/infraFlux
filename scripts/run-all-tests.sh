@@ -5,8 +5,16 @@
 set -euo pipefail
 
 # Script metadata
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+declare SCRIPT_DIR
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+
+# Export PROJECT_ROOT for potential use by child test scripts
+declare PROJECT_ROOT
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+readonly PROJECT_ROOT
+export PROJECT_ROOT
+
 readonly CONFIG_FILE="${1:-config/cluster-config.yaml}"
 
 # Colors
@@ -28,7 +36,7 @@ declare -a SUITE_RESULTS=()
 show_banner() {
     clear
     echo -e "${PURPLE}${WHITE}"
-    cat << 'EOF'
+    cat <<'EOF'
   ██╗███╗   ██╗████████╗███████╗ ██████╗ ██████╗  █████╗ ████████╗██╗ ██████╗ ███╗   ██╗
   ██║████╗  ██║╚══██╔══╝██╔════╝██╔════╝ ██╔══██╗██╔══██╗╚══██╔══╝██║██╔═══██╗████╗  ██║
   ██║██╔██╗ ██║   ██║   █████╗  ██║  ███╗██████╔╝███████║   ██║   ██║██║   ██║██╔██╗ ██║
@@ -65,16 +73,16 @@ run_test_suite() {
     local suite_name="$1"
     local script_path="$2"
     local description="$3"
-    
+
     ((TOTAL_SUITES++))
-    
+
     echo
     echo -e "${PURPLE}================================================================${NC}"
     echo -e "${PURPLE}Running Test Suite: ${suite_name}${NC}"
     echo -e "${PURPLE}${description}${NC}"
     echo -e "${PURPLE}================================================================${NC}"
     echo
-    
+
     if [[ -x "$script_path" ]]; then
         if "$script_path" "$CONFIG_FILE"; then
             success "$suite_name"
@@ -92,27 +100,27 @@ run_test_suite() {
 # Pre-flight checks
 pre_flight_checks() {
     log "🔍 Running pre-flight checks..."
-    
+
     # Check if config file exists
     if [[ ! -f "$CONFIG_FILE" ]]; then
         echo -e "${RED}❌ Configuration file not found: $CONFIG_FILE${NC}"
         echo "Please create the configuration file first."
         exit 1
     fi
-    
+
     # Check if required scripts exist
     local required_scripts=(
         "$SCRIPT_DIR/validate-config.sh"
         "$SCRIPT_DIR/test-deployment.sh"
     )
-    
+
     for script in "${required_scripts[@]}"; do
         if [[ ! -x "$script" ]]; then
             echo -e "${RED}❌ Required script not found or not executable: $script${NC}"
             exit 1
         fi
     done
-    
+
     echo -e "${GREEN}✅ Pre-flight checks passed${NC}"
     echo
 }
@@ -120,37 +128,37 @@ pre_flight_checks() {
 # Main test orchestration
 main() {
     show_banner
-    
+
     log "🎯 Starting InfraFlux v2.0 Integration Testing"
     log "📁 Configuration file: $CONFIG_FILE"
     log "🕐 $(date)"
-    
+
     pre_flight_checks
-    
+
     # Test Suite 1: Configuration Validation
     run_test_suite \
         "Configuration Validation" \
         "$SCRIPT_DIR/validate-config.sh" \
         "Validates configuration files, templates, and GitOps structure"
-    
+
     # Test Suite 2: Deployment Pipeline Testing
     run_test_suite \
         "Deployment Pipeline Testing" \
         "$SCRIPT_DIR/test-deployment.sh" \
         "Tests deployment pipeline with dry-run validation"
-    
+
     # Test Suite 3: Security Testing
     run_test_suite \
         "Security Configuration Testing" \
         "$SCRIPT_DIR/test-deployment.sh security" \
         "Validates security configurations and best practices"
-    
-    # Test Suite 4: GitOps Structure Testing  
+
+    # Test Suite 4: GitOps Structure Testing
     run_test_suite \
         "GitOps Structure Testing" \
         "$SCRIPT_DIR/test-deployment.sh gitops" \
         "Validates Flux v2 GitOps structure and Kustomize builds"
-    
+
     # Generate final report
     generate_final_report
 }
@@ -162,19 +170,19 @@ generate_final_report() {
     echo -e "${PURPLE}Integration Testing Final Report${NC}"
     echo -e "${PURPLE}================================================================${NC}"
     echo
-    
+
     echo -e "📊 Test Suite Summary:"
     echo -e "   Total Suites: ${TOTAL_SUITES}"
     echo -e "   ${GREEN}Passed: ${PASSED_SUITES}${NC}"
     echo -e "   ${RED}Failed: ${FAILED_SUITES}${NC}"
     echo
-    
+
     echo -e "📋 Detailed Results:"
     for result in "${SUITE_RESULTS[@]}"; do
         echo -e "   $result"
     done
     echo
-    
+
     # Overall status
     if [[ ${FAILED_SUITES} -gt 0 ]]; then
         echo -e "${RED}❌ Integration Testing FAILED${NC}"

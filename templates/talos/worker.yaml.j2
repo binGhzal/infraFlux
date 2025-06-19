@@ -11,7 +11,7 @@ machine:
 
   ca:
     crt: {{ cluster.ca.crt | default('') }}
-    key: {{ cluster.ca.key | default('') }}
+    # Note: CA key should not be present on worker nodes for security
 
   kubelet:
     image: ghcr.io/siderolabs/kubelet:{{ config.data.kubernetes_version }}
@@ -93,16 +93,10 @@ machine:
       - tsx_async_abort=full,nosmt
       - kvm.nx_huge_pages=force
 
-  # System Security
-  security:
-    # Enable process auditing
-    audit:
-      enabled: true
-
-  # Resource Control and Security
-  cgroups:
-    # Enable cgroup v2 for better resource isolation
-    v2: true
+  # System Security - Note: Audit configuration moved to Kubernetes API server level
+  # Machine-level audit and cgroups v2 are not supported in Talos v1.10.4
+  # Audit logging is configured in cluster.apiServer.auditPolicy
+  # Cgroups v2 is enabled by default in modern Talos versions
 
   # System Configuration
   time:

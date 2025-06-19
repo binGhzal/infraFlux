@@ -439,4 +439,19 @@ infraFlux/                           # ✅ Clean, organized structure
 - Comprehensive YAML syntax validation of generated files
 - Timeout protection (30s) to prevent indefinite hanging
 
+#### ✅ Talos Configuration Validation - IMPROVED (2025-06-19)
+
+- **Issue**: Generated Talos configurations had validation warnings about unknown keys
+- **Root Cause**: Template used invalid configuration options for Talos v1.10.4:
+  - `machine.security.audit.enabled: true` - Not supported in v1.10.4
+  - `machine.cgroups.v2: true` - Not a valid configuration key
+  - Worker nodes included CA private keys - Security violation
+- **Resolution**:
+  - Removed invalid `machine.security.audit` configuration (audit is properly configured at API server level)
+  - Removed invalid `machine.cgroups.v2` configuration (cgroups v2 enabled by default)
+  - Removed CA private key from worker node configurations (security best practice)
+  - Added explanatory comments about configuration decisions
+- **Testing**: Both controlplane and worker configs now validate cleanly with `talosctl validate`
+- **Status**: ✅ **Fully validated** - zero validation warnings, production-ready configurations
+
 ---
