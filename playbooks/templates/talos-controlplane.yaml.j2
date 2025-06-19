@@ -54,15 +54,11 @@ cluster:
   clusterName: {{ cluster_name }}
   
   network:
-    dnsDomain: {{ cluster_config.cluster_domain | default('cluster.local') }}
+    dnsDomain: cluster.local
     podSubnets:
-{% for subnet in cluster_config.pod_subnets %}
-      - {{ subnet }}
-{% endfor %}
+      - 10.244.0.0/16
     serviceSubnets:
-{% for subnet in cluster_config.service_subnets %}
-      - {{ subnet }}
-{% endfor %}
+      - 10.96.0.0/12
     cni:
       name: none  # Cilium will be installed separately
   

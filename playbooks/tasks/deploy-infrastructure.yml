@@ -2,6 +2,11 @@
 # Infrastructure deployment using Terraform
 
 - name: Initialize Terraform
+  shell: terraform init
+  args:
+    chdir: "{{ work_dir }}/terraform"
+
+- name: Plan Terraform
   terraform:
     project_path: "{{ work_dir }}/terraform"
     state: planned

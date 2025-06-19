@@ -5,6 +5,7 @@
 ## Quick Start
 
 ### 1. Setup Environment (Any OS)
+
 ```bash
 # Create Python environment
 python3 -m venv venv
@@ -20,6 +21,7 @@ pip install -r requirements.txt
 ```
 
 ### 2. Configure Your Cluster
+
 ```bash
 # Copy configuration template
 cp config/cluster.yaml.example config/cluster.yaml
@@ -33,6 +35,7 @@ cp config/.env.template config/.env
 ```
 
 ### 3. Deploy (Pure Declarative)
+
 ```bash
 # Full deployment - one command, works on any OS
 ansible-playbook playbooks/main.yml \
@@ -56,6 +59,7 @@ ansible-playbook playbooks/main.yml \
 ## Cross-Platform Commands
 
 ### Windows
+
 ```cmd
 REM Setup
 python -m venv venv
@@ -67,6 +71,7 @@ ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml
 ```
 
 ### Linux/macOS
+
 ```bash
 # Setup
 python3 -m venv venv
@@ -102,12 +107,12 @@ apiVersion: infraflux.dev/v1
 kind: Cluster
 metadata:
   name: my-cluster
-  environment: development  # Automatically configures everything
+  environment: development # Automatically configures everything
 
 spec:
   infrastructure:
     proxmox:
-      host: "10.0.0.69"  # Only required field!
+      host: "10.0.0.69" # Only required field!
 ```
 
 ## What You Get
@@ -130,6 +135,7 @@ spec:
 ## Troubleshooting
 
 ### Debug Mode
+
 ```bash
 ansible-playbook playbooks/main.yml \
   --extra-vars config_file=config/cluster.yaml \
@@ -138,6 +144,7 @@ ansible-playbook playbooks/main.yml \
 ```
 
 ### Validate Configuration
+
 ```bash
 ansible-playbook playbooks/main.yml \
   --extra-vars config_file=config/cluster.yaml \
@@ -146,6 +153,7 @@ ansible-playbook playbooks/main.yml \
 ```
 
 ### Environment Variables
+
 ```bash
 # Linux/macOS
 export ANSIBLE_VERBOSITY=3

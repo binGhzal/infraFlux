@@ -15,7 +15,7 @@
     
     # Extract configuration with smart defaults
     cluster_name: "{{ config.metadata.name }}"
-    environment: "{{ config.metadata.environment | default('development') }}"
+    cluster_environment: "{{ config.metadata.environment | default('development') }}"
     
     # Proxmox settings with auto-detection
     proxmox_host: "{{ config.spec.infrastructure.proxmox.host }}"
@@ -24,11 +24,11 @@
     proxmox_storage: "{{ config.spec.infrastructure.proxmox.storage | default('local-lvm') }}"
     
     # Environment-aware defaults
-    control_plane_count: "{{ 1 if environment == 'development' else 3 }}"
-    worker_count: "{{ 1 if environment == 'development' else 3 }}"
-    vm_cores: "{{ 2 if environment == 'development' else 4 }}"
-    vm_memory: "{{ 2048 if environment == 'development' else 4096 }}"
-    vm_disk_size: "{{ '20G' if environment == 'development' else '50G' }}"
+    control_plane_count: "{{ 1 if cluster_environment == 'development' else 3 }}"
+    worker_count: "{{ 1 if cluster_environment == 'development' else 3 }}"
+    vm_cores: "{{ 2 if cluster_environment == 'development' else 4 }}"
+    vm_memory: "{{ 2048 if cluster_environment == 'development' else 4096 }}"
+    vm_disk_size: "{{ '20G' if cluster_environment == 'development' else '50G' }}"
     vm_network_bridge: "{{ config.spec.infrastructure.proxmox.bridge | default('vmbr0') }}"
     
     # Auto-calculate IP addresses (simple default range)
@@ -49,6 +49,7 @@
           
           Deployment ID: {{ deployment_id }}
           Cluster: {{ cluster_name }}
+          Environment: {{ cluster_environment }}
           Phase: {{ deployment_phase }}
           
           Target Infrastructure:
@@ -85,7 +86,6 @@
       include_tasks: tasks/install-apps.yml
       when: 
         - deployment_phase in ['all', 'apps']
-        - cluster_config.applications.cilium.enabled | default(true)
 
     # Phase 6: Validate deployment
     - name: Validate deployment

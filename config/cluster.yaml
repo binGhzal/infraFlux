@@ -13,11 +13,11 @@ spec:
   # =============================================================================
   infrastructure:
     proxmox:
-      host: "10.0.0.69"                    # CHANGE THIS to your Proxmox IP
-      # Everything below is auto-detected, but you can override:
-      # node: "pve"                        # Auto-detected
-      # storage: "local-lvm"               # Auto-detected
-      # bridge: "vmbr0"                    # Auto-detected
+      host: "10.0.0.69"                    # Test Proxmox IP
+      node: "pve"                          # Proxmox node
+      storage: "bigdisk"                   # Proxmox storage pool
+      bridge: "vmbr0"                      # Network bridge
+      tls_insecure: true                   # Only for development with self-signed certs
   
   # =============================================================================
   # Everything below uses intelligent defaults based on environment
