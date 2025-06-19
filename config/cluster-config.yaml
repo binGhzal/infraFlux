@@ -18,62 +18,62 @@ data:
   # Core Cluster Configuration
   cluster_name: "infraflux-v2"
   cluster_domain: "cluster.local"
-  environment: "production"  # development, staging, production
-  
+  environment: "production" # development, staging, production
+
   # Talos Linux Configuration
   talos_version: "v1.10.0"
   talos_image_factory_url: "https://factory.talos.dev"
   talos_extensions:
     - "qemu-guest-agent"
     - "util-linux-tools"
-  
-  # Kubernetes Configuration  
+
+  # Kubernetes Configuration
   kubernetes_version: "v1.31.0"
-  
+
   # Network Configuration
   pod_subnets:
     - "10.244.0.0/16"
   service_subnets:
     - "10.96.0.0/12"
-  
+
   # Node Configuration (IP addresses for your environment)
   control_plane_ips:
     - "10.0.0.10"
-    - "10.0.0.11" 
+    - "10.0.0.11"
     - "10.0.0.12"
   worker_ips:
     - "10.0.0.20"
     - "10.0.0.21"
     - "10.0.0.22"
-  
+
   # Proxmox Configuration
-  proxmox_host: "your-proxmox-host.local"  # Change this to your Proxmox host
+  proxmox_host: "your-proxmox-host.local" # Change this to your Proxmox host
   proxmox_user: "root@pam"
   proxmox_node: "pve"
   proxmox_storage: "local-lvm"
-  
+
   # VM Configuration
   vm_cores: 2
-  vm_memory: 4096  # MB
+  vm_memory: 4096 # MB
   vm_disk_size: "20G"
   vm_network_bridge: "vmbr0"
-  
+
   # Security Configuration
   security:
     enable_pod_security_standards: true
     enable_network_policies: true
     enable_rbac: true
     sealed_secrets_version: "v0.24.5"
-    api_only_access: true  # No SSH access
-  
+    api_only_access: true # No SSH access
+
   # GitOps Configuration
   gitops:
     enabled: true
-    git_repository: ""  # Set this to your Git repository URL
+    git_repository: "" # Set this to your Git repository URL
     git_branch: "main"
     flux_version: "v2.4.0"
     sync_interval: "5m"
-  
+
   # Application Configuration
   applications:
     # Core Infrastructure
@@ -83,35 +83,35 @@ data:
     cert_manager:
       enabled: true
       version: "v1.13.0"
-    
+
     # Monitoring Stack
     monitoring:
       enabled: true
       prometheus: true
       grafana: true
       loki: false
-    
+
     # Security Stack
     security_stack:
       enabled: true
       sealed_secrets: true
       falco: false
       trivy: false
-    
+
     # Productivity Applications (disabled by default)
     productivity:
       enabled: false
       nextcloud: false
       vaultwarden: false
       gitea: false
-    
+
     # Media Applications (disabled by default)
     media:
       enabled: false
       jellyfin: false
       sonarr: false
       radarr: false
-  
+
   # Resource Configuration
   resources:
     default_requests:
@@ -120,39 +120,39 @@ data:
     default_limits:
       cpu: "500m"
       memory: "512Mi"
-  
+
   # Storage Configuration
   storage:
     default_storage_class: "local-path"
     enable_longhorn: false
     backup_enabled: false
-  
+
   # Advanced Configuration
   advanced:
     enable_gpu_support: false
     enable_auto_updates: true
     cluster_timezone: "UTC"
     log_level: "info"
-  
+
   # Production Enhancement Configuration
   production:
     # Security Hardening
     enable_audit_logging: true
     enable_pod_security_policies: true
     enable_kernel_hardening: true
-    enable_selinux: false  # Optional, may impact compatibility
-    
+    enable_selinux: false # Optional, may impact compatibility
+
     # Performance Optimization
     enable_cpu_manager: true
     enable_topology_manager: true
     enable_bbr_congestion_control: true
     optimize_kernel_parameters: true
-    
+
     # Monitoring Integration
     enable_metrics_server: true
     enable_node_exporter: true
     enable_enhanced_logging: true
-    
+
     # Resource Management
     enable_resource_quotas: true
     enable_limit_ranges: true
@@ -160,19 +160,19 @@ data:
     system_reserved_memory: "512Mi"
     kube_reserved_cpu: "100m"
     kube_reserved_memory: "256Mi"
-    
+
     # High Availability
     enable_pod_disruption_budgets: true
     enable_node_affinity: true
-    
+
     # Network Security
     enable_network_policies: true
     enable_ingress_security: true
-    
+
     # Storage Optimization
     enable_storage_optimization: true
     enable_disk_quotas: true
-  
+
   # Optional External Auth Configuration (OIDC)
   external_auth:
     enabled: false
@@ -180,7 +180,7 @@ data:
     oidc_client_id: ""
     oidc_username_claim: "email"
     oidc_groups_claim: "groups"
-  
+
   # Custom Extensions and Features
   extensions:
     enable_custom_ca: false
