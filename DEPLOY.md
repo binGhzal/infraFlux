@@ -84,20 +84,22 @@ ansible-playbook playbooks/main.yml \
   --extra-vars deployment_phase=all
 ```
 
-## Environment Variable Loading
+## Secret Management
 
-Environment variables are loaded automatically from `config/.env`:
+**Simple `.env` file approach** - no complex secret management needed:
 
 ```bash
-# config/.env - Required secrets
-PROXMOX_PASSWORD="your-proxmox-root-password"
-GITHUB_TOKEN="ghp_your-github-token"  # Optional for GitOps
-GIT_SSH_KEY_PATH="~/.ssh/id_rsa"      # Optional for SSH access
+# config/.env - Only file you need for secrets
+PROXMOX_PASSWORD="your-proxmox-root-password"  # Required
+GITHUB_TOKEN="ghp_your-github-token"           # Optional for GitOps
+GIT_SSH_KEY_PATH="~/.ssh/id_rsa"               # Optional
 
 # Optional settings
 DEBUG="false"
 ANSIBLE_VERBOSITY="0"
 ```
+
+**Note**: Talos cluster secrets are auto-generated during deployment - no manual management required!
 
 No shell scripts needed - Ansible handles everything declaratively!
 
