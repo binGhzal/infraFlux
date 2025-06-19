@@ -2,9 +2,12 @@
 /sample
 /trash
 /legacy
+/.ansible
+/.claude
 
 # Files to ignore
 /.DS_Store
+/CLAUDE.md
 
 # Log files
 /logs
