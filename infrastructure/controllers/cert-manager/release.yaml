@@ -1,0 +1,38 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: cert-manager
+spec:
+  interval: 15m
+  timeout: 10m
+  chart:
+    spec:
+      chart: cert-manager
+      version: "v1.13.x"
+      sourceRef:
+        kind: HelmRepository
+        name: jetstack
+        namespace: flux-system
+      interval: 15m
+  values:
+    installCRDs: true
+    
+    # Security configuration
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    
+    # Resource management
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+    
+    # Prometheus monitoring
+    prometheus:
+      enabled: true
+      servicemonitor:
+        enabled: true

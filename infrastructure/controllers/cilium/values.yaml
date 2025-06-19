@@ -1,0 +1,44 @@
+# Cilium Configuration for InfraFlux v2.0 + Talos Linux
+
+# Talos Linux specific configuration
+ipam:
+  mode: kubernetes
+
+# Kube-proxy replacement for better performance
+kubeProxyReplacement: true
+
+# Talos API server configuration
+k8sServiceHost: localhost
+k8sServicePort: 7445
+
+# Enable Hubble for network observability
+hubble:
+  enabled: true
+  metrics:
+    enabled:
+      - dns:query
+      - drop
+      - tcp
+      - flow
+      - icmp
+      - http
+  relay:
+    enabled: true
+    rollOutPods: true
+  ui:
+    enabled: true
+    rollOutPods: true
+
+# Operator configuration
+operator:
+  replicas: 2
+  rollOutPods: true
+
+# Security configuration
+policyEnforcementMode: "default"
+bpf:
+  preallocateMaps: true
+
+# Performance optimizations
+tunnel: vxlan
+ipv4NativeRoutingCIDR: 10.244.0.0/16
