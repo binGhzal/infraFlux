@@ -24,7 +24,9 @@ cp config/.env.template config/.env
 # Edit config/.env with your Proxmox credentials
 
 # 5. Deploy cluster
-./deploy.sh config/test-cluster-config.yaml
+ansible-playbook playbooks/main.yml \
+  --extra-vars config_file=config/cluster.yaml \
+  --extra-vars deployment_phase=all
 ```
 
 ## 📋 Prerequisites
@@ -118,7 +120,7 @@ To create API token in Proxmox:
 
 ### 3. Configure Cluster Settings
 
-Edit `config/test-cluster-config.yaml`:
+Edit `config/test-cluster.yaml`:
 
 ```yaml
 data:
@@ -139,12 +141,12 @@ data:
 
 ```bash
 # Full deployment (recommended)
-./deploy.sh config/test-cluster-config.yaml
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all
 
 # Specific phases
-./deploy.sh config/test-cluster-config.yaml infrastructure
-./deploy.sh config/test-cluster-config.yaml bootstrap  
-./deploy.sh config/test-cluster-config.yaml apps
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=infrastructure
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=bootstrap  
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=apps
 ```
 
 ### Deployment Phases
@@ -164,7 +166,7 @@ infraflux/
 ├── requirements.txt             # Python dependencies
 ├── config/
 │   ├── .env.template           # Environment template (edit and copy to .env)
-│   ├── test-cluster-config.yaml # Cluster configuration
+│   ├── test-cluster.yaml # Cluster configuration
 │   └── production-config.yaml  # Production configuration
 ├── playbooks/
 │   ├── main.yml               # Main Ansible playbook
@@ -180,7 +182,7 @@ infraflux/
 
 ### Cluster Configuration
 
-Edit `config/test-cluster-config.yaml`:
+Edit `config/test-cluster.yaml`:
 
 ```yaml
 data:
@@ -239,7 +241,7 @@ curl -k https://10.0.0.69:8006/api2/json/version
 **3. IP Address Conflicts**
 ```bash
 # Error: IP already in use
-# Solution: Update IPs in config/test-cluster-config.yaml
+# Solution: Update IPs in config/test-cluster.yaml
 ```
 
 **4. Missing Talos ISO**
@@ -252,7 +254,7 @@ curl -k https://10.0.0.69:8006/api2/json/version
 
 ```bash
 # Enable Ansible debug output
-ANSIBLE_VERBOSITY=3 ./deploy.sh config/test-cluster-config.yaml
+ANSIBLE_VERBOSITY=3 ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all
 
 # Check generated configurations
 ls -la /tmp/infraflux-*/
@@ -287,7 +289,7 @@ rm -rf /tmp/infraflux-*
 
 ### Add More Nodes
 
-1. Update `config/test-cluster-config.yaml`:
+1. Update `config/test-cluster.yaml`:
 ```yaml
 worker_ips:
   - "10.0.0.20"
@@ -297,7 +299,7 @@ worker_ips:
 
 2. Re-run deployment:
 ```bash
-./deploy.sh config/test-cluster-config.yaml infrastructure
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=infrastructure
 ```
 
 ### Production Configuration

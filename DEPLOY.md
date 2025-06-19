@@ -31,7 +31,7 @@ cp config/cluster.yaml.example config/cluster.yaml
 
 # Setup runtime secrets
 cp config/.env.template config/.env
-# Add your Proxmox password
+# Add your Proxmox password and other secrets
 ```
 
 ### 3. Deploy (Pure Declarative)
@@ -89,10 +89,14 @@ ansible-playbook playbooks/main.yml \
 Environment variables are loaded automatically from `config/.env`:
 
 ```bash
-# config/.env
+# config/.env - Required secrets
+PROXMOX_PASSWORD="your-proxmox-root-password"
+GITHUB_TOKEN="ghp_your-github-token"  # Optional for GitOps
+GIT_SSH_KEY_PATH="~/.ssh/id_rsa"      # Optional for SSH access
+
+# Optional settings
 DEBUG="false"
-PROXMOX_PASSWORD="your-password"
-GITHUB_TOKEN="your-token"
+ANSIBLE_VERBOSITY="0"
 ```
 
 No shell scripts needed - Ansible handles everything declaratively!

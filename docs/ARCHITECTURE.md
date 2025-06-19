@@ -112,7 +112,7 @@ InfraFlux v2.0 represents a complete architectural transformation from tradition
 
 ```mermaid
 graph TD
-    START([./deploy.sh]) --> CONFIG[Load cluster-config.yaml]
+    START([./deploy.sh]) --> CONFIG[Load cluster.yaml]
     CONFIG --> PREREQ[Phase 1: Prerequisites]
     PREREQ --> GENERATE[Phase 2: Generate Configs]
     GENERATE --> INFRA[Phase 3: Deploy Infrastructure]
@@ -127,7 +127,7 @@ graph TD
 ### **Configuration Flow**
 
 ```plaintext
-cluster-config.yaml → Jinja2 Templates → Generated Configs
+cluster.yaml → Jinja2 Templates → Generated Configs
                                       ├─ Talos machine configs
                                       ├─ Terraform infrastructure
                                       ├─ Flux GitOps manifests
@@ -172,13 +172,13 @@ cluster-config.yaml → Jinja2 Templates → Generated Configs
 ```plaintext
 infraFlux/
 ├── 📋 config/
-│   └── cluster-config.yaml          # Single source of truth
+│   └── cluster.yaml          # Single source of truth
 ├── 📝 templates/                    # Jinja2 templates
 │   ├── talos/                      # Talos machine configs
 │   ├── terraform/                  # Infrastructure templates
 │   ├── flux/                       # GitOps configurations
 │   └── security/                   # Security policies
-├── 🔧 scripts/                     # Automation utilities
+├── 🔧 playbooks/                   # Pure Ansible deployment
 │   ├── generate-configs.py         # Config generator
 │   ├── validate-config.sh         # Validation tools
 │   └── test-*.sh                   # Testing scripts
@@ -237,12 +237,12 @@ Configuration    Automated           Live State
 
 ```bash
 # Complete platform deployment
-./deploy.sh config/cluster-config.yaml
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all
 
 # Phase-specific deployment
-./deploy.sh config/cluster-config.yaml infrastructure
-./deploy.sh config/cluster-config.yaml cluster
-./deploy.sh config/cluster-config.yaml apps
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=infrastructure
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=cluster
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=apps
 ```
 
 ### **Day 1: Application Management**
@@ -335,8 +335,8 @@ talosctl health --wait
 
 ```bash
 # Kubernetes version updates via configuration
-yq eval '.data.kubernetes_version = "v1.31.0"' -i config/cluster-config.yaml
-./deploy.sh config/cluster-config.yaml cluster
+yq eval '.data.kubernetes_version = "v1.31.0"' -i config/cluster.yaml
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=cluster
 ```
 
 ### **Application Updates**

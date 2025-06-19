@@ -106,7 +106,8 @@ git log --oneline docs/ | head -10
 
 # 3. Review automation scripts
 # Check for script updates needed
-ls -la scripts/
+# Review Ansible playbooks and templates
+ls -la playbooks/
 
 # 4. Validate backup configurations
 # Test restore procedures (non-production)
@@ -305,7 +306,7 @@ talosctl gen config <cluster-name> <endpoint> --force
 ### Daily Automated Backups
 ```bash
 #!/bin/bash
-# /scripts/daily-backup.sh
+# /usr/local/bin/daily-backup.sh
 
 DATE=$(date +%Y%m%d)
 BACKUP_DIR="/backups/daily/$DATE"
@@ -331,7 +332,7 @@ find /backups/daily/ -type d -mtime +7 -exec rm -rf {} \;
 ### Weekly Archive Procedures
 ```bash
 #!/bin/bash
-# /scripts/weekly-archive.sh
+# /usr/local/bin/weekly-archive.sh
 
 WEEK=$(date +%Y-W%V)
 ARCHIVE_DIR="/archives/weekly/$WEEK"
@@ -413,7 +414,7 @@ echo "Recommendations:"
 ### Automated Health Monitoring Script
 ```bash
 #!/bin/bash
-# /scripts/health-check.sh
+# /usr/local/bin/health-check.sh
 
 HEALTH_LOG="/var/log/cluster-health.log"
 ALERT_THRESHOLD=80

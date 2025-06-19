@@ -6,13 +6,13 @@ This flowchart illustrates the complete deployment pipeline for InfraFlux v2.0, 
 
 **Key Architecture**: Talos Linux VMs → Immutable Kubernetes → Flux GitOps → Automated Applications
 
-**Deployment Command**: `./deploy.sh config/cluster-config.yaml`
+**Deployment Command**: `ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all
 
 ## Complete Deployment Flow
 
 ```mermaid
 graph TD
-    START([🚀 ./deploy.sh]) --> CONFIG{📋 Load Config<br/>cluster-config.yaml}
+    START([🚀 ./deploy.sh]) --> CONFIG{📋 Load Config<br/>cluster.yaml}
 
     CONFIG -->|❌ Invalid| CONFIG_ERROR[❌ Configuration Error<br/>Fix config file]
     CONFIG_ERROR --> CONFIG
@@ -101,7 +101,7 @@ graph TD
 - **Key Actions**:
   - Verify required tools installation
   - Validate Proxmox connectivity
-  - Load and parse `cluster-config.yaml`
+  - Load and parse `cluster.yaml`
   - Generate all Talos and Terraform configurations
 
 ### Phase 2: Infrastructure Deployment
@@ -259,23 +259,23 @@ graph TD
 ### Full Deployment
 
 ```bash
-./deploy.sh config/cluster-config.yaml all
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all all
 ```
 
 ### Phase-by-Phase Deployment
 
 ```bash
 # Infrastructure only
-./deploy.sh config/cluster-config.yaml infrastructure
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=infrastructure
 
 # Cluster bootstrap only
-./deploy.sh config/cluster-config.yaml cluster
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=cluster
 
 # Core applications only
-./deploy.sh config/cluster-config.yaml apps
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=apps
 
 # GitOps setup only
-./deploy.sh config/cluster-config.yaml gitops
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all gitops
 ```
 
 ## Post-Deployment

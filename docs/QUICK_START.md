@@ -30,10 +30,10 @@ sudo install kubectl /usr/local/bin/
 
 1. **Copy and edit the configuration file:**
    ```bash
-   cp config/test-cluster-config.yaml config/my-cluster-config.yaml
+   cp config/test-cluster.yaml config/my-cluster.yaml
    ```
 
-2. **Update the key settings in `config/my-cluster-config.yaml`:**
+2. **Update the key settings in `config/my-cluster.yaml`:**
    - `proxmox_host`: Your Proxmox server address
    - `control_plane_ips`: IP addresses for control plane nodes
    - `worker_ips`: IP addresses for worker nodes
@@ -47,7 +47,7 @@ Deploy the entire platform with one command:
 
 ```bash
 export PROXMOX_PASSWORD="your-proxmox-password"
-./deploy.sh config/my-cluster-config.yaml
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all
 ```
 
 ### Phase-by-Phase Deployment
@@ -56,16 +56,16 @@ For more control, deploy in phases:
 
 ```bash
 # 1. Create VMs only
-./deploy.sh config/my-cluster-config.yaml infrastructure
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=infrastructure
 
 # 2. Bootstrap Talos cluster
-./deploy.sh config/my-cluster-config.yaml cluster
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=cluster
 
 # 3. Deploy core applications
-./deploy.sh config/my-cluster-config.yaml apps
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=apps
 
 # 4. Setup GitOps
-./deploy.sh config/my-cluster-config.yaml gitops
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all gitops
 ```
 
 ## Access Your Cluster

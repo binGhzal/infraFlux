@@ -77,7 +77,7 @@ Config → Talos VMs → Cluster Bootstrap → Flux GitOps → Automated Apps
 
 ### **Configuration Management**
 
-- **Single Source of Truth**: `config/cluster-config.yaml` drives everything
+- **Single Source of Truth**: `config/cluster.yaml` drives everything
 - **Template-Driven**: Jinja2 templates generate all platform configurations
 - **Environment-Aware**: Support for dev/staging/production with inheritance
 - **Validation-First**: Comprehensive validation before any deployment
@@ -101,13 +101,13 @@ Config → Talos VMs → Cluster Bootstrap → Flux GitOps → Automated Apps
 ```
 infraFlux/
 ├── config/                    # Single source of truth
-│   └── cluster-config.yaml   # Master configuration
+│   └── cluster.yaml   # Master configuration
 ├── templates/                 # Jinja2 templates for all configs
 │   ├── talos/                # Talos machine configurations
 │   ├── terraform/            # Infrastructure provisioning
 │   ├── flux/                 # GitOps configurations
 │   └── security/             # Security policies
-├── scripts/                   # Automation and utilities
+├── playbooks/                 # Pure Ansible deployment system
 ├── docs/plan/                 # Detailed implementation plans
 └── deploy.sh                  # Unified deployment entry point
 ```
@@ -121,13 +121,12 @@ infraFlux/
 ./deploy.sh
 
 # Phase-specific deployment
-./deploy.sh infrastructure  # Talos VMs only
-./deploy.sh gitops          # GitOps bootstrap only
-./deploy.sh applications    # Applications only
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=infrastructure # Talos VMs only
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all          # GitOps bootstrap only
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all    # Applications only
 
 # Configuration management
-./scripts/validate-config.py config/cluster-config.yaml
-./scripts/template-processor.py --output _out
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=config --check
 ```
 
 ### **Talos Operations**
@@ -235,7 +234,7 @@ InfraFlux has achieved **enterprise-grade maturity** with production-ready compo
 
 - **Comprehensive Codebase Analysis**: 90% complete enterprise-grade foundation verified
 - **Restructured Strategic Plan**: New concise, trackable enhancement roadmap in phases
-- **Dynamic App Configuration**: Optional enable/disable system for all applications via `scripts/configure-apps.sh`
+- **Dynamic App Configuration**: Configure applications via cluster.yaml overrides section
 - **Cloudflare DNS Integration**: Automatic public FQDN provisioning with Traefik and security
 - **Kustomize Modernization**: Removed deprecated keys, clean builds without warnings
 - **GPU Infrastructure**: Complete NVIDIA operator, device plugins, runtime classes for AI/ML
@@ -256,17 +255,18 @@ InfraFlux has achieved **enterprise-grade maturity** with production-ready compo
 ./deploy.sh
 
 # Phase-specific deployments
-./deploy.sh infrastructure  # Create VMs only
-./deploy.sh k3s            # Setup K3s cluster only
-./deploy.sh apps           # Deploy enabled applications only
-./deploy.sh security       # Deploy Authentik SSO and security
-./deploy.sh monitoring     # Deploy Prometheus, Grafana, Loki stack
-./deploy.sh gitops         # Setup Flux and GitOps automation
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=infrastructure # Create VMs only
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all            # Setup K3s cluster only
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all           # Deploy enabled applications only
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all       # Deploy Authentik SSO and security
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all     # Deploy Prometheus, Grafana, Loki stack
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all         # Setup Flux and GitOps automation
 
 # Application Configuration & Management
-./scripts/configure-apps.sh              # Configure enabled/disabled applications
-./scripts/configure-apps.sh --dry-run    # Preview configuration changes
-./scripts/configure-apps.sh --restore    # Restore previous configuration
+# Edit cluster.yaml overrides section to enable/disable applications
+# applications:
+#   monitoring:
+#     enabled: true
 
 # VM Scaling
 ./scale-cluster.sh 5       # Scale to 5 worker nodes
@@ -281,22 +281,22 @@ InfraFlux has achieved **enterprise-grade maturity** with production-ready compo
 
 ```bash
 # Enable AI/ML platform
-yq eval '.data.enable_ai_ml = "true"' -i config/cluster-config.yaml
-yq eval '.data.enable_ollama = "true"' -i config/cluster-config.yaml
-yq eval '.data.enable_open_webui = "true"' -i config/cluster-config.yaml
+yq eval '.data.enable_ai_ml = "true"' -i config/cluster.yaml
+yq eval '.data.enable_ollama = "true"' -i config/cluster.yaml
+yq eval '.data.enable_open_webui = "true"' -i config/cluster.yaml
 
 # Enable media center
-yq eval '.data.enable_jellyfin = "true"' -i config/cluster-config.yaml
-yq eval '.data.enable_sonarr = "true"' -i config/cluster-config.yaml
-yq eval '.data.enable_radarr = "true"' -i config/cluster-config.yaml
+yq eval '.data.enable_jellyfin = "true"' -i config/cluster.yaml
+yq eval '.data.enable_sonarr = "true"' -i config/cluster.yaml
+yq eval '.data.enable_radarr = "true"' -i config/cluster.yaml
 
 # Enable infrastructure features
-yq eval '.data.enable_gpu_support = "true"' -i config/cluster-config.yaml
-yq eval '.data.enable_public_ingress = "true"' -i config/cluster-config.yaml
-yq eval '.data.public_domain = "yourdomain.com"' -i config/cluster-config.yaml
+yq eval '.data.enable_gpu_support = "true"' -i config/cluster.yaml
+yq eval '.data.enable_public_ingress = "true"' -i config/cluster.yaml
+yq eval '.data.public_domain = "yourdomain.com"' -i config/cluster.yaml
 
 # Apply configuration and deploy
-./scripts/configure-apps.sh && ./deploy.sh apps
+ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=apps
 ```
 
 ### Validation & Testing
@@ -310,7 +310,7 @@ ansible-playbook --syntax-check deploy.yml
 ansible-playbook --syntax-check playbooks/*.yml
 
 # Verify configuration syntax
-yq eval . config/cluster-config.yaml
+yq eval . config/cluster.yaml
 
 # Test Ansible connectivity
 ansible all -i /tmp/inventory.ini -m ping
@@ -327,7 +327,7 @@ ansible all -i /tmp/inventory.ini -m ping
 
 ### Key Configuration Files
 
-- `config/cluster-config.yaml` - Main cluster configuration (ConfigMap format)
+- `config/cluster.yaml` - Main cluster configuration (ConfigMap format)
 - `deploy.yml` - Master Ansible playbook with phase orchestration
 - `ansible.cfg` - Ansible configuration with SSH optimizations
 - `templates/inventory.ini.j2` - Dynamic inventory generation template
@@ -349,7 +349,7 @@ This project leverages **native K3s capabilities** rather than external alternat
 - **Simplified networking** with automatic configuration
 - **No external load balancer dependencies**
 
-Configuration flags in `cluster-config.yaml`:
+Configuration flags in `cluster.yaml`:
 
 ```yaml
 k3s_disable_servicelb: "false" # Use native ServiceLB
@@ -362,7 +362,7 @@ install_ingress_nginx: "false" # Don't install external NGINX
 
 ### Configuration Management
 
-- All settings centralized in `config/cluster-config.yaml`
+- All settings centralized in `config/cluster.yaml`
 - Template-driven configuration with Jinja2
 - Auto-detection for network settings (`network_cidr: "auto"`)
 - Environment-specific variable substitution

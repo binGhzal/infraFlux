@@ -45,10 +45,10 @@ This checklist ensures safe, reliable production deployment of InfraFlux v2.0. E
 - [ ] **Master Configuration Valid**
   ```bash
   # Validate YAML syntax
-  yq eval '.' config/cluster-config.yaml > /dev/null
+  yq eval '.' config/cluster.yaml > /dev/null
   
   # Generate configurations (dry run)
-  python3 scripts/generate-configs.py --config config/cluster-config.yaml --output /tmp/validation --validate-only
+  ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=config --check
   ```
   - [ ] YAML syntax correct
   - [ ] All required fields present
@@ -112,7 +112,7 @@ This checklist ensures safe, reliable production deployment of InfraFlux v2.0. E
 - [ ] **Generate All Configurations**
   ```bash
   # Generate configurations
-  python3 scripts/generate-configs.py --config config/cluster-config.yaml --output /tmp/infraflux-$(date +%Y%m%d)
+  ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=config
   
   # Verify generated files
   ls -la /tmp/infraflux-*/talos/
@@ -272,7 +272,7 @@ This checklist ensures safe, reliable production deployment of InfraFlux v2.0. E
 - [ ] **Flux Bootstrap**
   ```bash
   # If Git repository configured
-  ./scripts/bootstrap-flux.sh config/cluster-config.yaml --environment production
+  ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=apps
   ```
   - [ ] Flux controllers installed
   - [ ] Git repository connected

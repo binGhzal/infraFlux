@@ -340,10 +340,10 @@ ssh -T git@gitlab.com  # For GitLab
 #### 1. Create Production Configuration
 ```bash
 # Copy template configuration
-cp config/test-cluster-config.yaml config/production-cluster-config.yaml
+cp config/test-cluster.yaml config/production-cluster.yaml
 
 # Edit production configuration
-nano config/production-cluster-config.yaml
+nano config/production-cluster.yaml
 ```
 
 #### 2. Configure Environment Variables
@@ -392,15 +392,13 @@ nslookup proxmox.yourdomain.com
 ### Configuration Validation
 ```bash
 # Test configuration generation
-python3 scripts/generate-configs.py \
-  --config config/production-cluster-config.yaml \
-  --output /tmp/test-production \
-  --validate-only
+ansible-playbook playbooks/main.yml \
+  --extra-vars config_file=config/cluster.yaml \
+  --extra-vars deployment_phase=config \
+  --check
 
-# Verify Terraform configuration
-cd /tmp/test-production/terraform
-terraform init
-terraform validate
+# Verify generated Terraform configuration
+# (Files are generated in /tmp/infraflux-*/terraform/)
 ```
 
 ### Security Verification
@@ -480,7 +478,7 @@ curl -k -d "username=infraflux@pve&password=$PROXMOX_PASSWORD" \
 After completing this setup:
 
 1. **Review** the [Production Deployment Checklist](PRODUCTION_DEPLOYMENT_CHECKLIST.md)
-2. **Execute** deployment using `./deploy.sh config/production-cluster-config.yaml`
+2. **Execute** deployment using `ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all
 3. **Monitor** the deployment progress through each phase
 4. **Validate** the cluster using the post-deployment checklist
 5. **Document** any environment-specific configurations

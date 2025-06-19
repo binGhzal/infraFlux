@@ -2,14 +2,14 @@
 
 ## Executive Summary
 
-InfraFlux v2.0 implements a fully automated deployment pipeline that provisions Talos Linux VMs on Proxmox, bootstraps an immutable Kubernetes cluster, and establishes FluxCD-based GitOps management. The entire process is orchestrated through a single command: `./deploy.sh config/cluster-config.yaml`.
+InfraFlux v2.0 implements a fully automated deployment pipeline that provisions Talos Linux VMs on Proxmox, bootstraps an immutable Kubernetes cluster, and establishes FluxCD-based GitOps management. The entire process is orchestrated through a single command: `ansible-playbook playbooks/main.yml --extra-vars config_file=config/cluster.yaml --extra-vars deployment_phase=all
 
 ## Master Deployment Flow
 
 ```mermaid
 graph TB
     subgraph "Entry Point"
-        START([🚀 Start: ./deploy.sh]) --> LOAD_CONFIG[📋 Load cluster-config.yaml]
+        START([🚀 Start: ./deploy.sh]) --> LOAD_CONFIG[📋 Load cluster.yaml]
         LOAD_CONFIG --> PARSE_PHASE{Parse Deployment Phase}
     end
 
@@ -226,7 +226,7 @@ graph TB
 
 ```mermaid
 graph LR
-    CONFIG[cluster-config.yaml] --> JINJA[Jinja2 Templates]
+    CONFIG[cluster.yaml] --> JINJA[Jinja2 Templates]
     JINJA --> TALOS_TMPL[talos/*.yaml.j2]
     JINJA --> TF_TMPL[terraform/*.tf.j2]
     
