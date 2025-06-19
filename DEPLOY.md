@@ -91,13 +91,31 @@ ansible-playbook playbooks/main.yml \
 ```bash
 # config/.env - Only file you need for secrets
 PROXMOX_PASSWORD="your-proxmox-root-password"  # Required
-GITHUB_TOKEN="ghp_your-github-token"           # Optional for GitOps
-GIT_SSH_KEY_PATH="~/.ssh/id_rsa"               # Optional
+PROXMOX_API_TOKEN_ID="root@pam!infraflux"     # Required for Terraform
+PROXMOX_API_TOKEN_SECRET="your-api-secret"    # Required for Terraform
+GITHUB_TOKEN="ghp_your-github-token"          # Optional for GitOps
+GIT_SSH_KEY_PATH="~/.ssh/id_rsa"              # Optional
 
 # Optional settings
 DEBUG="false"
 ANSIBLE_VERBOSITY="0"
 ```
+
+### Creating Proxmox API Token
+
+1. **Login to Proxmox Web UI** as root
+2. **Go to**: Datacenter → Permissions → API Tokens
+3. **Click**: Add
+4. **Configure**:
+   - User: `root@pam`
+   - Token ID: `infraflux` (or any name)
+   - Privilege Separation: **Uncheck** (for full root access)
+5. **Copy** the displayed secret immediately (shown only once!)
+6. **Set in `.env`**:
+   ```bash
+   PROXMOX_API_TOKEN_ID="root@pam!infraflux"
+   PROXMOX_API_TOKEN_SECRET="your-copied-secret"
+   ```
 
 **Note**: Talos cluster secrets are auto-generated during deployment - no manual management required!
 
