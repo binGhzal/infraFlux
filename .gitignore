@@ -1,6 +1,7 @@
 # Directories to ignore
 /sample
 /trash
+/legacy
 
 # Files to ignore
 /.DS_Store
