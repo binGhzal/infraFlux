@@ -1,42 +1,189 @@
-# Claude.md
+# Claude.md - InfraFlux v2.0 Development Guidelines
 
-## Additional Instructions
+## 🎯 **Strategic Overview**
 
-- readme @README.md
+InfraFlux v2.0 is a **next-generation immutable Kubernetes platform** built on Talos Linux, representing a complete architectural transformation from traditional mutable infrastructure to a modern, secure, and automated deployment system.
 
-This file provides an overview of the InfraFlux project, including its purpose, architecture, and essential commands.
+## 📋 **Core Architecture Documents**
 
-- git workflow @docs/git-instructions.md
+### **Primary Planning Documents**
+- **Talos Architecture** @docs/plan/TALOS_ARCHITECTURE.md - Core Talos infrastructure design with 24 detailed implementation tasks
+- **GitOps Workflow** @docs/plan/GITOPS_WORKFLOW.md - Complete GitOps automation using Flux v2 with 20 tasks
+- **Deployment System** @docs/plan/DEPLOYMENT_SYSTEM.md - Automated deployment pipeline with 16 tasks
+- **Configuration Management** @docs/plan/CONFIGURATION_MANAGEMENT.md - Single-source configuration system with 18 tasks
+- **Security Framework** @docs/plan/SECURITY_FRAMEWORK.md - Zero-trust security model with 14 tasks
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+### **Supporting Documentation**
+- **README** @README.md - Project overview and quick start guide for InfraFlux v2.0
+- **Architecture** @docs/ARCHITECTURE.md - Complete system architecture documentation
+- **Legacy Plans** @docs/plan/PLAN.md - Original restructuring plan (reference only)
 
-- plan @docs/plan/PLAN.md
+## 🏗️ **Architectural Transformation**
 
-This file outlines the plan for reorganizing and modernizing the InfraFlux repository, including the deployment flowchart, testing strategy, and success criteria.
+### **From Legacy to Modern**
+```
+BEFORE (Legacy):
+Packer → Ubuntu VMs → Ansible OS Config → K3s Install → Manual App Deploy
+(Complex)  (Mutable)   (Imperative)      (Manual)     (Error-Prone)
 
-- comprehensive code analysis @docs/plan/COMPREHENSIVE_CODEBASE_ANALYSIS.md
+AFTER (v2.0):
+Config → Talos VMs → Cluster Bootstrap → Flux GitOps → Automated Apps
+(Simple) (Immutable)  (Declarative)     (Automated)   (Reliable)
+```
 
-This file contains a detailed analysis of the existing codebase, identifying redundant components, understanding the deployment flow, and documenting the current vs desired state.
+### **Key Technology Decisions**
+1. **Talos Linux Foundation**: Immutable OS designed specifically for Kubernetes
+2. **API-Only Operations**: Zero SSH access, all management via secure APIs  
+3. **GitOps-First**: Flux v2 manages all application lifecycles
+4. **Single Configuration Source**: Master config drives entire platform
+5. **Zero-Trust Security**: Comprehensive security at every layer
 
-- deployment flowchart @docs/plan/DEPLOYMENT_FLOWCHART.md
+## 💡 **Development Approach**
 
-This file provides a visual representation of the deployment process, comparing the current complex structure with the proposed streamlined workflow.
+### **Personal Methodology**
+- **Deep Analysis**: Thoroughly analyze every task and its dependencies before implementation
+- **Immutable Mindset**: Design for immutability and declarative management
+- **Security-First**: Consider security implications in every design decision
+- **Automation-Driven**: Eliminate manual processes wherever possible
+- **Testing-Focused**: Implement comprehensive validation at every step
 
-- deployment test plan @docs/plan/DEPLOYMENT_TEST_PLAN.md
+### **Implementation Priorities**
+1. **Phase 1 (Critical)**: Talos infrastructure foundation
+2. **Phase 2 (High)**: GitOps workflow and deployment automation  
+3. **Phase 3 (Medium)**: Security framework and operations procedures
+4. **Phase 4 (Low)**: Documentation and user experience enhancements
 
-This file outlines the testing strategy for the reorganized InfraFlux repository, ensuring all components work together properly.
+## 🔧 **Technical Guidelines**
 
-- architecture overview @docs/ARCHITECTURE.md
+### **Configuration Management**
+- **Single Source of Truth**: `config/cluster-config.yaml` drives everything
+- **Template-Driven**: Jinja2 templates generate all platform configurations
+- **Environment-Aware**: Support for dev/staging/production with inheritance
+- **Validation-First**: Comprehensive validation before any deployment
 
-This file provides an overview of the InfraFlux architecture, including the deployment pipeline, key configuration files, and directory structure.
+### **Security Standards**
+- **Zero SSH Access**: API-only operations with certificate authentication
+- **Least Privilege**: Minimal permissions for all users and services
+- **Immutable Infrastructure**: Leverage Talos immutability for security
+- **Secret Management**: Sealed secrets for GitOps-safe secret handling
 
-- quick start guide @docs/QUICK_START.md
+### **Deployment Standards**  
+- **One-Command Deployment**: `./deploy.sh` handles complete infrastructure
+- **Phase-Based Execution**: Logical phases with dependencies and validation
+- **Rollback Capability**: Automatic rollback on failures
+- **Progress Monitoring**: Real-time feedback and detailed logging
 
-this file provides a concise guide to getting started with InfraFlux, including essential commands and deployment steps.
+### **Code Organization**
+```
+infraFlux/
+├── config/                    # Single source of truth
+│   └── cluster-config.yaml   # Master configuration
+├── templates/                 # Jinja2 templates for all configs
+│   ├── talos/                # Talos machine configurations
+│   ├── terraform/            # Infrastructure provisioning
+│   ├── flux/                 # GitOps configurations
+│   └── security/             # Security policies
+├── scripts/                   # Automation and utilities
+├── docs/plan/                 # Detailed implementation plans
+└── deploy.sh                  # Unified deployment entry point
+```
 
-## Personal Approach
+## 🎮 **Essential Commands**
 
-- deeply think and analyze every todo before doing it
+### **Core Deployment**
+```bash
+# Complete platform deployment
+./deploy.sh
+
+# Phase-specific deployment
+./deploy.sh infrastructure  # Talos VMs only
+./deploy.sh gitops          # GitOps bootstrap only
+./deploy.sh applications    # Applications only
+
+# Configuration management
+./scripts/validate-config.py config/cluster-config.yaml
+./scripts/template-processor.py --output _out
+```
+
+### **Talos Operations**
+```bash
+# Cluster management (via talosctl)
+talosctl health --wait
+talosctl kubeconfig
+talosctl dashboard
+
+# No SSH commands - everything via API
+```
+
+### **GitOps Operations**
+```bash
+# Flux management
+flux reconcile source git infraflux
+flux get all
+flux logs --follow
+
+# Application deployment via Git commits only
+```
+
+## 🎯 **Success Metrics**
+
+### **Technical Excellence**
+- ✅ **Deployment Time**: < 15 minutes from zero to full cluster
+- ✅ **Configuration Simplicity**: < 100 lines for basic cluster config
+- ✅ **Security Posture**: Zero SSH access, all operations via APIs
+- ✅ **Automation Level**: 100% GitOps-driven operations post-bootstrap
+- ✅ **Reliability**: > 95% deployment success rate
+
+### **Developer Experience**
+- ✅ **Setup Complexity**: Single command deployment
+- ✅ **Learning Curve**: < 1 hour to productive use
+- ✅ **Error Recovery**: Automatic rollback on failures
+- ✅ **Debugging**: Comprehensive logging and validation
+
+## 🚀 **Development Workflow**
+
+### **For Implementation Tasks**
+1. **Read Planning Document**: Understand complete context and dependencies
+2. **Analyze Task Details**: Review priorities, deliverables, and validation criteria
+3. **Implement Solution**: Follow security and automation principles
+4. **Validate Implementation**: Ensure all success criteria are met
+5. **Update Documentation**: Keep plans and docs synchronized
+
+### **For Bug Fixes**
+1. **Understand Root Cause**: Analyze the underlying architectural issue
+2. **Design Proper Solution**: Ensure fix aligns with immutable architecture
+3. **Test Thoroughly**: Validate fix doesn't break other components
+4. **Document Resolution**: Update relevant planning documents
+
+### **For New Features**
+1. **Evaluate Against Architecture**: Ensure alignment with Talos/GitOps model
+2. **Design for Automation**: Feature should integrate with automated workflows
+3. **Consider Security**: Implement with zero-trust principles
+4. **Plan for Operations**: Include monitoring and maintenance procedures
+
+## 📚 **Key Architectural Principles**
+
+### **Immutability**
+- Infrastructure never modified in place, only replaced
+- All changes go through Git and automated deployment
+- Configuration drift is impossible by design
+
+### **Declarative Management**
+- Desired state defined in Git repositories
+- System automatically converges to desired state
+- No imperative commands after initial bootstrap
+
+### **Zero Trust Security**
+- No assumed trust relationships
+- All access authenticated and authorized
+- Network microsegmentation by default
+
+### **GitOps Automation**
+- Git as single source of truth for all configurations
+- Automated synchronization and deployment
+- Full audit trail of all changes
+
+This development approach ensures InfraFlux v2.0 delivers on its promise of being the most advanced, secure, and user-friendly Kubernetes deployment platform available.
 
 ## Project Overview
 

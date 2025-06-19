@@ -1,0 +1,134 @@
+# Talos Control Plane Configuration Template
+# Generated from InfraFlux v2.0 Configuration System
+
+version: v1alpha1
+debug: false
+persist: true
+
+machine:
+  type: controlplane
+  token: {{ cluster.token | default('your-cluster-token') }}
+  
+  ca:
+    crt: {{ cluster.ca.crt | default('') }}
+    key: {{ cluster.ca.key | default('') }}
+  
+  certSANs:
+    - {{ cluster.endpoint | default('127.0.0.1') }}
+    {% for ip in config.data.control_plane_ips %}
+    - {{ ip }}
+    {% endfor %}
+    - 127.0.0.1
+    - localhost
+  
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:{{ config.data.kubernetes_version }}
+    extraArgs:
+      rotate-server-certificates: "true"
+  
+  network:
+    hostname: {{ node.hostname | default('controlplane-' + loop.index | string) }}
+    interfaces:
+      - interface: eth0
+        dhcp: false
+        addresses:
+          - {{ node.ip }}/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: {{ network.gateway | default('10.0.0.1') }}
+
+  # Security Configuration
+  features:
+    stableHostname: true
+    apidCheckExtKeyUsage: true
+    diskQuotaSupport: true
+  
+  # System Configuration
+  time:
+    disabled: false
+    servers:
+      - time.cloudflare.com
+  
+  # Sysctls for Kubernetes
+  sysctls:
+    net.bridge.bridge-nf-call-iptables: "1"
+    net.bridge.bridge-nf-call-ip6tables: "1"
+    net.ipv4.ip_forward: "1"
+
+cluster:
+  id: {{ cluster.id | default('') }}
+  secret: {{ cluster.secret | default('') }}
+  
+  controlPlane:
+    endpoint: https://{{ config.data.control_plane_ips[0] }}:6443
+  
+  clusterName: {{ config.data.cluster_name }}
+  
+  network:
+    dnsDomain: {{ config.data.cluster_domain }}
+    podSubnets:
+      {% for subnet in config.data.pod_subnets %}
+      - {{ subnet }}
+      {% endfor %}
+    serviceSubnets:
+      {% for subnet in config.data.service_subnets %}
+      - {{ subnet }}
+      {% endfor %}
+    cni:
+      name: none  # Cilium will be installed via GitOps
+  
+  proxy:
+    disabled: true  # Cilium handles this
+  
+  discovery:
+    enabled: true
+    registries:
+      kubernetes:
+        disabled: false
+      service:
+        disabled: false
+  
+  # API Server Configuration
+  apiServer:
+    image: registry.k8s.io/kube-apiserver:{{ config.data.kubernetes_version }}
+    certSANs:
+      {% for ip in config.data.control_plane_ips %}
+      - {{ ip }}
+      {% endfor %}
+      - 127.0.0.1
+      - localhost
+    
+    # Security Configuration
+    disablePodSecurityPolicy: false
+    
+    # Audit Configuration
+    auditPolicy:
+      rules:
+        - level: "Metadata"
+          namespaces: ["kube-system", "flux-system"]
+        - level: "Request"
+          users: ["system:serviceaccount:flux-system:flux"]
+        - level: "RequestResponse"
+          resources:
+            - group: ""
+              resources: ["secrets", "configmaps"]
+  
+  # Controller Manager Configuration
+  controllerManager:
+    image: registry.k8s.io/kube-controller-manager:{{ config.data.kubernetes_version }}
+    extraArgs:
+      bind-address: "0.0.0.0"
+  
+  # Scheduler Configuration
+  scheduler:
+    image: registry.k8s.io/kube-scheduler:{{ config.data.kubernetes_version }}
+    extraArgs:
+      bind-address: "0.0.0.0"
+  
+  # ETCD Configuration
+  etcd:
+    image: gcr.io/etcd-development/etcd:v3.5.15
+    
+    # Security for etcd
+    extraArgs:
+      listen-metrics-urls: "http://0.0.0.0:2381"

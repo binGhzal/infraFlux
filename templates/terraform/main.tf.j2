@@ -1,0 +1,160 @@
+# InfraFlux v2.0 Terraform Configuration
+# Talos VM provisioning on Proxmox
+
+terraform {
+  required_providers {
+    proxmox = {
+      source  = "telmate/proxmox"
+      version = "~> 2.9"
+    }
+  }
+  required_version = ">= 1.0"
+}
+
+provider "proxmox" {
+  pm_api_url      = "https://{{ config.data.proxmox_host }}:8006/api2/json"
+  pm_user         = "{{ config.data.proxmox_user }}"
+  pm_password     = var.proxmox_password
+  pm_tls_insecure = true
+}
+
+# Variables
+variable "proxmox_password" {
+  description = "Proxmox password"
+  type        = string
+  sensitive   = true
+}
+
+variable "talos_iso_path" {
+  description = "Path to Talos ISO in Proxmox storage"
+  type        = string
+  default     = "local:iso/talos-{{ config.data.talos_version }}-amd64.iso"
+}
+
+# Control Plane Nodes
+resource "proxmox_vm_qemu" "control_plane" {
+  count       = {{ config.data.control_plane_ips | length }}
+  name        = "{{ config.data.cluster_name }}-cp-${count.index + 1}"
+  target_node = "{{ config.data.proxmox_node }}"
+  
+  # Talos ISO boot configuration
+  iso         = var.talos_iso_path
+  boot        = "order=ide2;scsi0"
+  onboot      = true
+  
+  # VM specifications optimized for Talos
+  cores       = {{ config.data.vm_cores }}
+  memory      = {{ config.data.vm_memory }}
+  balloon     = 0  # Disable ballooning for Kubernetes
+  numa        = false
+  cpu         = "host"
+  
+  # Network configuration
+  network {
+    model   = "virtio"
+    bridge  = "{{ config.data.vm_network_bridge }}"
+    macaddr = format("02:00:00:01:01:%02x", count.index + 1)
+  }
+  
+  # Storage configuration
+  disk {
+    size     = "{{ config.data.vm_disk_size }}"
+    type     = "virtio"
+    storage  = "{{ config.data.proxmox_storage }}"
+    iothread = 1
+    discard  = "on"
+    ssd      = 1
+  }
+  
+  # Talos doesn't use cloud-init
+  os_type = "other"
+  agent   = 1  # Enable QEMU guest agent via Talos extension
+  
+  # Serial console for Talos API access
+  serial {
+    id   = 0
+    type = "socket"
+  }
+  
+  lifecycle {
+    ignore_changes = [
+      network,
+      disk,
+      boot
+    ]
+  }
+  
+  tags = "infraflux,talos,controlplane"
+}
+
+# Worker Nodes
+resource "proxmox_vm_qemu" "worker" {
+  count       = {{ config.data.worker_ips | length }}
+  name        = "{{ config.data.cluster_name }}-worker-${count.index + 1}"
+  target_node = "{{ config.data.proxmox_node }}"
+  
+  # Talos ISO boot configuration
+  iso         = var.talos_iso_path
+  boot        = "order=ide2;scsi0"
+  onboot      = true
+  
+  # VM specifications optimized for Talos
+  cores       = {{ config.data.vm_cores }}
+  memory      = {{ config.data.vm_memory }}
+  balloon     = 0  # Disable ballooning for Kubernetes
+  numa        = false
+  cpu         = "host"
+  
+  # Network configuration
+  network {
+    model   = "virtio"
+    bridge  = "{{ config.data.vm_network_bridge }}"
+    macaddr = format("02:00:00:02:01:%02x", count.index + 1)
+  }
+  
+  # Storage configuration
+  disk {
+    size     = "{{ config.data.vm_disk_size }}"
+    type     = "virtio"
+    storage  = "{{ config.data.proxmox_storage }}"
+    iothread = 1
+    discard  = "on"
+    ssd      = 1
+  }
+  
+  # Talos doesn't use cloud-init
+  os_type = "other"
+  agent   = 1  # Enable QEMU guest agent via Talos extension
+  
+  # Serial console for Talos API access
+  serial {
+    id   = 0
+    type = "socket"
+  }
+  
+  lifecycle {
+    ignore_changes = [
+      network,
+      disk,
+      boot
+    ]
+  }
+  
+  tags = "infraflux,talos,worker"
+}
+
+# Outputs
+output "control_plane_ips" {
+  description = "Control plane node IP addresses"
+  value       = {{ config.data.control_plane_ips | to_json }}
+}
+
+output "worker_ips" {
+  description = "Worker node IP addresses"
+  value       = {{ config.data.worker_ips | to_json }}
+}
+
+output "cluster_endpoint" {
+  description = "Kubernetes cluster endpoint"
+  value       = "https://{{ config.data.control_plane_ips[0] }}:6443"
+}
