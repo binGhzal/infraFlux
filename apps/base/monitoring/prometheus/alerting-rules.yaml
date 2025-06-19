@@ -1,0 +1,195 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: infrastructure-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: monitoring
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: infrastructure.critical
+      rules:
+        - alert: NodeDown
+          expr: up{job="node-exporter"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Node {{ $labels.instance }} is down"
+            description: "Node {{ $labels.instance }} has been down for more than 1 minute."
+            runbook_url: "https://github.com/infraflux/runbooks/node-down"
+
+        - alert: KubernetesAPIServerDown
+          expr: up{job="apiserver"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kubernetes API server is down"
+            description: "Kubernetes API server has been down for more than 1 minute."
+            runbook_url: "https://github.com/infraflux/runbooks/api-server-down"
+
+        - alert: etcdDown
+          expr: up{job="etcd"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "etcd is down"
+            description: "etcd has been down for more than 1 minute. Cluster state may be compromised."
+            runbook_url: "https://github.com/infraflux/runbooks/etcd-down"
+
+        - alert: PodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total[10m]) * 60 * 10 > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
+            description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} has been restarting {{ $value }} times per 10 minutes."
+            runbook_url: "https://github.com/infraflux/runbooks/pod-crash-loop"
+
+    - name: infrastructure.resource
+      rules:
+        - alert: HighCPUUsage
+          expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High CPU usage on {{ $labels.instance }}"
+            description: "CPU usage is above 80% for more than 5 minutes on {{ $labels.instance }}."
+            runbook_url: "https://github.com/infraflux/runbooks/high-cpu"
+
+        - alert: HighMemoryUsage
+          expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High memory usage on {{ $labels.instance }}"
+            description: "Memory usage is above 85% for more than 5 minutes on {{ $labels.instance }}."
+            runbook_url: "https://github.com/infraflux/runbooks/high-memory"
+
+        - alert: HighDiskUsage
+          expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 90
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High disk usage on {{ $labels.instance }}"
+            description: "Disk usage is above 90% on {{ $labels.instance }} ({{ $labels.mountpoint }})."
+            runbook_url: "https://github.com/infraflux/runbooks/high-disk"
+
+        - alert: PodMemoryUsage
+          expr: (container_memory_working_set_bytes{name!=""} / container_spec_memory_limit_bytes{name!=""}) * 100 > 90
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} high memory usage"
+            description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} memory usage is above 90% of limit."
+            runbook_url: "https://github.com/infraflux/runbooks/pod-high-memory"
+
+    - name: infrastructure.storage
+      rules:
+        - alert: PersistentVolumeUsage
+          expr: (1 - (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes)) * 100 > 85
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "PV {{ $labels.persistentvolumeclaim }} usage high"
+            description: "Persistent Volume {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }} is {{ $value }}% full."
+            runbook_url: "https://github.com/infraflux/runbooks/pv-usage"
+
+    - name: infrastructure.network
+      rules:
+        - alert: NetworkTransmitErrors
+          expr: rate(node_network_transmit_errs_total[5m]) > 0.01
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Network transmit errors on {{ $labels.instance }}"
+            description: "Network interface {{ $labels.device }} on {{ $labels.instance }} has transmit errors."
+            runbook_url: "https://github.com/infraflux/runbooks/network-errors"
+
+    - name: talos.critical
+      rules:
+        - alert: TalosAPIUnreachable
+          expr: up{job="talos-kubelet"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Talos API unreachable on {{ $labels.instance }}"
+            description: "Talos API has been unreachable for more than 2 minutes on {{ $labels.instance }}."
+            runbook_url: "https://github.com/infraflux/runbooks/talos-api-down"
+
+        - alert: TalosServiceUnhealthy
+          expr: talos_service_health{state!="running"} > 0
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Talos service {{ $labels.service }} unhealthy"
+            description: "Talos service {{ $labels.service }} on {{ $labels.instance }} is not in running state."
+            runbook_url: "https://github.com/infraflux/runbooks/talos-service-unhealthy"
+
+    - name: security.alerts
+      rules:
+        - alert: PodSecurityPolicyViolation
+          expr: increase(pod_security_policy_violations_total[5m]) > 0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod Security Policy violation detected"
+            description: "{{ $value }} Pod Security Policy violations detected in the last 5 minutes."
+            runbook_url: "https://github.com/infraflux/runbooks/psp-violation"
+
+        - alert: UnauthorizedAPIAccess
+          expr: increase(apiserver_audit_total{verb!~"get|list|watch"}[5m]) > 100
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High rate of non-read API operations"
+            description: "Detected {{ $value }} non-read API operations in the last 5 minutes, which may indicate unauthorized access."
+            runbook_url: "https://github.com/infraflux/runbooks/unauthorized-api"
+
+    - name: monitoring.self
+      rules:
+        - alert: PrometheusConfigReloadFailed
+          expr: prometheus_config_last_reload_successful == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Prometheus configuration reload failed"
+            description: "Prometheus configuration reload has failed on {{ $labels.instance }}."
+            runbook_url: "https://github.com/infraflux/runbooks/prometheus-config-reload"
+
+        - alert: AlertManagerDown
+          expr: up{job="alertmanager"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "AlertManager is down"
+            description: "AlertManager has been down for more than 1 minute. Alerts may not be delivered."
+            runbook_url: "https://github.com/infraflux/runbooks/alertmanager-down"
+
+        - alert: PromtailDown
+          expr: up{job="promtail"} == 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Promtail is down on {{ $labels.instance }}"
+            description: "Promtail has been down for more than 2 minutes on {{ $labels.instance }}. Log collection may be affected."
+            runbook_url: "https://github.com/infraflux/runbooks/promtail-down"

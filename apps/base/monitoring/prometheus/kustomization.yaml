@@ -6,6 +6,7 @@ namespace: monitoring
 
 resources:
   - release.yaml
+  - alerting-rules.yaml
 
 configMapGenerator:
   - name: prometheus-config

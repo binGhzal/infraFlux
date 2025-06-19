@@ -12,6 +12,7 @@ resources:
   - prometheus/
   - grafana/
   - loki/
+  - promtail/
 
 # Common labels for all monitoring components
 commonLabels:
