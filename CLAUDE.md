@@ -7,6 +7,7 @@ InfraFlux v2.0 is a **next-generation immutable Kubernetes platform** built on T
 ## 📋 **Core Architecture Documents**
 
 ### **Primary Planning Documents**
+
 - **Talos Architecture** @docs/plan/TALOS_ARCHITECTURE.md - Core Talos infrastructure design with 24 detailed implementation tasks
 - **GitOps Workflow** @docs/plan/GITOPS_WORKFLOW.md - Complete GitOps automation using Flux v2 with 20 tasks
 - **Deployment System** @docs/plan/DEPLOYMENT_SYSTEM.md - Automated deployment pipeline with 16 tasks
@@ -14,6 +15,7 @@ InfraFlux v2.0 is a **next-generation immutable Kubernetes platform** built on T
 - **Security Framework** @docs/plan/SECURITY_FRAMEWORK.md - Zero-trust security model with 14 tasks
 
 ### **Supporting Documentation**
+
 - **README** @README.md - Project overview and quick start guide for InfraFlux v2.0
 - **Architecture** @docs/ARCHITECTURE.md - Complete system architecture documentation
 - **Legacy Plans** @docs/plan/PLAN.md - Original restructuring plan (reference only)
@@ -21,6 +23,7 @@ InfraFlux v2.0 is a **next-generation immutable Kubernetes platform** built on T
 ## 🏗️ **Architectural Transformation**
 
 ### **From Legacy to Modern**
+
 ```
 BEFORE (Legacy):
 Packer → Ubuntu VMs → Ansible OS Config → K3s Install → Manual App Deploy
@@ -32,8 +35,9 @@ Config → Talos VMs → Cluster Bootstrap → Flux GitOps → Automated Apps
 ```
 
 ### **Key Technology Decisions**
+
 1. **Talos Linux Foundation**: Immutable OS designed specifically for Kubernetes
-2. **API-Only Operations**: Zero SSH access, all management via secure APIs  
+2. **API-Only Operations**: Zero SSH access, all management via secure APIs
 3. **GitOps-First**: Flux v2 manages all application lifecycles
 4. **Single Configuration Source**: Master config drives entire platform
 5. **Zero-Trust Security**: Comprehensive security at every layer
@@ -41,6 +45,7 @@ Config → Talos VMs → Cluster Bootstrap → Flux GitOps → Automated Apps
 ## 💡 **Development Approach**
 
 ### **Personal Methodology**
+
 - **Deep Analysis**: Thoroughly analyze every task and its dependencies before implementation
 - **Immutable Mindset**: Design for immutability and declarative management
 - **Security-First**: Consider security implications in every design decision
@@ -48,32 +53,37 @@ Config → Talos VMs → Cluster Bootstrap → Flux GitOps → Automated Apps
 - **Testing-Focused**: Implement comprehensive validation at every step
 
 ### **Implementation Priorities**
+
 1. **Phase 1 (Critical)**: Talos infrastructure foundation
-2. **Phase 2 (High)**: GitOps workflow and deployment automation  
+2. **Phase 2 (High)**: GitOps workflow and deployment automation
 3. **Phase 3 (Medium)**: Security framework and operations procedures
 4. **Phase 4 (Low)**: Documentation and user experience enhancements
 
 ## 🔧 **Technical Guidelines**
 
 ### **Configuration Management**
+
 - **Single Source of Truth**: `config/cluster-config.yaml` drives everything
 - **Template-Driven**: Jinja2 templates generate all platform configurations
 - **Environment-Aware**: Support for dev/staging/production with inheritance
 - **Validation-First**: Comprehensive validation before any deployment
 
 ### **Security Standards**
+
 - **Zero SSH Access**: API-only operations with certificate authentication
 - **Least Privilege**: Minimal permissions for all users and services
 - **Immutable Infrastructure**: Leverage Talos immutability for security
 - **Secret Management**: Sealed secrets for GitOps-safe secret handling
 
-### **Deployment Standards**  
+### **Deployment Standards**
+
 - **One-Command Deployment**: `./deploy.sh` handles complete infrastructure
 - **Phase-Based Execution**: Logical phases with dependencies and validation
 - **Rollback Capability**: Automatic rollback on failures
 - **Progress Monitoring**: Real-time feedback and detailed logging
 
 ### **Code Organization**
+
 ```
 infraFlux/
 ├── config/                    # Single source of truth
@@ -91,6 +101,7 @@ infraFlux/
 ## 🎮 **Essential Commands**
 
 ### **Core Deployment**
+
 ```bash
 # Complete platform deployment
 ./deploy.sh
@@ -106,6 +117,7 @@ infraFlux/
 ```
 
 ### **Talos Operations**
+
 ```bash
 # Cluster management (via talosctl)
 talosctl health --wait
@@ -116,6 +128,7 @@ talosctl dashboard
 ```
 
 ### **GitOps Operations**
+
 ```bash
 # Flux management
 flux reconcile source git infraflux
@@ -128,6 +141,7 @@ flux logs --follow
 ## 🎯 **Success Metrics**
 
 ### **Technical Excellence**
+
 - ✅ **Deployment Time**: < 15 minutes from zero to full cluster
 - ✅ **Configuration Simplicity**: < 100 lines for basic cluster config
 - ✅ **Security Posture**: Zero SSH access, all operations via APIs
@@ -135,6 +149,7 @@ flux logs --follow
 - ✅ **Reliability**: > 95% deployment success rate
 
 ### **Developer Experience**
+
 - ✅ **Setup Complexity**: Single command deployment
 - ✅ **Learning Curve**: < 1 hour to productive use
 - ✅ **Error Recovery**: Automatic rollback on failures
@@ -143,6 +158,7 @@ flux logs --follow
 ## 🚀 **Development Workflow**
 
 ### **For Implementation Tasks**
+
 1. **Read Planning Document**: Understand complete context and dependencies
 2. **Analyze Task Details**: Review priorities, deliverables, and validation criteria
 3. **Implement Solution**: Follow security and automation principles
@@ -150,12 +166,14 @@ flux logs --follow
 5. **Update Documentation**: Keep plans and docs synchronized
 
 ### **For Bug Fixes**
+
 1. **Understand Root Cause**: Analyze the underlying architectural issue
 2. **Design Proper Solution**: Ensure fix aligns with immutable architecture
 3. **Test Thoroughly**: Validate fix doesn't break other components
 4. **Document Resolution**: Update relevant planning documents
 
 ### **For New Features**
+
 1. **Evaluate Against Architecture**: Ensure alignment with Talos/GitOps model
 2. **Design for Automation**: Feature should integrate with automated workflows
 3. **Consider Security**: Implement with zero-trust principles
@@ -164,21 +182,25 @@ flux logs --follow
 ## 📚 **Key Architectural Principles**
 
 ### **Immutability**
+
 - Infrastructure never modified in place, only replaced
 - All changes go through Git and automated deployment
 - Configuration drift is impossible by design
 
 ### **Declarative Management**
+
 - Desired state defined in Git repositories
 - System automatically converges to desired state
 - No imperative commands after initial bootstrap
 
 ### **Zero Trust Security**
+
 - No assumed trust relationships
 - All access authenticated and authorized
 - Network microsegmentation by default
 
 ### **GitOps Automation**
+
 - Git as single source of truth for all configurations
 - Automated synchronization and deployment
 - Full audit trail of all changes
@@ -192,9 +214,11 @@ InfraFlux is an **enterprise-grade Kubernetes homelab platform** that automates 
 ## Current Platform Status (2025-01-18)
 
 ### 🎯 **Strategic Position: 90% Complete Enterprise Foundation**
+
 InfraFlux has achieved **enterprise-grade maturity** with production-ready components and advanced automation. The focus has shifted from building foundation to **activating advanced features**.
 
 ### 🚀 **Platform Restructuring & Strategic Enhancement**
+
 - **Comprehensive Codebase Analysis**: 90% complete enterprise-grade foundation verified
 - **Restructured Strategic Plan**: New concise, trackable enhancement roadmap in phases
 - **Dynamic App Configuration**: Optional enable/disable system for all applications via `scripts/configure-apps.sh`
@@ -202,7 +226,7 @@ InfraFlux has achieved **enterprise-grade maturity** with production-ready compo
 - **Kustomize Modernization**: Removed deprecated keys, clean builds without warnings
 - **GPU Infrastructure**: Complete NVIDIA operator, device plugins, runtime classes for AI/ML
 - **AI/ML Platform**: Ollama + Open WebUI ready for activation with Authentik SSO integration
-- **Media Center Foundation**: Jellyfin with hardware transcoding and *arr stack infrastructure
+- **Media Center Foundation**: Jellyfin with hardware transcoding and \*arr stack infrastructure
 - **Enhanced GitOps**: Advanced Flux automation with conditional resource deployment
 - **Test Framework**: Automated testing with secrets file integration
 

@@ -1,63 +1,74 @@
-# 🚀 InfraFlux
+# 🚀 InfraFlux v2.0
 
-> **Enterprise-Grade Kubernetes Homelab Platform** - Zero-configuration deployment with 245+ production resources, complete security stack, and advanced AI/ML capabilities.
+> **Next-Generation Immutable Kubernetes Platform** - Built on Talos Linux with GitOps automation, zero-trust security, and enterprise-grade infrastructure.
 
-[![Platform](https://img.shields.io/badge/Platform-Kubernetes-blue)](https://kubernetes.io/)
+[![Platform](https://img.shields.io/badge/Platform-Talos%20Linux-blue)](https://www.talos.dev/)
 [![Infrastructure](https://img.shields.io/badge/Infrastructure-Proxmox-orange)](https://www.proxmox.com/)
-[![GitOps](https://img.shields.io/badge/GitOps-Flux-purple)](https://fluxcd.io/)
-[![Status](https://img.shields.io/badge/Status-Production%20Ready-green)](https://github.com/yourusername/infraflux)
+[![GitOps](https://img.shields.io/badge/GitOps-Flux%20v2-purple)](https://fluxcd.io/)
+[![Security](https://img.shields.io/badge/Security-Zero%20Trust-red)](https://www.talos.dev/security/)
+[![Status](https://img.shields.io/badge/Status-v2.0%20Ready-green)](https://github.com/yourusername/infraflux)
 
 ---
 
-## 🎯 **What is InfraFlux?**
+## 🎯 **What is InfraFlux v2.0?**
 
-InfraFlux is a **complete enterprise-grade Kubernetes homelab platform** that automatically deploys production-ready infrastructure with advanced capabilities including AI/ML, media automation, security, and monitoring - all while maintaining zero-configuration simplicity.
+InfraFlux v2.0 is a **complete rewrite** of the Kubernetes homelab platform, now built on **Talos Linux** - an immutable, API-driven operating system designed specifically for Kubernetes. This groundbreaking approach eliminates SSH access, provides enterprise-grade security, and delivers true infrastructure-as-code automation.
 
-### **🌟 Platform Highlights**
+### **🌟 Revolutionary Features**
 
-- **245+ Kubernetes Resources** with enterprise architecture
-- **Complete Security Stack**: Authentik SSO, Sealed Secrets, cert-manager
-- **Full Observability**: Prometheus, Grafana, Loki with custom dashboards
-- **AI/ML Ready**: Ollama, Open WebUI, JupyterHub, GPU acceleration
-- **Media Center**: Jellyfin, \*arr stack, hardware transcoding
-- **Advanced GitOps**: Flux automation with Kustomize overlays
+- **🔒 Zero-Trust Security**: No SSH access, API-only operations
+- **🛡️ Immutable Infrastructure**: Read-only OS, no runtime modifications
+- **⚡ Single Command Deployment**: Full cluster in one command
+- **🤖 GitOps Native**: Flux v2 automation from day one
+- **🔄 Configuration as Code**: Everything generated from templates
+- **📊 Enterprise Architecture**: Production-ready from the start
 
 ---
 
 ## ⚡ **Quick Start**
 
-### **1. Configure Your Platform**
+### **Prerequisites**
+
+Before deploying InfraFlux v2.0, ensure you have:
+
+- **Proxmox VE** 7.0+ with API access
+- **Talos ISO** uploaded to Proxmox storage
+- **Network connectivity** to Proxmox host
+- **Required tools**: `talosctl`, `kubectl`, `terraform`, `python3`, `yq`
+
+### **1. Clone and Configure**
 
 ```bash
-# Interactive configuration wizard
-./configure.sh
+# Clone the repository
+git clone https://github.com/yourusername/infraflux.git
+cd infraflux
+
+# Edit the master configuration
+nano config/cluster-config.yaml
 ```
 
-### **2. Deploy Infrastructure**
+### **2. Deploy Your Cluster**
 
 ```bash
-# Full platform deployment (VMs + K3s + Apps + Security + Monitoring)
+# Full deployment (VMs + Talos + Kubernetes + Core Apps)
 ./deploy.sh
 
-# Or deploy specific components
-./deploy.sh infrastructure  # Create Proxmox VMs
-./deploy.sh k3s            # Setup Kubernetes cluster
-./deploy.sh apps           # Deploy applications
-./deploy.sh security       # Enable authentication & security
-./deploy.sh monitoring     # Deploy observability stack
+# Or deploy specific phases
+./deploy.sh infrastructure  # Create VMs only
+./deploy.sh cluster        # Bootstrap Talos cluster
+./deploy.sh apps           # Deploy core applications
 ```
 
-### **3. Enable Advanced Features**
+### **3. Access Your Cluster**
 
 ```bash
-# Configure applications dynamically
-./scripts/configure-apps.sh
+# Set environment variables (shown after deployment)
+export KUBECONFIG=/tmp/infraflux-*/kubeconfig
+export TALOSCONFIG=/tmp/infraflux-*/talos/talosconfig
 
-# Scale cluster nodes
-./scale-cluster.sh 5
-
-# Validate deployment
-./test-deploy.sh
+# Verify cluster health
+kubectl get nodes
+talosctl health
 ```
 
 ---
@@ -66,144 +77,256 @@ InfraFlux is a **complete enterprise-grade Kubernetes homelab platform** that au
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Proxmox VE    │───▶│  K3s Cluster    │───▶│  Applications   │
+│   Proxmox VE    │───▶│  Talos Linux    │───▶│   Kubernetes    │
 │                 │    │                 │    │                 │
-│ • VM Management │    │ • Native Traefik│    │ • AI/ML Stack   │
-│ • Auto Scaling  │    │ • ServiceLB     │    │ • Media Center  │
-│ • Terraform     │    │ • Cilium CNI    │    │ • Dev Tools     │
+│ • VM Management │    │ • Immutable OS  │    │ • Native CNI    │
+│ • Terraform     │    │ • API-Only      │    │ • Zero-Trust    │
+│ • Auto-Scaling  │    │ • No SSH        │    │ • GitOps Ready  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                  │
                        ┌─────────────────┐
-                       │   Security &    │
-                       │   Monitoring    │
+                       │   GitOps &      │
+                       │   Applications  │
                        │                 │
-                       │ • Authentik SSO │
-                       │ • Prometheus    │
-                       │ • CrowdSec      │
+                       │ • Flux v2       │
+                       │ • Cilium CNI    │
+                       │ • cert-manager  │
                        └─────────────────┘
 ```
 
----
+### **Key Architectural Improvements**
 
-## 🎮 **Platform Components**
-
-### **🔒 Security & Authentication**
-
-- **Authentik SSO**: Enterprise identity provider with OIDC/OAuth2
-- **cert-manager**: Automated SSL certificate management
-- **Sealed Secrets**: GitOps-safe secret encryption
-- **CrowdSec**: Behavioral security analysis
-- **Trivy**: Container vulnerability scanning
-
-### **📊 Monitoring & Observability**
-
-- **Prometheus**: Metrics collection and alerting
-- **Grafana**: Custom dashboards and visualization
-- **Loki**: Log aggregation and analysis
-- **Hubble UI**: Network observability with Cilium
-
-### **🤖 AI/ML Platform**
-
-- **Ollama**: Local LLM hosting with GPU acceleration
-- **Open WebUI**: ChatGPT-style interface
-- **JupyterHub**: Multi-user data science environment
-- **Immich**: AI-powered photo management
-
-### **🎬 Media Center**
-
-- **Jellyfin**: Media streaming with hardware transcoding
-- **Sonarr/Radarr**: Automated TV/movie management
-- **Prowlarr**: Indexer management
-- **Hardware Acceleration**: Intel Quick Sync + NVIDIA NVENC
-
-### **🛠️ Development Tools**
-
-- **Gitea**: Git hosting with integrated CI/CD
-- **Code-Server**: VS Code in the browser
-- **Harbor**: Enterprise container registry
-- **n8n**: Workflow automation
-
----
-
-## 📋 **Prerequisites**
-
-- **Proxmox VE** 7.0+ with Ubuntu 24.04 template
-- **SSH Key Pair** for VM authentication
-- **Network Access** to Proxmox API
-- **Storage**: 100GB+ available space
-- **Memory**: 16GB+ recommended for full platform
+- **🔄 Immutable Infrastructure**: Talos provides read-only root filesystem
+- **🛡️ Zero-Trust Security**: All operations via secure APIs (talosctl/kubectl)
+- **⚙️ Configuration-Driven**: Single source of truth drives entire platform
+- **🤖 Template Engine**: Jinja2 templates generate all configurations
+- **📦 GitOps Native**: Applications deployed via Flux from Git
 
 ---
 
 ## 🔧 **Configuration**
 
-### **Essential Settings** (`config/cluster-config.yaml`)
+### **Master Configuration** (`config/cluster-config.yaml`)
+
+InfraFlux v2.0 uses a single configuration file that drives the entire platform:
 
 ```yaml
-# Proxmox Configuration
-proxmox_host: "your-proxmox-host.local"
-proxmox_user: "root@pam"
-
-# Cluster Configuration
-cluster_name: "infraflux-homelab"
-controller_count: "3"
-worker_count: "3"
-
-# Application Features
-enable_ai_ml: "true" # Enable AI/ML platform
-enable_jellyfin: "true" # Enable media center
-enable_gpu_support: "true" # Enable GPU acceleration
-enable_public_ingress: "false" # Public internet access
+apiVersion: v1
+kind: InfraFluxConfig
+metadata:
+  name: infraflux-cluster
+data:
+  # Cluster Identity
+  cluster_name: "infraflux-v2"
+  cluster_domain: "cluster.local"
+  
+  # Talos and Kubernetes Versions
+  talos_version: "v1.10.0"
+  kubernetes_version: "v1.31.0"
+  
+  # Proxmox Infrastructure
+  proxmox_host: "proxmox.local"
+  proxmox_user: "root@pam"
+  proxmox_node: "pve"
+  proxmox_storage: "local-lvm"
+  
+  # VM Configuration
+  vm_cores: 4
+  vm_memory: 8192
+  vm_disk_size: "50G"
+  vm_network_bridge: "vmbr0"
+  
+  # Cluster Topology
+  control_plane_ips:
+    - "10.0.0.10"
+    - "10.0.0.11"
+    - "10.0.0.12"
+  worker_ips:
+    - "10.0.0.20"
+    - "10.0.0.21"
+    - "10.0.0.22"
+  
+  # Network Configuration
+  pod_subnets:
+    - "10.244.0.0/16"
+  service_subnets:
+    - "10.96.0.0/12"
 ```
 
-### **Application Management**
+### **Template System**
+
+All configurations are generated from Jinja2 templates:
+
+- **`templates/talos/`** - Talos machine configurations
+- **`templates/terraform/`** - Infrastructure provisioning
+- **`scripts/generate-configs.py`** - Template processor
+
+---
+
+## 🚀 **Deployment Process**
+
+### **Phase 1: Infrastructure**
+- Creates VMs via Terraform on Proxmox
+- Configures networking and storage
+- Prepares VMs for Talos boot
+
+### **Phase 2: Cluster Bootstrap**
+- Applies Talos configurations to VMs
+- Bootstraps Kubernetes cluster
+- Generates kubeconfig and talosconfig
+
+### **Phase 3: Core Applications**
+- Deploys Cilium CNI for networking
+- Installs cert-manager for TLS
+- Sets up GitOps with Flux v2
+
+---
+
+## 🛡️ **Security Model**
+
+### **Zero-Trust Architecture**
+
+InfraFlux v2.0 implements a true zero-trust security model:
+
+- **🚫 No SSH Access**: All operations via secure APIs
+- **🔐 Mutual TLS**: All cluster communication encrypted
+- **🛡️ Immutable OS**: Read-only filesystem prevents tampering
+- **🔒 Sealed Secrets**: GitOps-safe secret management
+- **📝 Audit Logging**: Complete audit trail of all operations
+
+### **API-Only Operations**
 
 ```bash
-# Enable/disable applications
-yq eval '.data.enable_ai_ml = "true"' -i config/cluster-config.yaml
-yq eval '.data.enable_jellyfin = "true"' -i config/cluster-config.yaml
+# Talos API commands (replace SSH)
+talosctl dashboard              # System dashboard
+talosctl logs                   # View system logs  
+talosctl restart                # Restart services
+talosctl upgrade                # Upgrade OS
+talosctl reset                  # Factory reset
 
-# Apply configuration
-./scripts/configure-apps.sh
-
-# Deploy changes
-./deploy.sh apps
+# Kubernetes API commands
+kubectl get nodes               # Cluster status
+kubectl apply -f app.yaml       # Deploy applications
+kubectl logs pod-name           # Application logs
 ```
+
+---
+
+## 🔄 **GitOps Workflow**
+
+InfraFlux v2.0 is designed for GitOps from day one:
+
+### **Repository Structure**
+```
+infraflux/
+├── config/                     # Master configuration
+├── templates/                  # Jinja2 templates
+├── scripts/                    # Automation tools
+├── docs/                       # Documentation
+└── deploy.sh                   # Unified deployment
+```
+
+### **Future GitOps Integration**
+After deployment, applications will be managed via:
+- **Flux v2** for continuous deployment
+- **Kustomize** for environment-specific configs
+- **Sealed Secrets** for secure secret management
+- **Git workflows** for change management
+
+---
+
+## 📊 **Monitoring & Observability**
+
+### **Built-in Monitoring Stack**
+
+- **Cilium Hubble**: Network observability and security
+- **Talos Dashboard**: System metrics and health
+- **Kubernetes Metrics**: Native cluster monitoring
+
+### **Future Observability**
+
+Planned integration with:
+- **Prometheus** for metrics collection
+- **Grafana** for visualization
+- **Loki** for log aggregation
+- **AlertManager** for notifications
+
+---
+
+## 🔧 **Management Operations**
+
+### **Cluster Operations**
+
+```bash
+# Check cluster health
+talosctl health
+
+# View cluster info
+kubectl cluster-info
+
+# Scale cluster (future)
+./scale-cluster.sh 6
+
+# Upgrade cluster
+talosctl upgrade --nodes <node-ip>
+```
+
+### **Troubleshooting**
+
+```bash
+# View Talos logs
+talosctl logs --follow
+
+# Access Talos dashboard
+talosctl dashboard
+
+# Debug networking
+kubectl exec -it debug-pod -- /bin/sh
+```
+
+---
+
+## 🚀 **Roadmap**
+
+### **Phase 1: Core Platform** ✅
+- [x] Talos Linux integration
+- [x] Single command deployment
+- [x] Template-driven configuration
+- [x] Zero-trust security model
+
+### **Phase 2: GitOps Automation** 🔄
+- [ ] Flux v2 application deployment
+- [ ] Sealed secrets integration
+- [ ] Multi-environment support
+- [ ] Automated scaling
+
+### **Phase 3: Enterprise Features** 📋
+- [ ] Advanced monitoring stack
+- [ ] Backup and disaster recovery
+- [ ] Multi-cluster management
+- [ ] compliance frameworks
 
 ---
 
 ## 📚 **Documentation**
 
-- **[Strategic Plan](docs/plan/PLAN.md)** - Comprehensive roadmap and status
-- **[CLAUDE.md](CLAUDE.md)** - Development guidelines and architecture
-- **[Configuration Guide](docs/configuration.md)** - Detailed setup instructions
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
-
----
-
-## 🚀 **Platform Status**
-
-| Component               | Status        | Features                                |
-| ----------------------- | ------------- | --------------------------------------- |
-| **Core Infrastructure** | ✅ Production | Auto-scaling, network detection, GitOps |
-| **Security Stack**      | ✅ Enterprise | SSO, secrets, certificates, scanning    |
-| **Monitoring**          | ✅ Complete   | Metrics, logs, alerts, dashboards       |
-| **Applications**        | ✅ Production | 7 apps with persistence and backup      |
-| **AI/ML Platform**      | 🔄 Ready      | GPU support, LLM hosting, data science  |
-| **Media Center**        | 🔄 Foundation | Streaming, transcoding, automation      |
-| **Advanced Storage**    | 📋 Planned    | Distributed storage with Longhorn       |
-| **Home Automation**     | 📋 Planned    | IoT integration with Home Assistant     |
+- **[Architecture Guide](docs/ARCHITECTURE.md)** - Deep dive into system design
+- **[Configuration Reference](docs/CONFIGURATION.md)** - Complete config options
+- **[Security Model](docs/SECURITY.md)** - Zero-trust implementation
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 
 ---
 
 ## 🤝 **Contributing**
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Test your changes with `./validate-repo.sh`
-4. Commit your changes (`git commit -m 'Add amazing feature'`)
-5. Push to the branch (`git push origin feature/amazing-feature`)
-6. Open a Pull Request
+InfraFlux v2.0 is designed to be community-driven:
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Test** your changes thoroughly
+4. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+5. **Push** to the branch (`git push origin feature/amazing-feature`)
+6. **Open** a Pull Request
 
 ---
 
@@ -215,14 +338,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 **Acknowledgments**
 
-- **Kubernetes Community** for the amazing ecosystem
-- **K3s Team** for the lightweight Kubernetes distribution
-- **Proxmox** for the excellent virtualization platform
-- **Flux CD** for GitOps automation
-- **Homelab Community** for inspiration and feedback
+- **[Talos Systems](https://www.talos.dev/)** for the revolutionary Talos Linux
+- **[Kubernetes Community](https://kubernetes.io/)** for the amazing ecosystem
+- **[Flux CD](https://fluxcd.io/)** for GitOps automation
+- **[Proxmox](https://www.proxmox.com/)** for virtualization platform
+- **[Cilium](https://cilium.io/)** for cloud-native networking
 
 ---
 
 **🔗 Links**: [Documentation](docs/) | [Issues](https://github.com/yourusername/infraflux/issues) | [Discussions](https://github.com/yourusername/infraflux/discussions)
 
-_Transform your homelab into an enterprise-grade platform with InfraFlux_ 🚀
+_Welcome to the future of immutable Kubernetes infrastructure_ 🚀
