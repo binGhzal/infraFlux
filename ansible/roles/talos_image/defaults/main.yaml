@@ -7,7 +7,7 @@ talos_image_factory:
   timeout: 30
   retries: 3
 
-# Default schematic for Talos images with required extensions
+# Default schematic for Talos images with required extensions (no secure boot)
 talos_default_schematic:
   customization:
     systemExtensions:
@@ -15,6 +15,9 @@ talos_default_schematic:
         - siderolabs/qemu-guest-agent  # VM guest agent for Proxmox
         - siderolabs/intel-ucode       # Intel CPU microcode
         - siderolabs/i915-ucode        # Intel GPU drivers
+    extraKernelArgs:
+      - "efi=noruntime"               # Disable EFI runtime services
+      - "systemd.unified_cgroup_hierarchy=0"  # Traditional cgroup hierarchy
 
 # Image configuration
 talos_image_config:

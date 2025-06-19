@@ -19,11 +19,11 @@
 - name: "Create Packer variables for each Proxmox node"
   template:
     src: packer_variables.pkrvars.hcl.j2
-    dest: "{{ playbook_dir }}/../packer/variables-{{ hostvars[item]['inventory_hostname'] }}.pkrvars.hcl"
+    dest: "{{ playbook_dir }}/../packer/variables-{{ item }}.pkrvars.hcl"
     mode: '0600'
   vars:
-    proxmox_node_name: "{{ hostvars[item]['inventory_hostname'] }}"
-    node_vm_id: "{{ vm_template_config.base_vm_id + loop.index0 }}"
+    proxmox_node_name: "{{ item }}"
+    node_vm_id: "{{ vm_template_config.base_vm_id + groups['proxmox_servers'].index(item) }}"
   loop: "{{ groups['proxmox_servers'] }}"
   register: packer_vars_files
 

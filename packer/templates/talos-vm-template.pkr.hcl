@@ -1,5 +1,6 @@
 # Talos VM Template for Proxmox
 # This Packer template creates a Talos VM template in Proxmox
+# Updated with 2024/2025 syntax
 
 # Variables
 variable "proxmox_api_url" {
@@ -100,24 +101,25 @@ source "proxmox-iso" "talos" {
   insecure_skip_tls_verify = true
 
   # VM configuration
-  vm_id                = var.vm_id
-  vm_name              = var.vm_name
-  memory               = var.vm_memory
-  cores                = var.vm_cpu_cores
-  cpu_type             = "host"
-  os                   = "l26"
+  vm_id       = var.vm_id
+  vm_name     = var.vm_name
+  memory      = var.vm_memory
+  cores       = var.vm_cpu_cores
+  sockets     = 1
+  cpu_type    = "host"
+  os          = "l26"
   
-  # Storage configuration
-  storage_pool         = var.proxmox_storage_pool
-  storage_pool_type    = "lvm"
-  
+  # ISO configuration
+  boot_iso {
+    type     = "scsi"
+    iso_file = "${var.proxmox_iso_storage}:iso/${var.talos_iso_file}"
+  }
+
   # Disk configuration
   disks {
-    type              = "scsi"
-    disk_size         = var.vm_disk_size
-    storage_pool      = var.proxmox_storage_pool
-    storage_pool_type = "lvm"
-    format            = "raw"
+    type         = "scsi"
+    disk_size    = var.vm_disk_size
+    storage_pool = var.proxmox_storage_pool
   }
 
   # Network configuration
@@ -127,56 +129,21 @@ source "proxmox-iso" "talos" {
     model    = "virtio"
   }
 
-  # ISO configuration
-  iso_file         = "${var.proxmox_iso_storage}:iso/${var.talos_iso_file}"
-  unmount_iso      = true
-
-  # Cloud-init configuration
-  cloud_init              = true
-  cloud_init_storage_pool = var.proxmox_storage_pool
-
   # Boot configuration
-  boot_wait    = "10s"
-  boot_command = [
-    # Talos will auto-boot from ISO
-  ]
-
-  # SSH configuration (Talos doesn't use SSH by default)
-  ssh_timeout = "15m"
+  boot_wait = "10s"
+  boot      = "order=scsi1;scsi0"
+  
+  # SSH configuration (required by Packer, though Talos doesn't use SSH)
+  ssh_username = "root"
+  ssh_timeout = "1m"
+  communicator = "none"
   
   # Template configuration
   template_name        = var.vm_name
   template_description = "Talos ${var.talos_version} VM Template - Created by InfraFlux"
 
-  # Additional VM settings
-  additional_wait_timeout = 5
-  vm_interface           = "virtio0"
-  
   # QEMU agent
   qemu_agent = true
-  
-  # SCSI controller
-  scsi_controller = "virtio-scsi-pci"
-  
-  # Machine type
-  machine = "q35"
-  
-  # BIOS
-  bios = "ovmf"
-  
-  # EFI disk
-  efi_config {
-    efi_storage_pool  = var.proxmox_storage_pool
-    efi_type         = "4m"
-    pre_enrolled_keys = true
-  }
-
-  # Additional disks for future expansion
-  additional_iso_files {
-    device   = "sata3"
-    iso_file = "${var.proxmox_iso_storage}:iso/${var.talos_iso_file}"
-    unmount  = true
-  }
 }
 
 # Build configuration
@@ -187,61 +154,14 @@ build {
     "source.proxmox-iso.talos"
   ]
 
-  # Wait for VM to be ready
+  # Talos boots from ISO and creates a template automatically
+  # No provisioning needed since Talos doesn't use SSH
   provisioner "shell-local" {
     inline = [
-      "echo 'Waiting for Talos VM to initialize...'",
-      "sleep 30"
-    ]
-  }
-
-  # Talos-specific provisioning
-  provisioner "shell-local" {
-    inline = [
-      "echo 'Talos VM template creation in progress...'",
-      "echo 'VM ID: ${var.vm_id}'",
+      "echo 'Talos VM template creation completed'",
+      "echo 'VM ID: ${var.vm_id}'", 
       "echo 'VM Name: ${var.vm_name}'",
-      "echo 'Talos Version: ${var.talos_version}'",
-      "echo 'Storage Pool: ${var.proxmox_storage_pool}'",
-      "echo 'Network Bridge: ${var.vm_network_bridge}'"
-    ]
-  }
-
-  # Convert to template
-  post-processor "shell-local" {
-    inline = [
-      "echo 'Converting VM to template...'",
-      "sleep 10"
-    ]
-  }
-}
-
-# Local variables for computed values
-locals {
-  timestamp = regex_replace(timestamp(), "[- TZ:]", "")
-}
-
-# Output information
-build {
-  name = "output-info"
-  
-  sources = [
-    "source.proxmox-iso.talos"
-  ]
-
-  provisioner "shell-local" {
-    inline = [
-      "echo '=================================='",
-      "echo 'Talos VM Template Creation Complete'",
-      "echo '=================================='",
-      "echo 'Template Name: ${var.vm_name}'",
-      "echo 'Template ID: ${var.vm_id}'", 
-      "echo 'Talos Version: ${var.talos_version}'",
-      "echo 'Node: ${var.proxmox_node}'",
-      "echo 'Storage: ${var.proxmox_storage_pool}'",
-      "echo 'Created: ${local.timestamp}'",
-      "echo '=================================='",
-      "echo 'Template ready for VM deployment!'"
+      "echo 'Talos Version: ${var.talos_version}'"
     ]
   }
 }

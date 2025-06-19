@@ -74,7 +74,7 @@
 
 - name: "Set image filename"
   set_fact:
-    talos_image_filename: "talos-{{ talos_version }}-{{ talos_platform }}-{{ talos_architecture }}-{{ talos_schematic_id[:8] }}.img"
+    talos_image_filename: "talos-{{ talos_version }}-{{ talos_platform }}-{{ talos_architecture }}-{{ talos_schematic_id[:8] }}.iso"
 
 - name: "Verify image availability"
   uri:

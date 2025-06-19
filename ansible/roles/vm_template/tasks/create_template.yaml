@@ -48,7 +48,7 @@
 - name: "Create VM templates with Packer"
   block:
     - name: "Initialize Packer"
-      command: packer init {{ packer_template_path }}
+      command: packer init templates/talos-vm-template.pkr.hcl
       args:
         chdir: "{{ packer_working_dir }}"
       register: packer_init
@@ -58,7 +58,7 @@
       command: >
         packer validate 
         -var-file="variables-{{ hostvars[item]['inventory_hostname'] }}.pkrvars.hcl"
-        {{ packer_template_path | basename }}
+        templates/talos-vm-template.pkr.hcl
       args:
         chdir: "{{ packer_working_dir }}"
       register: packer_validate
@@ -71,7 +71,7 @@
       command: >
         packer build
         -var-file="variables-{{ hostvars[item]['inventory_hostname'] }}.pkrvars.hcl"
-        {{ packer_template_path | basename }}
+        templates/talos-vm-template.pkr.hcl
       args:
         chdir: "{{ packer_working_dir }}"
       environment:
