@@ -712,7 +712,7 @@ homelab and cloud deployments using pure Pulumi approaches.
 
 ## 🤝 **Implementation Guidelines**
 
-### For Each Subtask:
+### For Each Subtask
 
 1. **Research Phase**: Review relevant Pulumi documentation and best practices
 2. **Design Phase**: Create technical design document with acceptance criteria
@@ -721,7 +721,7 @@ homelab and cloud deployments using pure Pulumi approaches.
 5. **Documentation Phase**: Update README and create usage examples
 6. **Review Phase**: Code review and integration testing
 
-### Pure Pulumi Principles:
+### Pure Pulumi Principles
 
 - Use native Pulumi providers instead of shell commands
 - Leverage Pulumi's resource dependencies and outputs
@@ -729,7 +729,7 @@ homelab and cloud deployments using pure Pulumi approaches.
 - Use Pulumi's configuration and secret management
 - Follow Pulumi's component model for reusability
 
-### Technology Stack Preferences:
+### Technology Stack Preferences
 
 - **Monitoring**: Grafana/Loki (via GitOps)
 - **Identity**: Authentik (via GitOps)

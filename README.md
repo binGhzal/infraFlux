@@ -46,6 +46,7 @@ Talos Linux.
    ```
 
 3. **Deploy Infrastructure**
+
    ```bash
    pulumi stack init homelab
    pulumi up
@@ -167,7 +168,7 @@ Services deployed through FluxCD manifests in your GitOps repository:
 
 ## Project Structure
 
-```
+```filesystem
 infraflux/
 ├── src/
 │   ├── components/         # Reusable infrastructure components
