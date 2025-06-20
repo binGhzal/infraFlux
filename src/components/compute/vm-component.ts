@@ -39,6 +39,12 @@ export interface VMComponentProps extends ComponentProps {
   
   /** Clone options */
   cloneOptions?: CloneOptions;
+  
+  /** Resource optimization settings */
+  optimization?: VMOptimizationConfig;
+  
+  /** Monitoring configuration */
+  monitoring?: VMMonitoringConfig;
 }
 
 /**
@@ -95,6 +101,12 @@ export interface VMLifecycleOptions {
     up?: number;
     down?: number;
   };
+  
+  /** Automatic restart on failure */
+  autoRestart?: boolean;
+  
+  /** VM shutdown timeout in seconds */
+  shutdownTimeout?: number;
 }
 
 /**
@@ -109,6 +121,76 @@ export interface CloneOptions {
   
   /** Clone description */
   description?: string;
+}
+
+/**
+ * VM resource optimization configuration
+ */
+export interface VMOptimizationConfig {
+  /** CPU topology optimization */
+  cpuTopology?: {
+    /** Enable NUMA topology */
+    numa?: boolean;
+    /** CPU units for proportional scheduling (default: 1024) */
+    cpuUnits?: number;
+    /** CPU usage limit (0-n cores) */
+    cpuLimit?: number;
+  };
+  
+  /** Memory optimization */
+  memory?: {
+    /** Enable memory ballooning for dynamic allocation */
+    ballooning?: boolean;
+    /** Use hugepages for better memory performance */
+    hugepages?: boolean;
+    /** Swappiness parameter (0-100) */
+    swappiness?: number;
+  };
+  
+  /** Disk optimization */
+  disk?: {
+    /** Disk cache mode for performance tuning */
+    cache?: 'none' | 'writethrough' | 'writeback';
+    /** Enable I/O threads for better performance */
+    ioThread?: boolean;
+    /** Include in backup operations */
+    backup?: boolean;
+    /** Enable discard for thin provisioning */
+    discard?: boolean;
+  };
+  
+  /** Network optimization */
+  network?: {
+    /** Enable multiqueue for high throughput */
+    multiqueue?: boolean;
+    /** Network packet buffer size */
+    packetBuffer?: number;
+    /** Network rate limiting */
+    rateLimiting?: {
+      /** Maximum bandwidth in Mbps */
+      mbps?: number;
+    };
+  };
+}
+
+/**
+ * VM monitoring configuration
+ */
+export interface VMMonitoringConfig {
+  /** Enable VM status monitoring */
+  enabled?: boolean;
+  
+  /** Monitoring interval in seconds */
+  interval?: number;
+  
+  /** Enable resource usage monitoring */
+  resourceUsage?: boolean;
+  
+  /** Enable QEMU guest agent monitoring */
+  guestAgent?: boolean;
+  
+  /** Custom monitoring metrics */
+  customMetrics?: string[];
 }
 
 /**
