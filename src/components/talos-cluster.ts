@@ -4,12 +4,12 @@ import * as talos from '@pulumiverse/talos';
 import { ClusterOutput } from '@/types';
 import { config } from '@/config';
 import { VM } from './vm';
-import { TalosTemplate } from './cloud-image-template';
+import { TalosTemplateManager } from './cloud-image-template';
 import { logResource } from '@/utils/logger';
 
 export interface TalosClusterArgs {
   provider: proxmox.Provider;
-  talosTemplate: TalosTemplate;
+  templateManager: TalosTemplateManager;
   startingIP: number; // Starting IP in the last octet (e.g., 200 for 192.168.1.200)
 }
 
@@ -48,6 +48,7 @@ export class TalosCluster extends pulumi.ComponentResource {
         `${name}-master-${i}`,
         {
           provider: args.provider,
+          template: args.templateManager.masterTemplate, // Use master template
           spec: {
             name: `${name}-master-${i}`,
             vmId: 8000 + i, // Safe range to avoid conflicts
@@ -59,7 +60,10 @@ export class TalosCluster extends pulumi.ComponentResource {
             startOnBoot: true,
           },
         },
-        { parent: this }
+        {
+          parent: this,
+          dependsOn: [args.templateManager.masterTemplate], // Wait for template
+        }
       );
 
       masters.push(master);
@@ -85,7 +89,7 @@ export class TalosCluster extends pulumi.ComponentResource {
               machine: {
                 install: {
                   disk: '/dev/vda', // Talos disk device in Proxmox VM
-                  image: args.talosTemplate.installerImage, // Custom factory image
+                  image: args.templateManager.iso.installerImage, // Custom factory image
                   wipe: false,
                 },
                 network: {
@@ -133,6 +137,7 @@ export class TalosCluster extends pulumi.ComponentResource {
         `${name}-worker-${i}`,
         {
           provider: args.provider,
+          template: args.templateManager.workerTemplate, // Use worker template
           spec: {
             name: `${name}-worker-${i}`,
             vmId: 8100 + i, // Safe range to avoid conflicts
@@ -144,7 +149,10 @@ export class TalosCluster extends pulumi.ComponentResource {
             startOnBoot: true,
           },
         },
-        { parent: this }
+        {
+          parent: this,
+          dependsOn: [args.templateManager.workerTemplate], // Wait for template
+        }
       );
 
       workers.push(worker);
@@ -170,7 +178,7 @@ export class TalosCluster extends pulumi.ComponentResource {
               machine: {
                 install: {
                   disk: '/dev/vda', // Talos disk device in Proxmox VM
-                  image: args.talosTemplate.installerImage, // Custom factory image
+                  image: args.templateManager.iso.installerImage, // Custom factory image
                   wipe: false,
                 },
                 network: {

@@ -4,5 +4,9 @@ export * from './vm';
 export * from './talos-cluster';
 export * from './gitops';
 
-// Alias for cleaner imports
-export { TalosTemplate } from './cloud-image-template';
+// Main template management exports
+export {
+  TalosISO,
+  TalosTemplate,
+  TalosTemplateManager,
+} from './cloud-image-template';

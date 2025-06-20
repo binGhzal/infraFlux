@@ -3,21 +3,118 @@ import * as proxmox from '@muhlba91/pulumi-proxmoxve';
 import { config } from '@/config';
 import { logResource } from '@/utils/logger';
 
-export interface TalosTemplateArgs {
+export interface TalosISOArgs {
   provider: proxmox.Provider;
-  templateVmId?: number;
   talosVersion?: string;
   schematic?: string;
+  forceDownload?: boolean;
+}
+
+export interface TalosTemplateArgs {
+  provider: proxmox.Provider;
+  talosISO: TalosISO;
+  templateVmId: number;
+  templateType: 'master' | 'worker' | 'universal';
+  talosVersion?: string;
 }
 
 /**
- * TalosTemplate - Downloads custom Talos cloud image from Image Factory and creates a template
+ * TalosISO - Manages Talos ISO download and availability
+ * Step 1: Check for existing ISO, download if missing
  */
-export class TalosTemplate extends pulumi.ComponentResource {
-  public readonly templateId: pulumi.Output<number>;
+export class TalosISO extends pulumi.ComponentResource {
+  public readonly isoFile: proxmox.download.File | undefined;
+  public readonly isoId: pulumi.Output<string>;
   public readonly ready: pulumi.Output<boolean>;
   public readonly schematic: string;
   public readonly installerImage: string;
+  public readonly fileName: string;
+
+  constructor(
+    name: string,
+    args: TalosISOArgs,
+    opts?: pulumi.ComponentResourceOptions
+  ) {
+    super('infraflux:iso:TalosISO', name, {}, opts);
+
+    const talosVersion = args.talosVersion ?? config.kubernetes.version;
+    const isoStorage = config.vm.defaults.isoStoragePool;
+
+    // Custom Talos schematic with qemu-guest-agent and cloudflared
+    this.schematic =
+      args.schematic ??
+      'ec83aa8b78f86413fceed33b6f16f598df0e3c4b1cbd514c5790364b49d4f8f6';
+
+    this.fileName = `talos-${talosVersion}-nocloud-amd64.iso`;
+    this.installerImage = `factory.talos.dev/nocloud-installer/${this.schematic}:${talosVersion}`;
+
+    logResource('TalosISO', 'Checking/Downloading', {
+      name,
+      talosVersion,
+      schematic: this.schematic,
+      fileName: this.fileName,
+      isoStorage,
+    });
+
+    // If forceDownload is explicitly false or the ISO already exists, skip download
+    const shouldDownload = args.forceDownload ?? false; // Default to false to prevent overwrites
+
+    if (shouldDownload) {
+      const talosImageUrl = `https://factory.talos.dev/image/${this.schematic}/${talosVersion}/nocloud-amd64.iso`;
+
+      logResource('TalosISO', 'Downloading', {
+        url: talosImageUrl,
+        fileName: this.fileName,
+        reason: 'Force download requested or ISO not found',
+      });
+
+      this.isoFile = new proxmox.download.File(
+        `${name}-download`,
+        {
+          contentType: 'iso',
+          datastoreId: isoStorage,
+          nodeName: config.proxmox.node,
+          url: talosImageUrl,
+          fileName: this.fileName,
+        },
+        {
+          provider: args.provider,
+          parent: this,
+        }
+      );
+
+      this.isoId = this.isoFile.id;
+      this.ready = pulumi.Output.create(true);
+    } else {
+      // ISO should already exist, reference it directly
+      logResource('TalosISO', 'Using Existing', {
+        fileName: this.fileName,
+        reason: 'ISO already exists or forceDownload=false',
+      });
+
+      this.isoId = pulumi.Output.create(`${isoStorage}:iso/${this.fileName}`);
+      this.ready = pulumi.Output.create(true);
+    }
+
+    this.registerOutputs({
+      isoId: this.isoId,
+      ready: this.ready,
+      schematic: this.schematic,
+      installerImage: this.installerImage,
+      fileName: this.fileName,
+    });
+  }
+}
+
+/**
+ * TalosTemplate - Creates VM template from downloaded ISO
+ * Step 2: Create template only after ISO is ready
+ */
+export class TalosTemplate extends pulumi.ComponentResource {
+  public readonly templateId: pulumi.Output<number>;
+  public readonly template: proxmox.vm.VirtualMachine;
+  public readonly ready: pulumi.Output<boolean>;
+  public readonly templateType: string;
 
   constructor(
     name: string,
@@ -26,56 +123,29 @@ export class TalosTemplate extends pulumi.ComponentResource {
   ) {
     super('infraflux:vm:TalosTemplate', name, {}, opts);
 
-    const templateVmId = args.templateVmId ?? config.vm.templateId;
     const talosVersion = args.talosVersion ?? config.kubernetes.version;
     const vmStorage = config.vm.defaults.storagePool;
-    const isoStorage = config.vm.defaults.isoStoragePool;
-
-    // Custom Talos schematic with qemu-guest-agent and cloudflared
-    // Generated from factory.talos.dev with extensions:
-    // - siderolabs/qemu-guest-agent
-    // - siderolabs/cloudflared
-    this.schematic =
-      args.schematic ??
-      'ec83aa8b78f86413fceed33b6f16f598df0e3c4b1cbd514c5790364b49d4f8f6';
-
-    // Installer image reference for machine configs
-    this.installerImage = `factory.talos.dev/nocloud-installer/${this.schematic}:${talosVersion}`;
+    this.templateType = args.templateType;
 
     logResource('TalosTemplate', 'Creating', {
       name,
-      templateVmId,
+      templateVmId: args.templateVmId,
+      templateType: args.templateType,
       talosVersion,
-      schematic: this.schematic,
       vmStorage,
-      isoStorage,
     });
 
-    // Download custom Talos cloud image from Image Factory
-    const talosImageUrl = `https://factory.talos.dev/image/${this.schematic}/${talosVersion}/nocloud-amd64.iso`;
+    // Get template specs based on type
+    const templateSpecs = this.getTemplateSpecs(args.templateType);
 
-    const talosImage = new proxmox.download.File(
-      `${name}-talos-image`,
-      {
-        contentType: 'iso',
-        datastoreId: isoStorage,
-        nodeName: config.proxmox.node,
-        url: talosImageUrl,
-        fileName: `talos-${talosVersion}-nocloud-amd64.iso`,
-      },
-      {
-        provider: args.provider,
-        parent: this,
-      }
-    );
-
-    // Create VM template using the downloaded custom image
-    const template = new proxmox.vm.VirtualMachine(
-      `${name}-template`,
+    // Create VM template using the downloaded ISO
+    // This will only start after the ISO is ready
+    this.template = new proxmox.vm.VirtualMachine(
+      `${name}-vm`,
       {
         nodeName: config.proxmox.node,
-        name: `talos-${talosVersion}-template`,
-        vmId: templateVmId,
+        name: `talos-${args.templateType}-${talosVersion}`,
+        vmId: args.templateVmId,
 
         // Operating System
         operatingSystem: {
@@ -84,27 +154,33 @@ export class TalosTemplate extends pulumi.ComponentResource {
 
         // CPU Configuration
         cpu: {
-          cores: 2,
+          cores: templateSpecs.cores,
           sockets: 1,
           type: 'host',
         },
 
         // Memory
         memory: {
-          dedicated: 2048,
+          dedicated: templateSpecs.memory,
         },
 
         // SCSI Controller
         scsiHardware: 'virtio-scsi-pci',
 
-        // Import the Talos disk image from the downloaded file
+        // Attach the Talos ISO to CD-ROM - this is crucial for cloned VMs
+        cdrom: {
+          enabled: true,
+          fileId: args.talosISO.isoId,
+          interface: 'ide2',
+        },
+
+        // OS disk - empty disk that Talos will install to
         disks: [
           {
             interface: 'scsi0',
             datastoreId: vmStorage,
-            size: 20, // 20GB should be enough for Talos
+            size: templateSpecs.diskSize,
             fileFormat: 'raw',
-            fileId: talosImage.id, // Reference the downloaded image
           },
         ],
 
@@ -116,7 +192,7 @@ export class TalosTemplate extends pulumi.ComponentResource {
           },
         ],
 
-        // QEMU Guest Agent (enabled in custom image)
+        // QEMU Guest Agent (will be enabled when Talos boots)
         agent: {
           enabled: true,
           trim: true,
@@ -128,43 +204,157 @@ export class TalosTemplate extends pulumi.ComponentResource {
         started: false,
 
         // Tags for identification
-        tags: ['talos', 'template', 'infraflux-managed', 'custom-factory'],
+        tags: [
+          'talos',
+          'template',
+          args.templateType,
+          'infraflux-managed',
+          'custom-factory',
+        ],
 
         // Description
-        description: `InfraFlux Talos ${talosVersion} Template - Custom Factory Image with qemu-guest-agent + cloudflared`,
+        description: `InfraFlux Talos ${args.templateType} Template - ${talosVersion} with custom extensions and ISO attached`,
       },
       {
         provider: args.provider,
         parent: this,
-        dependsOn: [talosImage],
+        dependsOn: [args.talosISO], // Wait for ISO to be ready
       }
     );
 
-    this.templateId = template.vmId;
-    this.ready = pulumi.Output.create(true);
+    this.templateId = this.template.vmId;
+    this.ready = this.template.template.apply((isTemplate) => !!isTemplate);
 
     this.registerOutputs({
       templateId: this.templateId,
+      template: this.template,
       ready: this.ready,
-      schematic: this.schematic,
-      installerImage: this.installerImage,
+      templateType: this.templateType,
+    });
+  }
+
+  private getTemplateSpecs(templateType: string) {
+    switch (templateType) {
+      case 'master':
+        return {
+          cores: config.kubernetes.masterSpecs?.cores ?? 2,
+          memory: config.kubernetes.masterSpecs?.memory ?? 4096,
+          diskSize: parseInt(
+            (config.kubernetes.masterSpecs?.diskSize ?? '30G').replace(
+              /[^0-9]/g,
+              ''
+            )
+          ),
+        };
+      case 'worker':
+        return {
+          cores: config.kubernetes.workerSpecs?.cores ?? 2,
+          memory: config.kubernetes.workerSpecs?.memory ?? 4096,
+          diskSize: parseInt(
+            (config.kubernetes.workerSpecs?.diskSize ?? '50G').replace(
+              /[^0-9]/g,
+              ''
+            )
+          ),
+        };
+      default:
+        return {
+          cores: 2,
+          memory: 4096,
+          diskSize: 30,
+        };
+    }
+  }
+}
+
+/**
+ * TalosTemplateManager - Manages the complete template creation flow
+ * Step 1: Download ISO → Step 2: Create Templates → Step 3: Ready for VM cloning
+ */
+export class TalosTemplateManager extends pulumi.ComponentResource {
+  public readonly iso: TalosISO;
+  public readonly masterTemplate: TalosTemplate;
+  public readonly workerTemplate: TalosTemplate;
+  public readonly ready: pulumi.Output<boolean>;
+
+  constructor(
+    name: string,
+    args: { provider: proxmox.Provider; forceDownload?: boolean },
+    opts?: pulumi.ComponentResourceOptions
+  ) {
+    super('infraflux:vm:TalosTemplateManager', name, {}, opts);
+
+    logResource('TalosTemplateManager', 'Initializing', {
+      name,
+      masterTemplateId: 9010,
+      workerTemplateId: 9011,
+      forceDownload: args.forceDownload ?? false,
+    });
+
+    // Step 1: Download/check Talos ISO
+    this.iso = new TalosISO(
+      `${name}-iso`,
+      {
+        provider: args.provider,
+        forceDownload: args.forceDownload ?? false, // Use parameter or default to false
+      },
+      { parent: this }
+    );
+
+    // Step 2: Create Master Template (after ISO is ready)
+    this.masterTemplate = new TalosTemplate(
+      `${name}-master-template`,
+      {
+        provider: args.provider,
+        talosISO: this.iso,
+        templateVmId: 9010,
+        templateType: 'master',
+      },
+      {
+        parent: this,
+        dependsOn: [this.iso],
+      }
+    );
+
+    // Step 2: Create Worker Template (after ISO is ready)
+    this.workerTemplate = new TalosTemplate(
+      `${name}-worker-template`,
+      {
+        provider: args.provider,
+        talosISO: this.iso,
+        templateVmId: 9011,
+        templateType: 'worker',
+      },
+      {
+        parent: this,
+        dependsOn: [this.iso],
+      }
+    );
+
+    // Step 3: Manager is ready when all templates are ready
+    this.ready = pulumi
+      .all([
+        this.iso.ready,
+        this.masterTemplate.ready,
+        this.workerTemplate.ready,
+      ])
+      .apply(
+        ([isoReady, masterReady, workerReady]) =>
+          isoReady && masterReady && workerReady
+      );
+
+    this.registerOutputs({
+      iso: this.iso,
+      masterTemplate: this.masterTemplate,
+      workerTemplate: this.workerTemplate,
+      ready: this.ready,
     });
   }
 
   /**
-   * Create Talos OS template - Simple factory method
+   * Get the appropriate template for a node type
    */
-  static create(
-    provider: proxmox.Provider,
-    opts?: pulumi.ComponentResourceOptions
-  ): TalosTemplate {
-    return new TalosTemplate(
-      'talos-os',
-      {
-        provider,
-        templateVmId: 9010,
-      },
-      opts
-    );
+  getTemplateForNodeType(nodeType: 'master' | 'worker'): TalosTemplate {
+    return nodeType === 'master' ? this.masterTemplate : this.workerTemplate;
   }
 }

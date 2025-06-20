@@ -83,6 +83,11 @@ export const config: InfraFluxConfig = {
 
   vm: {
     templateId: getConfigInt('TALOS_TEMPLATE_ID', 'vm:templateId', 9010), // Talos template
+    forceDownload: getConfigBool(
+      'TALOS_FORCE_DOWNLOAD',
+      'vm:forceDownload',
+      false
+    ), // Force ISO download
     defaults: {
       cores: getConfigInt('VM_DEFAULT_CORES', 'vm:defaultCores', 2),
       memory: getConfigInt('VM_DEFAULT_MEMORY', 'vm:defaultMemory', 4096),

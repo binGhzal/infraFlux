@@ -3,10 +3,12 @@ import * as proxmox from '@muhlba91/pulumi-proxmoxve';
 import { VMSpec, VMOutput } from '@/types';
 import { config } from '@/config';
 import { logResource } from '@/utils/logger';
+import { TalosTemplate } from './cloud-image-template';
 
 export interface VMArgs {
   spec: VMSpec;
   provider: proxmox.Provider;
+  template: TalosTemplate; // The template to clone from
 }
 
 export class VM extends pulumi.ComponentResource {
@@ -20,17 +22,16 @@ export class VM extends pulumi.ComponentResource {
   ) {
     super('infraflux:vm:VM', name, {}, opts);
 
-    const { spec, provider } = args;
+    const { spec, provider, template } = args;
 
     // Merge with defaults
     const cores = spec.cores ?? config.vm.defaults.cores;
     const memory = spec.memory ?? config.vm.defaults.memory;
     const diskSize = spec.diskSize ?? config.vm.defaults.diskSize;
-    const templateId = config.vm.templateId; // Always use Talos template
 
     logResource('VM', 'Creating', { name, spec });
 
-    // Create the VM by cloning from Talos template
+    // Create the VM by cloning from the appropriate template
     this.vm = new proxmox.vm.VirtualMachine(
       name,
       {
@@ -38,14 +39,14 @@ export class VM extends pulumi.ComponentResource {
         name: spec.name,
         vmId: spec.vmId,
 
-        // Clone from Talos template
+        // Clone from the provided template
         clone: {
           nodeName: config.proxmox.node,
-          vmId: templateId,
+          vmId: template.templateId,
           full: true,
         },
 
-        // Hardware specs
+        // Hardware specs (can override template defaults)
         cpu: {
           cores,
           sockets: 1,
@@ -55,7 +56,7 @@ export class VM extends pulumi.ComponentResource {
           dedicated: memory,
         },
 
-        // Disk configuration
+        // Disk configuration (inherits from template, but can resize)
         disks: [
           {
             interface: 'scsi0',
@@ -77,12 +78,16 @@ export class VM extends pulumi.ComponentResource {
         onBoot: spec.startOnBoot !== false,
         started: true,
 
+        // Tags
+        tags: spec.tags ?? ['talos', 'infraflux-managed'],
+
         // Description
-        description: `InfraFlux Talos node - ${config.environment} environment`,
+        description: `InfraFlux Talos ${template.templateType} node - ${config.environment} environment`,
       },
       {
         provider,
         parent: this,
+        dependsOn: [template], // Wait for template to be ready
       }
     );
 

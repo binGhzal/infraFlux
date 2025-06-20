@@ -44,6 +44,7 @@ export interface NetworkConfig {
 // VM Configuration (Talos only)
 export interface VMConfig {
   templateId: number; // Talos template ID
+  forceDownload: boolean; // Force ISO download
   defaults: VMDefaults;
 }
 
