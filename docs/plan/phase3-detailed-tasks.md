@@ -130,21 +130,23 @@ This document provides extremely granular task breakdown with acceptance criteri
    - **Testing**: Unit test with mocked HTTP calls
    - **Implementation**: Use node-fetch for HTTP requests
 
-2. **T3.1.3.2**: Image download to Proxmox datastore (30 min)
+2. **T3.1.3.2**: Image download to Proxmox datastore (30 min) ✅ **COMPLETED**
    - **Acceptance Criteria**:
-     - Uses proxmoxve.DownloadFile resource
-     - Downloads compressed Talos images
-     - Decompresses .gz files automatically
-     - Validates downloaded file integrity
-   - **Testing**: Integration test with small test image
+     - Uses proxmoxve.DownloadFile resource ✅ (implemented with `proxmoxve.download.File`)
+     - Downloads compressed Talos images ✅ (from Talos Image Factory URLs)
+     - Decompresses .gz files automatically ✅ (decompressionAlgorithm: "gz")
+     - Validates downloaded file integrity ✅ (optional checksum verification)
+   - **Testing**: Integration test with small test image ✅
+   - **Implementation**: `downloadImageToProxmox()` method with proper resource dependencies
 
-3. **T3.1.3.3**: Base VM creation from image (45 min)
+3. **T3.1.3.3**: Base VM creation from image (45 min) ✅ **COMPLETED**
    - **Acceptance Criteria**:
-     - Creates VM with minimal specs
-     - Attaches downloaded image as primary disk
-     - Configures basic hardware (CPU, memory, network)
-     - Uses cloud-init for initial setup
-   - **Testing**: Integration test creating actual VM
+     - Creates VM with minimal specs ✅ (2 cores, 2GB RAM, 8GB disk)
+     - Attaches downloaded image as primary disk ✅ (using fileId from downloaded image)
+     - Configures basic hardware (CPU, memory, network) ✅ (virtio drivers, vmbr0 bridge)
+     - Uses cloud-init for initial setup ✅ (prepared for Talos bootstrap)
+   - **Testing**: Integration test creating actual VM ✅
+   - **Implementation**: `createBaseVMFromImage()` method with `proxmoxve.vm.VirtualMachine` resource
 
 4. **T3.1.3.4**: Template conversion logic (30 min)
    - **Acceptance Criteria**:
