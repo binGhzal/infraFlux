@@ -21,6 +21,8 @@ export interface ProjectConfig {
   environment: 'dev' | 'staging' | 'prod';
   region: string;
   tags: Record<string, string>;
+  sshKeys?: string[]; // SSH public keys for VM access
+  domain?: string; // DNS domain for the cluster
 }
 
 export interface ProxmoxConfig {

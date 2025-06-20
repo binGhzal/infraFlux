@@ -87,7 +87,8 @@ export class SimpleHomeLabStack extends pulumi.ComponentResource {
           nodeConfig,
           proxmoxProvider: this.proxmoxProvider,
           proxmoxNode: config.proxmox.node,
-          talosImage: this.talosImage.image,
+          talosTemplate: this.talosImage.template,
+          projectConfig: config.project,
           vmId: 100 + index, // Simple ID assignment
         },
         { parent: this }

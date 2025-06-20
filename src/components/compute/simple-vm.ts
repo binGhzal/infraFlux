@@ -6,8 +6,8 @@
 
 import * as pulumi from '@pulumi/pulumi';
 import * as proxmoxve from '@muhlba91/pulumi-proxmoxve';
-import { NodeConfig, VMOutput } from '../../types';
-import { TalosImageComponent } from '../talos/talos-image';
+import { NodeConfig, VMOutput, ProjectConfig } from '../../types';
+import { TalosVMTemplate } from '../talos/talos-image';
 import { NetworkUtils } from '../network/simple-network';
 import { logger } from '../../utils/logger';
 
@@ -24,8 +24,11 @@ export interface SimpleVMProps {
   /** Target Proxmox node */
   proxmoxNode: string;
   
-  /** Talos image to clone from */
-  talosImage: TalosImageComponent;
+  /** Talos template to clone from */
+  talosTemplate: TalosVMTemplate;
+  
+  /** Project configuration for SSH keys and domain */
+  projectConfig: ProjectConfig;
   
   /** VM ID (optional, auto-generated if not provided) */
   vmId?: number;
@@ -75,9 +78,9 @@ export class SimpleVMComponent extends pulumi.ComponentResource {
         name: nodeConfig.name,
         description: `VM ${nodeConfig.name} (${nodeConfig.role})`,
 
-        // Clone from Talos image
+        // Clone from Talos template
         clone: {
-          vmId: 9000, // Template ID (will be managed by separate template creation)
+          vmId: props.talosTemplate.templateId, // Dynamic template ID
           full: true, // Full clone for isolation
         },
 
@@ -119,6 +122,9 @@ export class SimpleVMComponent extends pulumi.ComponentResource {
           trim: true,
           type: 'virtio',
         },
+
+        // Cloud-Init configuration for VM provisioning
+        initialization: this.createCloudInitConfig(nodeConfig, props.projectConfig),
       },
       {
         provider: proxmoxProvider,
@@ -172,6 +178,52 @@ export class SimpleVMComponent extends pulumi.ComponentResource {
       vm: this.vm,
       vmOutput: this.vmOutput,
     });
+  }
+
+  /**
+   * Create cloud-init configuration for VM
+   */
+  private createCloudInitConfig(nodeConfig: NodeConfig, projectConfig: ProjectConfig) {
+    logger.debug(`Creating cloud-init configuration for: ${nodeConfig.name}`);
+
+    // Use SSH keys from project config or default placeholder
+    const sshKeys = projectConfig.sshKeys || [
+      'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7... admin@infraflux', // Placeholder SSH key
+    ];
+
+    // Create IP configurations for each network interface
+    const ipConfigs = nodeConfig.specs.network.map((netInterface) => ({
+      ipv4: {
+        address: netInterface.dhcp ? 'dhcp' : netInterface.ip || 'dhcp',
+        ...(netInterface.gateway && !netInterface.dhcp && { gateway: netInterface.gateway }),
+      },
+    }));
+
+    // Use domain from project config or default
+    const domain = projectConfig.domain || 'cluster.local';
+
+    return {
+      // Datastore for cloud-init disk
+      datastoreId: 'local-lvm',
+      
+      // User account configuration
+      userAccount: {
+        username: 'talos',
+        keys: sshKeys,
+      },
+
+      // DNS configuration
+      dns: {
+        domain: domain,
+        servers: ['8.8.8.8', '8.8.4.4'], // Default DNS servers
+      },
+
+      // Network IP configuration
+      ipConfigs: ipConfigs,
+
+      // Cloud-init type
+      type: 'nocloud',
+    };
   }
 
   /**

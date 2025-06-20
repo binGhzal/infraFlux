@@ -171,7 +171,124 @@ export class TalosImageDownload extends pulumi.ComponentResource {
 }
 
 /**
- * Utility function to create Talos image with download
+ * Create VM template from downloaded Talos image
+ */
+export class TalosVMTemplate extends pulumi.ComponentResource {
+  public readonly vm: proxmoxve.vm.VirtualMachine;
+  public readonly templateId: pulumi.Output<number>;
+
+  constructor(
+    name: string,
+    args: {
+      downloadFile: proxmoxve.download.File;
+      proxmoxProvider: proxmoxve.Provider;
+      nodeName: string;
+      datastore: string;
+      vmId?: number;
+    },
+    opts?: pulumi.ComponentResourceOptions
+  ) {
+    super('infraflux:talos:Template', name, {}, opts);
+
+    const templateVmId = args.vmId || 9000;
+
+    logger.info(`Creating Talos VM template from downloaded image`, {
+      node: args.nodeName,
+      templateId: templateVmId,
+    });
+
+    // Create VM template using downloaded image
+    this.vm = new proxmoxve.vm.VirtualMachine(
+      `${name}-template`,
+      {
+        // Basic VM configuration
+        nodeName: args.nodeName,
+        vmId: templateVmId,
+        name: `talos-template-${templateVmId}`,
+        description: 'Talos Linux VM Template',
+        
+        // Mark as template
+        template: true,
+        
+        // Basic hardware configuration for template
+        cpu: {
+          cores: 2,
+          sockets: 1,
+          type: 'host',
+        },
+        
+        memory: {
+          dedicated: 2048, // 2GB for template
+        },
+
+        // Attach the downloaded image as primary disk
+        disks: [
+          {
+            interface: 'scsi0',
+            datastoreId: args.datastore,
+            fileId: args.downloadFile.id, // Reference downloaded file
+            fileFormat: 'raw',
+            size: 8, // Initial size, will be expanded when cloned
+          },
+        ],
+
+        // Network interface for template
+        networkDevices: [
+          {
+            bridge: 'vmbr0',
+            model: 'virtio',
+          },
+        ],
+
+        // Template specific settings
+        bios: 'ovmf', // UEFI for modern OS
+        
+        // EFI disk for UEFI boot
+        efiDisk: {
+          datastoreId: args.datastore,
+          fileFormat: 'raw',
+        },
+
+        // Operating system type
+        operatingSystem: {
+          type: 'l26', // Linux 2.6+
+        },
+
+        // QEMU guest agent
+        agent: {
+          enabled: true,
+          trim: true,
+          type: 'virtio',
+        },
+
+        // Start the VM to finalize template creation
+        started: false,
+        onBoot: false,
+        protection: true, // Protect template from accidental deletion
+      },
+      {
+        provider: args.proxmoxProvider,
+        parent: this,
+        dependsOn: [args.downloadFile],
+      }
+    );
+
+    this.templateId = pulumi.output(templateVmId);
+
+    logger.debug(`Talos VM template creation configured`, {
+      templateId: templateVmId,
+      fileId: args.downloadFile.id,
+    });
+
+    this.registerOutputs({
+      vm: this.vm,
+      templateId: this.templateId,
+    });
+  }
+}
+
+/**
+ * Utility function to create Talos image with download and template
  */
 export function createTalosImage(
   name: string,
@@ -179,9 +296,14 @@ export function createTalosImage(
     proxmoxProvider: proxmoxve.Provider;
     nodeName: string;
     datastore: string;
+    templateVmId?: number;
   },
   opts?: pulumi.ComponentResourceOptions
-): { image: TalosImageComponent; download: TalosImageDownload } {
+): { 
+  image: TalosImageComponent; 
+  download: TalosImageDownload; 
+  template: TalosVMTemplate;
+} {
   const image = new TalosImageComponent(
     `${name}-image`,
     {
@@ -203,5 +325,17 @@ export function createTalosImage(
     opts
   );
 
-  return { image, download };
+  const template = new TalosVMTemplate(
+    `${name}-template`,
+    {
+      downloadFile: download.downloadFile,
+      proxmoxProvider: config.proxmoxProvider,
+      nodeName: config.nodeName,
+      datastore: config.datastore,
+      vmId: config.templateVmId || 9000,
+    },
+    opts
+  );
+
+  return { image, download, template };
 }
