@@ -296,11 +296,44 @@ export interface VMOutput {
   name: string;
   ipAddress?: string;
   macAddress: string;
-  status: 'running' | 'stopped' | 'paused';
+  status: 'running' | 'stopped' | 'paused' | 'error';
   node: string;
   template: string;
   specs: NodeSpecs;
   uptime?: number;
+  
+  /** Clone source information */
+  cloneSource?: {
+    templateId: number;
+    templateName: string;
+    cloneType: 'full' | 'linked';
+  };
+  
+  /** Network configuration details */
+  networkDetails?: {
+    interfaces: Array<{
+      name: string;
+      mac: string;
+      bridge: string;
+      vlan?: number;
+      ip?: string;
+      gateway?: string;
+    }>;
+  };
+  
+  /** Cloud-init status */
+  cloudInitStatus?: {
+    ready: boolean;
+    userData: boolean;
+    networkConfig: boolean;
+  };
+  
+  /** Resource utilization */
+  resources?: {
+    cpuUsage?: number;
+    memoryUsage?: number;
+    diskUsage?: number;
+  };
 }
 
 export interface ClusterOutput {
@@ -370,20 +403,7 @@ export interface CloudInitConfig {
   metaData?: string;
 }
 
-// Validation Types
-export interface ValidationRule {
-  field: string;
-  type: 'required' | 'format' | 'range' | 'enum' | 'custom';
-  message: string;
-  validator?: (value: any) => boolean;
-}
-
-export interface ValidationSchema {
-  component: string;
-  version: string;
-  rules: ValidationRule[];
-  dependencies: string[];
-}
+// Removed custom validation types - using Joi directly
 
 // Stack Configuration
 export interface StackConfig {
