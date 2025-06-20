@@ -12,9 +12,6 @@ export interface InfraFluxConfig {
   network: NetworkConfig;
   vm: VMConfig;
   kubernetes: KubernetesConfig;
-  security: SecurityConfig;
-  monitoring?: MonitoringConfig;
-  backup?: BackupConfig;
 }
 
 export interface ProjectConfig {
@@ -99,68 +96,10 @@ export interface K8sFeatures {
   localStorage: boolean;
 }
 
-// Security Configuration
-export interface SecurityConfig {
-  firewall: FirewallConfig;
-  automaticUpdates: boolean;
-  auditLogging: boolean;
-}
-
-export interface FirewallConfig {
-  enabled: boolean;
-  defaultPolicy: 'allow' | 'deny';
-  rules: FirewallRule[];
-}
-
-export interface FirewallRule {
-  name: string;
-  direction: 'in' | 'out';
-  action: 'allow' | 'deny';
-  protocol: 'tcp' | 'udp' | 'icmp' | 'all';
-  port?: number | string;
-  source?: string;
-  destination?: string;
-}
-
-// Monitoring Configuration
-export interface MonitoringConfig {
-  enabled: boolean;
-  prometheus: PrometheusConfig;
-  grafana: GrafanaConfig;
-}
-
-export interface PrometheusConfig {
-  retention: string;
-  storageSize: string;
-  scrapeInterval: string;
-}
-
-export interface GrafanaConfig {
-  adminPassword: pulumi.Output<string>;
-  persistence: boolean;
-  storageSize: string;
-}
-
-// Backup Configuration
-export interface BackupConfig {
-  enabled: boolean;
-  schedule: string;
-  retention: number;
-  storage: BackupStorageConfig;
-  targets: BackupTarget[];
-}
-
-export interface BackupStorageConfig {
-  type: 'local' | 'nfs' | 's3';
-  path: string;
-  credentials?: Record<string, pulumi.Output<string>>;
-}
-
-export interface BackupTarget {
-  name: string;
-  type: 'vm' | 'container' | 'volume';
-  id: string | number;
-  compress: boolean;
+// Network Configuration (can be auto-discovered from Proxmox)
+export interface NetworkDiscoveryConfig {
+  autoDiscover: boolean;
+  fallbackConfig?: NetworkConfig;
 }
 
 // Component Output Types

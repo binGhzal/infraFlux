@@ -13,7 +13,12 @@ import 'tsconfig-paths/register';
 import * as pulumi from '@pulumi/pulumi';
 import * as proxmox from '@muhlba91/pulumi-proxmoxve';
 import { config, gitOpsConfig } from './config';
-import { TalosTemplateManager, TalosCluster, GitOps } from './components';
+import {
+  TalosTemplateManager,
+  TalosCluster,
+  GitOps,
+  ProxmoxNetworkDiscovery,
+} from './components';
 import { logger, logResource } from './utils/logger';
 
 // Log startup
@@ -32,6 +37,26 @@ const proxmoxProvider = new proxmox.Provider('proxmox', {
   password: config.proxmox.password,
   insecure: config.proxmox.insecure,
 });
+
+// Auto-discover network configuration if not provided
+let networkDiscovery: ProxmoxNetworkDiscovery | undefined;
+
+if (!config.network.gateway || !config.network.subnet) {
+  logger.info('Auto-discovering network configuration from Proxmox bridge...');
+
+  networkDiscovery = new ProxmoxNetworkDiscovery('network-discovery', {
+    provider: proxmoxProvider,
+    nodeName: config.proxmox.node,
+    bridgeName: config.network.bridge,
+  });
+
+  logResource('NetworkDiscovery', 'Auto-Discovery', {
+    bridge: config.network.bridge,
+    autoGateway: !config.network.gateway,
+    autoSubnet: !config.network.subnet,
+    reason: 'Network settings empty - using Proxmox bridge discovery',
+  });
+}
 
 // Step 1: Create Custom Talos Templates from Image Factory
 // This manages: ISO download → master template → worker template
@@ -57,6 +82,7 @@ if (config.kubernetes.masterNodes > 0) {
       provider: proxmoxProvider,
       templateManager, // Pass the template manager
       startingIP: 200, // Start IPs at 192.168.1.200+
+      enableNetworkDiscovery: true, // Enable native QEMU Guest Agent network discovery
     },
     {
       dependsOn: [templateManager], // Wait for templates to be ready
@@ -101,12 +127,29 @@ export const templates = {
   version: config.kubernetes.version,
 };
 
+// Export network information (including auto-discovery)
+export const network = networkDiscovery
+  ? {
+      autoDiscovered: true,
+      bridge: config.network.bridge,
+      discoveredConfig: networkDiscovery.networkConfig,
+      ready: networkDiscovery.ready,
+    }
+  : {
+      autoDiscovered: false,
+      bridge: config.network.bridge,
+      gateway: config.network.gateway,
+      subnet: config.network.subnet,
+    };
+
 // Export cluster information (if created)
 export const kubernetes = cluster
   ? {
       cluster: cluster.output,
       talosConfig: cluster.talosConfig,
       gitopsReady: gitops?.ready,
+      networkDiscovery: cluster.networkDiscovery?.discoveredVMs,
+      networkReady: cluster.networkDiscovery?.ready,
     }
   : undefined;
 
@@ -174,6 +217,7 @@ export const instructions = pulumi
       instructions += `  • Master Template: ID 9010 (optimized for control plane)\n`;
       instructions += `  • Worker Template: ID 9011 (optimized for workloads)\n`;
       instructions += `  • Extensions: QEMU Guest Agent + CloudFlare Tunnel\n`;
+      instructions += `  • Network: ${networkDiscovery ? 'Auto-discovered from Proxmox bridge' : 'Manual configuration'}\n`;
     }
 
     if (apiEndpoint) {
@@ -202,6 +246,7 @@ export const instructions = pulumi
    - Faster VM provisioning (clone vs install)
    - Consistent base images with custom extensions
    - ISO attached to templates for automatic Talos installation
+   - QEMU Guest Agent enabled for proper host-guest communication
    - Separate optimization for masters vs workers
    - Easy scaling by cloning worker template
 
@@ -212,6 +257,11 @@ export const instructions = pulumi
 4. Use included extensions:
    - QEMU Guest Agent: Automatic IP detection in Proxmox
    - CloudFlare Tunnel: Ready for secure external access
+
+5. Verify QEMU Guest Agent is working:
+   - Check agent status: qm agent <vm-id> ping
+   - View VM info: qm agent <vm-id> get-fsinfo
+   - Get network info: qm agent <vm-id> network-get-interfaces
 
 `;
     } else {
@@ -230,6 +280,13 @@ export const instructions = pulumi
 - VM ID Ranges: 8000+ (masters), 8100+ (workers), 9010+ (templates)
 - Storage: ISOs on ${config.vm.defaults.isoStoragePool}, VMs on ${config.vm.defaults.storagePool}
 - All resources tagged as 'infraflux-managed'
+- Network: ${networkDiscovery ? 'Auto-discovered from Proxmox bridge' : 'Manual configuration'}
+
+🔄 GitOps-Managed Services:
+- Monitoring: Prometheus + Grafana (deployed via FluxCD)
+- Security: Policies and firewalls (deployed via FluxCD)
+- Backup: Solutions and schedules (deployed via FluxCD)
+- Applications: All services deployed via GitOps
 
 🏭 Image Factory Details:
 - Schematic: ${templateManager.iso.schematic}

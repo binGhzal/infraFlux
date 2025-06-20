@@ -29,7 +29,12 @@ export class VM extends pulumi.ComponentResource {
     const memory = spec.memory ?? config.vm.defaults.memory;
     const diskSize = spec.diskSize ?? config.vm.defaults.diskSize;
 
-    logResource('VM', 'Creating', { name, spec });
+    logResource('VM', 'Creating', {
+      name,
+      spec,
+      qemuAgent: 'enabled',
+      templateType: template.templateType,
+    });
 
     // Create the VM by cloning from the appropriate template
     this.vm = new proxmox.vm.VirtualMachine(
@@ -73,6 +78,13 @@ export class VM extends pulumi.ComponentResource {
             model: 'virtio',
           },
         ],
+
+        // QEMU Guest Agent - ensure it's enabled on cloned VMs
+        agent: {
+          enabled: true,
+          trim: true,
+          type: 'virtio',
+        },
 
         // Boot settings
         onBoot: spec.startOnBoot !== false,

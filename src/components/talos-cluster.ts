@@ -5,18 +5,20 @@ import { ClusterOutput } from '@/types';
 import { config } from '@/config';
 import { VM } from './vm';
 import { TalosTemplateManager } from './cloud-image-template';
-import { NetworkDiscovery } from './network-discovery';
+import { NativeNetworkDiscovery } from './network-discovery';
 import { logResource } from '@/utils/logger';
 
 export interface TalosClusterArgs {
   provider: proxmox.Provider;
   templateManager: TalosTemplateManager;
   startingIP: number; // Starting IP in the last octet (e.g., 200 for 192.168.1.200)
+  enableNetworkDiscovery?: boolean; // Enable native QEMU Guest Agent network discovery
 }
 
 export class TalosCluster extends pulumi.ComponentResource {
   public readonly output: ClusterOutput;
   public readonly talosConfig: pulumi.Output<string>;
+  public readonly networkDiscovery?: NativeNetworkDiscovery;
 
   constructor(
     name: string,
@@ -30,21 +32,6 @@ export class TalosCluster extends pulumi.ComponentResource {
     // Calculate base IP and endpoint
     const baseIP = config.network.gateway.split('.').slice(0, 3).join('.');
     const clusterEndpoint = `https://${baseIP}.${args.startingIP}:6443`;
-
-    // Optional: Network discovery for DHCP to static IP transition
-    // This solves the chicken-and-egg problem of needing network connectivity for bootstrap
-    // Uncomment to enable DHCP discovery before applying static configuration:
-    //
-    // const networkDiscovery = new NetworkDiscovery(
-    //   `${name}-network-discovery`,
-    //   {
-    //     clusterName: name,
-    //     masterCount: config.kubernetes.masterNodes,
-    //     workerCount: config.kubernetes.workerNodes,
-    //     startingIP: args.startingIP,
-    //   },
-    //   { parent: this }
-    // );
 
     // Generate cluster secrets
     const secrets = new talos.machine.Secrets(
@@ -229,6 +216,21 @@ export class TalosCluster extends pulumi.ComponentResource {
       );
 
       workerConfigs.push(configApply);
+    }
+
+    // Collect all VMs for network discovery
+    const allVMs = [...masters, ...workers];
+
+    // Optional: Native network discovery using QEMU Guest Agent
+    if (args.enableNetworkDiscovery) {
+      this.networkDiscovery = new NativeNetworkDiscovery(
+        `${name}-network-discovery`,
+        {
+          clusterName: name,
+          vms: allVMs,
+        },
+        { parent: this }
+      );
     }
 
     // Wait for all configurations to be applied

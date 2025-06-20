@@ -6,7 +6,7 @@ import { logger } from './logger';
  * Comprehensive configuration validation using Joi schemas
  */
 
-// Network validation schema
+// Network validation schema (gateway and subnet are optional - auto-discovered from Proxmox)
 const networkSchema = Joi.object({
   bridge: Joi.string()
     .pattern(/^vmbr\d+$/)
@@ -20,13 +20,19 @@ const networkSchema = Joi.object({
     .items(Joi.string().ip({ version: ['ipv4', 'ipv6'] }))
     .min(1)
     .required(),
-  gateway: Joi.string().ip({ version: 'ipv4' }).required(),
+  gateway: Joi.string()
+    .ip({ version: 'ipv4' })
+    .allow('') // Allow empty string for auto-discovery
+    .messages({
+      'string.ip':
+        'Gateway must be a valid IPv4 address or empty for auto-discovery',
+    }),
   subnet: Joi.string()
     .pattern(/^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/)
-    .required()
+    .allow('') // Allow empty string for auto-discovery
     .messages({
       'string.pattern.base':
-        'Subnet must be in CIDR format (e.g., 192.168.1.0/24)',
+        'Subnet must be in CIDR format (e.g., 192.168.1.0/24) or empty for auto-discovery',
     }),
 });
 
@@ -127,30 +133,13 @@ const kubernetesSchema = Joi.object({
   }),
 });
 
-// Security configuration schema
-const securitySchema = Joi.object({
-  firewall: Joi.object({
-    enabled: Joi.boolean().default(true),
-    defaultPolicy: Joi.string().valid('allow', 'deny').default('deny'),
-    rules: Joi.array()
-      .items(
-        Joi.object({
-          name: Joi.string().required(),
-          direction: Joi.string().valid('in', 'out').required(),
-          action: Joi.string().valid('allow', 'deny').required(),
-          protocol: Joi.string().valid('tcp', 'udp', 'icmp', 'all').required(),
-          port: Joi.alternatives().try(
-            Joi.number().integer().min(1).max(65535),
-            Joi.string().pattern(/^\d+-\d+$/)
-          ),
-          source: Joi.string().ip(),
-          destination: Joi.string().ip(),
-        })
-      )
-      .default([]),
-  }).required(),
-  automaticUpdates: Joi.boolean().default(true),
-  auditLogging: Joi.boolean().default(true),
+// Network discovery schema
+const networkDiscoverySchema = Joi.object({
+  autoDiscover: Joi.boolean().default(true),
+  fallbackConfig: Joi.object({
+    gateway: Joi.string().ip({ version: 'ipv4' }),
+    subnet: Joi.string().pattern(/^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/),
+  }).optional(),
 });
 
 // Main configuration schema
@@ -165,9 +154,6 @@ const configSchema = Joi.object({
   network: networkSchema,
   vm: vmSchema,
   kubernetes: kubernetesSchema,
-  security: securitySchema,
-  monitoring: Joi.object().optional(),
-  backup: Joi.object().optional(),
 });
 
 /**
@@ -204,10 +190,16 @@ export function validateConfig(config: unknown): {
   // Additional custom validations
   const validatedConfig = value as InfraFluxConfig;
 
-  // Check network conflicts
-  if (isNetworkConflict(validatedConfig)) {
+  // Check network conflicts (only if network values are provided)
+  if (validatedConfig.network.gateway && validatedConfig.network.subnet) {
+    if (isNetworkConflict(validatedConfig)) {
+      warnings.push(
+        'Pod CIDR conflicts with network subnet. This may cause routing issues.'
+      );
+    }
+  } else {
     warnings.push(
-      'Pod CIDR conflicts with network subnet. This may cause routing issues.'
+      'Network gateway and subnet will be auto-discovered from Proxmox bridge configuration.'
     );
   }
 
@@ -345,8 +337,8 @@ PROXMOX_NODE=pve                             # Proxmox node name
 
 # === Network Configuration ===
 NETWORK_BRIDGE=vmbr0                         # Proxmox bridge (vmbr0, vmbr1, etc.)
-NETWORK_GATEWAY=192.168.1.1                  # Your network gateway
-NETWORK_SUBNET=192.168.1.0/24               # Network subnet in CIDR format
+NETWORK_GATEWAY=                             # Auto-discovered from bridge config (leave empty)
+NETWORK_SUBNET=                              # Auto-discovered from bridge config (leave empty)
 NETWORK_DNS=1.1.1.1,1.0.0.1                # DNS servers (comma-separated)
 
 # === Talos Template Configuration ===
@@ -382,15 +374,7 @@ GITOPS_REPO=https://github.com/your-org/gitops-repo  # Your GitOps repository
 GITOPS_BRANCH=main                           # Git branch to monitor
 GITOPS_PATH=clusters/homelab                 # Path in repository
 
-# === Security Configuration ===
-ENABLE_FIREWALL=true                         # Enable basic firewall rules
-ENABLE_AUTO_UPDATES=true                     # Enable automatic security updates
-ENABLE_AUDIT_LOGGING=true                    # Enable audit logging
 
-# === Monitoring Configuration ===
-MONITORING_ENABLED=true                      # Enable Prometheus/Grafana
-PROMETHEUS_RETENTION=30d                     # Metrics retention period
-GRAFANA_PASSWORD=changeme                    # Grafana admin password
 
 # === Optional: Advanced Settings ===
 # LOG_LEVEL=info                             # Logging level (debug, info, warn, error)
@@ -401,5 +385,7 @@ GRAFANA_PASSWORD=changeme                    # Grafana admin password
 # • Master nodes need minimum 2 CPU cores and 2GB RAM
 # • Pod/Service CIDRs should not conflict with your LAN subnet
 # • Use odd numbers for master count (1, 3, 5, 7) for HA
-# • Ensure your Proxmox host has sufficient resources for all VMs`;
+# • Ensure your Proxmox host has sufficient resources for all VMs
+# • Network gateway/subnet auto-discovered from Proxmox bridge config
+# • Monitoring, security, and backup managed via GitOps (not here)`;
 }

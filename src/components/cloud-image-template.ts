@@ -133,6 +133,7 @@ export class TalosTemplate extends pulumi.ComponentResource {
       templateType: args.templateType,
       talosVersion,
       vmStorage,
+      qemuAgent: 'enabled',
     });
 
     // Get template specs based on type
@@ -192,7 +193,7 @@ export class TalosTemplate extends pulumi.ComponentResource {
           },
         ],
 
-        // QEMU Guest Agent (will be enabled when Talos boots)
+        // QEMU Guest Agent - properly enabled for Proxmox communication
         agent: {
           enabled: true,
           trim: true,

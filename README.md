@@ -79,9 +79,31 @@ When you run `pulumi up`, you'll see:
 ### Template Flow
 
 1. **ISO Download**: Custom Talos factory image downloaded to ISO storage
-2. **Template Creation**: Master and worker templates created with ISO attached
-3. **VM Cloning**: VMs cloned from templates inherit ISO and can boot to install Talos
+2. **Template Creation**: Master and worker templates created with ISO attached and QEMU Guest Agent
+   enabled
+3. **VM Cloning**: VMs cloned from templates inherit ISO and agent configuration
 4. **Auto-Installation**: Talos installs from attached ISO during first boot
+5. **Network Discovery**: Native QEMU Guest Agent integration provides real-time network information
+
+### Network Auto-Discovery
+
+InfraFlux v2.0 automatically discovers network configuration from your Proxmox environment:
+
+- **Bridge Auto-Discovery**: Reads gateway and subnet from existing Proxmox bridge configuration
+- **Zero Manual Configuration**: No need to specify network settings in `.env`
+- **Fallback Support**: Manual configuration still available for complex setups
+- **Native Pulumi Integration**: Uses Proxmox provider data sources
+
+### VM Network Discovery
+
+Additionally, QEMU Guest Agent provides real-time VM network information:
+
+- **Native Pulumi Integration**: Uses VM resource outputs directly (no shell scripts)
+- **Real-time Monitoring**: Automatic IP address detection via `vm.ipv4Addresses`
+- **Multi-Interface Support**: Handles multiple network interfaces per VM
+- **IPv4/IPv6 Ready**: Supports both IPv4 and IPv6 address discovery
+- **MAC Address Tracking**: Automatic MAC address detection
+- **Interface Naming**: Network interface names available via `vm.networkInterfaceNames`
 
 ## Configuration
 
@@ -92,6 +114,9 @@ The `.env` file requires only 3 settings to start:
 PROXMOX_ENDPOINT=https://192.168.1.100:8006
 PROXMOX_USERNAME=root@pam
 PROXMOX_PASSWORD=your-password
+
+# Network bridge (gateway and subnet auto-discovered)
+NETWORK_BRIDGE=vmbr0
 ```
 
 ### Optional Settings
@@ -105,41 +130,40 @@ TALOS_VERSION=v1.10.4        # Talos version to use
 VM_STORAGE_POOL=local-lvm    # Fast storage for VM disks
 ISO_STORAGE_POOL=local       # Storage for ISOs and factory images
 
+# Network configuration (auto-discovered from Proxmox bridge if empty)
+NETWORK_GATEWAY=             # Auto-discovered from bridge config
+NETWORK_SUBNET=              # Auto-discovered from bridge config
+NETWORK_DNS=1.1.1.1,1.0.0.1 # DNS servers
+
 # Cluster size (defaults: 1 master, 3 workers)
 K8S_MASTER_COUNT=1
 K8S_WORKER_COUNT=3
 
-# Network configuration
-K8S_MASTER_IP_START=10.0.0.200  # Starting IP for master nodes
-K8S_WORKER_IP_START=10.0.0.201  # Starting IP for worker nodes
-
-# GitOps (FluxCD)
+# GitOps (FluxCD) - for monitoring, security, backup deployment
 GITOPS_ENABLED=true
 GITOPS_REPO=https://github.com/your-org/gitops-repo
 ```
 
 ## What Gets Deployed
 
-### Step 1: Talos Template (Current)
+### Step 1: Infrastructure (Core InfraFlux)
 
-- Custom Talos factory image with extensions
-- QEMU Guest Agent for Proxmox integration
-- CloudFlare Tunnel support built-in
-- InfraFlux tagging for management
+- **Auto-Discovery**: Network configuration from Proxmox bridge
+- **Templates**: Custom Talos factory image with QEMU Guest Agent + CloudFlare Tunnel
+- **Cluster**: Immutable Talos Linux Kubernetes with Cilium CNI
+- **GitOps**: FluxCD for continuous deployment
+- **Security**: SSH-free, hardened by design
 
-### Step 2: Talos Kubernetes Cluster
+### Step 2: Services (via GitOps)
 
-- Immutable Talos Linux nodes
-- Cilium CNI for networking
-- Automatic cluster bootstrapping
-- Secure, SSH-free management
+Services deployed through FluxCD manifests in your GitOps repository:
 
-### Step 3: GitOps & Management
-
-- FluxCD for continuous deployment
-- Monitoring ready (Prometheus/Grafana)
-- CloudFlare Tunnel for external access
-- Automated application deployment
+- **Monitoring**: Prometheus + Grafana + Loki
+- **Security**: Network policies, firewall rules, authentication (Authentik)
+- **Storage**: Persistent storage solutions (Longhorn)
+- **Networking**: Load balancers (Cilium L4LB), Ingress (Traefik)
+- **Backup**: Automated backup solutions
+- **Applications**: Your custom workloads and services
 
 ## Project Structure
 

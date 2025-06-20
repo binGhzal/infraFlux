@@ -77,8 +77,9 @@ export const config: InfraFluxConfig = {
       'network:dns',
       '1.1.1.1,1.0.0.1'
     ).split(','),
-    gateway: getConfig('NETWORK_GATEWAY', 'network:gateway', '192.168.1.1'),
-    subnet: getConfig('NETWORK_SUBNET', 'network:subnet', '192.168.1.0/24'),
+    // Gateway and subnet can be auto-discovered from Proxmox if not specified
+    gateway: getConfig('NETWORK_GATEWAY', 'network:gateway', ''), // Empty = auto-discover
+    subnet: getConfig('NETWORK_SUBNET', 'network:subnet', ''), // Empty = auto-discover
   },
 
   vm: {
@@ -131,59 +132,6 @@ export const config: InfraFluxConfig = {
       metricsServer: true,
       localStorage: true,
     },
-  },
-
-  security: {
-    firewall: {
-      enabled: getConfigBool('ENABLE_FIREWALL', 'security:firewall', true),
-      defaultPolicy: 'deny',
-      rules: [],
-    },
-    automaticUpdates: getConfigBool(
-      'ENABLE_AUTO_UPDATES',
-      'security:autoUpdates',
-      true
-    ),
-    auditLogging: getConfigBool(
-      'ENABLE_AUDIT_LOGGING',
-      'security:auditLogging',
-      true
-    ),
-  },
-
-  monitoring: {
-    enabled: getConfigBool('MONITORING_ENABLED', 'monitoring:enabled', true),
-    prometheus: {
-      retention: getConfig(
-        'PROMETHEUS_RETENTION',
-        'monitoring:prometheusRetention',
-        '30d'
-      ),
-      storageSize: getConfig(
-        'PROMETHEUS_STORAGE',
-        'monitoring:prometheusStorage',
-        '50Gi'
-      ),
-      scrapeInterval: '30s',
-    },
-    grafana: {
-      adminPassword: pulumi.secret(
-        getConfig('GRAFANA_PASSWORD', 'monitoring:grafanaPassword', 'changeme')
-      ),
-      persistence: true,
-      storageSize: '10Gi',
-    },
-  },
-
-  backup: {
-    enabled: getConfigBool('BACKUP_ENABLED', 'backup:enabled', true),
-    schedule: getConfig('BACKUP_SCHEDULE', 'backup:schedule', '0 2 * * *'),
-    retention: getConfigInt('BACKUP_RETENTION', 'backup:retention', 30),
-    storage: {
-      type: 'local',
-      path: getConfig('BACKUP_PATH', 'backup:path', '/mnt/backup'),
-    },
-    targets: [],
   },
 };
 

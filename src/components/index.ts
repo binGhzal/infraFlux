@@ -12,5 +12,10 @@ export {
   TalosTemplateManager,
 } from './cloud-image-template';
 
-// Network discovery exports
-export { NetworkDiscovery, NetworkTransition } from './network-discovery';
+// Network discovery exports (native QEMU Guest Agent approach)
+export {
+  ProxmoxNetworkDiscovery,
+  NativeNetworkDiscovery,
+  NetworkDiscovery,
+  GuestAgentMonitor,
+} from './network-discovery';
