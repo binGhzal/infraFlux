@@ -31,13 +31,12 @@ async function main(): Promise<void> {
       clusterName: homelab.cluster.name,
       clusterEndpoint: homelab.cluster.endpoint,
       clusterKubeconfig: homelab.cluster.kubeconfig,
-      nodeIPs: homelab.nodes.map(node => node.ipAddress),
+      nodeIPs: homelab.nodes.map((node) => node.ipAddress),
       proxmoxNode: homelab.proxmoxNode,
       deploymentTime: new Date().toISOString(),
     };
-    
-    return outputs;
 
+    return outputs;
   } catch (error) {
     logger.error('Failed to deploy infrastructure:', error);
     throw error;

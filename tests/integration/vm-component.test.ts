@@ -21,7 +21,7 @@ describe('VMComponent Integration', () => {
 
   it('should have correct VM properties', () => {
     const component = new VMComponent('test-vm', mockProps);
-    
+
     expect(component.vm.name).toBe('test-vm');
     expect(component.vm.node).toBe('test-node');
     expect(component.vm.template).toBe('talos-test');

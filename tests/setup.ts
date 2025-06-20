@@ -8,7 +8,7 @@ import { logger, LogLevel } from '../src/utils/logger';
 beforeAll(() => {
   // Set log level to ERROR to reduce test output noise
   logger.setLogLevel(LogLevel.ERROR);
-  
+
   // Set test timeout to 30 seconds
   jest.setTimeout(30000);
 });
