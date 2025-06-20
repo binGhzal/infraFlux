@@ -1,0 +1,644 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# InfraFlux v2.0 - Research-First Workflows
+
+## 🔬 **RESEARCH METHODOLOGY**
+
+### **Pre-Implementation Research Checklist**
+```bash
+#!/bin/bash
+# File: scripts/research-workflow.sh
+
+TASK_NAME="$1"
+COMPONENT_TYPE="$2"
+
+echo "## Research Phase - $TASK_NAME" >> research-log.md
+echo "Date: $(date)" >> research-log.md
+echo "Component Type: $COMPONENT_TYPE" >> research-log.md
+echo "" >> research-log.md
+
+# Primary Documentation Research
+echo "### Primary Documentation Research" >> research-log.md
+echo "- [ ] Pulumi provider documentation" >> research-log.md
+echo "- [ ] Upstream project documentation" >> research-log.md
+echo "- [ ] Official API documentation" >> research-log.md
+echo "- [ ] Best practices guides" >> research-log.md
+echo "" >> research-log.md
+
+# Community Research
+echo "### Community Research" >> research-log.md
+echo "- [ ] GitHub issues and discussions" >> research-log.md
+echo "- [ ] Stack Overflow solutions" >> research-log.md
+echo "- [ ] Reddit/Discord community patterns" >> research-log.md
+echo "- [ ] Blog posts and tutorials" >> research-log.md
+echo "" >> research-log.md
+
+# Pattern Analysis
+echo "### Pattern Analysis" >> research-log.md
+echo "- [ ] Existing codebase patterns" >> research-log.md
+echo "- [ ] Similar implementations" >> research-log.md
+echo "- [ ] Anti-patterns to avoid" >> research-log.md
+echo "- [ ] Performance considerations" >> research-log.md
+echo "" >> research-log.md
+
+git add research-log.md
+git commit -m "docs: start research phase for $TASK_NAME
+
+- Research methodology initiated
+- Documentation sources identified
+- Community patterns to investigate"
+```
+
+### **Component Research Workflow**
+```typescript
+/**
+ * Research-Driven Component Development Process
+ * Use this workflow for any new component development
+ */
+
+// Step 1: Research Documentation Template
+interface ComponentResearch {
+  taskName: string;
+  componentType: 'vm' | 'template' | 'network' | 'storage' | 'cluster';
+  primarySources: ResearchSource[];
+  communityPatterns: ResearchSource[];
+  existingPatterns: string[];
+  designDecisions: DesignDecision[];
+  autoMaintenanceStrategy: string[];
+  gitOpsIntegration: string[];
+}
+
+interface ResearchSource {
+  url: string;
+  type: 'official' | 'community' | 'blog' | 'example';
+  relevance: 'high' | 'medium' | 'low';
+  keyFindings: string[];
+  applicablePatterns: string[];
+}
+
+interface DesignDecision {
+  decision: string;
+  rationale: string;
+  researchBasis: string[];
+  alternatives: string[];
+  tradeoffs: string[];
+}
+
+// Step 2: Research Execution Example
+const vmComponentResearch: ComponentResearch = {
+  taskName: 'Enhanced VM Component with Auto-Scaling',
+  componentType: 'vm',
+  primarySources: [
+    {
+      url: 'https://pulumi.com/registry/packages/proxmoxve/api-docs/vm/virtualmachine/',
+      type: 'official',
+      relevance: 'high',
+      keyFindings: [
+        'VirtualMachine resource supports dynamic memory allocation',
+        'Clone operations are faster than fresh installs',
+        'Agent integration provides real-time monitoring'
+      ],
+      applicablePatterns: [
+        'Template-based VM creation',
+        'Dynamic resource allocation',
+        'Agent-based monitoring'
+      ]
+    },
+    {
+      url: 'https://pve.proxmox.com/pve-docs/chapter-qm.html',
+      type: 'official',
+      relevance: 'high',
+      keyFindings: [
+        'QEMU Guest Agent enables hot-plug operations',
+        'VirtIO drivers provide optimal performance',
+        'Resource limits can be set at VM level'
+      ],
+      applicablePatterns: [
+        'Hot-plug resource scaling',
+        'VirtIO configuration',
+        'Resource governance'
+      ]
+    }
+  ],
+  communityPatterns: [
+    {
+      url: 'https://github.com/bpg/terraform-provider-proxmox/discussions/650',
+      type: 'community',
+      relevance: 'medium',
+      keyFindings: [
+        'Template inheritance reduces deployment time',
+        'Cloud-init integration provides automation',
+        'Tagging enables resource management'
+      ],
+      applicablePatterns: [
+        'Template inheritance hierarchy',
+        'Automated provisioning',
+        'Resource lifecycle management'
+      ]
+    }
+  ],
+  existingPatterns: [
+    'src/components/vm.ts - Basic VM cloning',
+    'src/components/cloud-image-template.ts - Template management',
+    'src/components/network-discovery.ts - Guest agent integration'
+  ],
+  designDecisions: [
+    {
+      decision: 'Use template-based cloning with hot-plug scaling',
+      rationale: 'Combines fast deployment with runtime flexibility',
+      researchBasis: [
+        'Pulumi provider documentation on cloning performance',
+        'Proxmox documentation on hot-plug capabilities'
+      ],
+      alternatives: [
+        'Fresh VM installation with scaling',
+        'Static resource allocation'
+      ],
+      tradeoffs: [
+        'Requires template maintenance overhead',
+        'Hot-plug may require guest cooperation'
+      ]
+    }
+  ],
+  autoMaintenanceStrategy: [
+    'Template auto-updates based on upstream releases',
+    'Resource scaling based on utilization metrics',
+    'Health monitoring with automatic recovery'
+  ],
+  gitOpsIntegration: [
+    'VM configurations managed via Git',
+    'Scaling policies defined declaratively',
+    'Update workflows triggered by commits'
+  ]
+};
+```
+
+## 🏗️ **IMPLEMENTATION WORKFLOWS**
+
+### **Network Component Research & Implementation**
+```bash
+#!/bin/bash
+# Research workflow for network discovery component
+
+echo "## Network Discovery Component Research" >> network-research.md
+echo "Date: $(date)" >> network-research.md
+
+# Step 1: Proxmox Network API Research
+echo "### Proxmox Network API Research" >> network-research.md
+echo "Consulting: https://pve.proxmox.com/pve-docs/api-viewer/index.html#/nodes/{node}/network" >> network-research.md
+
+# Use web search to find current patterns
+curl -s "https://api.github.com/search/repositories?q=proxmox+network+discovery&sort=updated" | \
+  jq -r '.items[0:3][] | "- \(.html_url) - \(.description)"' >> network-research.md
+
+echo "" >> network-research.md
+echo "### Key Research Findings:" >> network-research.md
+echo "1. Proxmox exposes bridge configuration via REST API" >> network-research.md
+echo "2. Guest Agent provides real-time network interface data" >> network-research.md
+echo "3. CIDR calculation can be automated from bridge configuration" >> network-research.md
+echo "" >> network-research.md
+
+# Step 2: Implementation Decision
+echo "### Implementation Decision:" >> network-research.md
+echo "- Use Pulumi data sources for bridge configuration" >> network-research.md
+echo "- Combine with VM guest agent outputs for real-time data" >> network-research.md
+echo "- Auto-calculate IP ranges based on discovered gateway/subnet" >> network-research.md
+echo "" >> network-research.md
+
+git add network-research.md
+git commit -m "research: network discovery patterns and implementation strategy
+
+- Proxmox REST API capabilities researched
+- Community patterns analyzed for best practices
+- Implementation approach decided based on research findings"
+```
+
+### **Storage Component Research Example**
+```typescript
+/**
+ * Storage Component Research-Driven Implementation
+ */
+
+// Research Phase Output
+const storageResearch = {
+  objective: 'Implement dual storage pool management with auto-optimization',
+
+  primaryResearch: [
+    {
+      source: 'https://pve.proxmox.com/pve-docs/chapter-pvesm.html',
+      findings: [
+        'Directory storage supports file-based images',
+        'LVM-thin provides space-efficient allocation',
+        'Storage migration possible between pools'
+      ],
+      applicablePatterns: [
+        'Storage type detection and optimization',
+        'Automatic migration based on performance needs',
+        'Space monitoring and alerting'
+      ]
+    },
+    {
+      source: 'https://pulumi.com/registry/packages/proxmoxve/api-docs/storage/',
+      findings: [
+        'Storage pool properties can be queried',
+        'Content type restrictions apply per pool',
+        'Path resolution is automatic'
+      ],
+      applicablePatterns: [
+        'Storage pool validation before use',
+        'Content-appropriate pool selection',
+        'Path abstraction in components'
+      ]
+    }
+  ],
+
+  implementationStrategy: {
+    approach: 'Intelligent storage selection with performance optimization',
+    autoMaintenance: [
+      'Storage utilization monitoring',
+      'Automatic cleanup of old artifacts',
+      'Performance-based pool selection'
+    ],
+    gitOpsIntegration: [
+      'Storage policies defined in configuration',
+      'Migration schedules managed via Git',
+      'Monitoring thresholds version-controlled'
+    ]
+  },
+
+  codePattern: `
+    // Research-based storage component
+    export class IntelligentStorageManager extends pulumi.ComponentResource {
+      private readonly pools: pulumi.Output<StoragePool[]>;
+
+      constructor(name: string, args: StorageManagerArgs) {
+        super('infraflux:storage:IntelligentStorageManager', name, {});
+
+        // Research finding: Query all storage pools first
+        this.pools = this.discoverStoragePools(args.provider);
+
+        // Research finding: Classify by performance characteristics
+        const poolClassification = this.classifyPools(this.pools);
+
+        // Research finding: Auto-select based on content type
+        this.configureAutoSelection(poolClassification);
+      }
+
+      private discoverStoragePools(provider: proxmox.Provider) {
+        // Based on research: Use data source to query pools
+        return pulumi.output(
+          proxmox.storage.getPoolsOutput({ /* query params */ })
+        );
+      }
+
+      public selectOptimalPool(contentType: ContentType): pulumi.Output<string> {
+        // Research-based selection logic
+        return this.pools.apply(pools => {
+          // Implementation based on research findings
+          return this.findBestPool(pools, contentType);
+        });
+      }
+    }
+  `
+};
+```
+
+## 🔄 **GITOPS WORKFLOW RESEARCH**
+
+### **FluxCD Integration Research Process**
+```bash
+#!/bin/bash
+# Research workflow for GitOps integration
+
+echo "## FluxCD Integration Research" >> gitops-research.md
+echo "Date: $(date)" >> gitops-research.md
+
+# Step 1: Official FluxCD Documentation
+echo "### FluxCD Core Concepts Research" >> gitops-research.md
+echo "Primary Source: https://fluxcd.io/flux/concepts/" >> gitops-research.md
+echo "" >> gitops-research.md
+
+# Step 2: Pulumi FluxCD Provider Research
+echo "### Pulumi FluxCD Provider Research" >> gitops-research.md
+echo "Provider Docs: https://pulumi.com/registry/packages/flux/" >> gitops-research.md
+echo "" >> gitops-research.md
+
+# Step 3: Community Patterns Research
+echo "### Community Integration Patterns" >> gitops-research.md
+echo "Research Sources:" >> gitops-research.md
+echo "- https://github.com/fluxcd/flux2-kustomize-helm-example" >> gitops-research.md
+echo "- https://github.com/onedr0p/home-ops" >> gitops-research.md
+echo "" >> gitops-research.md
+
+# Step 4: Implementation Pattern Decision
+echo "### Implementation Pattern Decision" >> gitops-research.md
+echo "Based on research findings:" >> gitops-research.md
+echo "1. Use GitRepository + Kustomization pattern" >> gitops-research.md
+echo "2. Separate infrastructure (Pulumi) from applications (Flux)" >> gitops-research.md
+echo "3. Bootstrap Flux via Pulumi, manage apps via Git" >> gitops-research.md
+echo "" >> gitops-research.md
+
+git add gitops-research.md
+git commit -m "research: FluxCD integration patterns and implementation strategy
+
+- Official FluxCD concepts and patterns researched
+- Pulumi provider capabilities analyzed
+- Community patterns studied for best practices
+- Implementation approach decided based on research"
+```
+
+## 🧪 **TESTING RESEARCH WORKFLOWS**
+
+### **Testing Strategy Research Process**
+```typescript
+/**
+ * Testing Strategy Research and Implementation
+ */
+
+interface TestingResearch {
+  testingTypes: TestingType[];
+  toolEvaluation: ToolEvaluation[];
+  patternAnalysis: PatternAnalysis[];
+  implementationPlan: ImplementationPlan;
+}
+
+interface TestingType {
+  type: 'unit' | 'integration' | 'e2e' | 'property-based';
+  applicability: string[];
+  researchSources: string[];
+  recommendedTools: string[];
+  patterns: string[];
+}
+
+const testingResearch: TestingResearch = {
+  testingTypes: [
+    {
+      type: 'unit',
+      applicability: ['Component logic', 'Configuration validation', 'Utility functions'],
+      researchSources: [
+        'https://pulumi.com/docs/guides/testing/',
+        'https://jestjs.io/docs/getting-started',
+        'https://github.com/pulumi/examples/tree/master/testing-unit-ts'
+      ],
+      recommendedTools: ['Jest', 'Pulumi test framework', 'TypeScript'],
+      patterns: [
+        'Mock Pulumi providers',
+        'Test component interfaces',
+        'Validate configuration schemas'
+      ]
+    },
+    {
+      type: 'integration',
+      applicability: ['VM provisioning', 'Network discovery', 'Cluster deployment'],
+      researchSources: [
+        'https://github.com/pulumi/pulumi/tree/master/tests/integration',
+        'https://testcontainers.org/',
+        'https://github.com/bats-core/bats-core'
+      ],
+      recommendedTools: ['Testcontainers', 'Bats', 'Docker'],
+      patterns: [
+        'Sandbox environments',
+        'Resource cleanup automation',
+        'Real provider testing'
+      ]
+    }
+  ],
+
+  toolEvaluation: [
+    {
+      tool: 'Jest + @pulumi/pulumi/testing',
+      pros: ['Native Pulumi support', 'Rich mocking', 'TypeScript integration'],
+      cons: ['Limited infrastructure testing', 'Mock complexity'],
+      researchBasis: 'https://pulumi.com/docs/guides/testing/unit/',
+      recommendation: 'Use for component unit testing'
+    },
+    {
+      tool: 'Testcontainers + Real Proxmox',
+      pros: ['Real infrastructure testing', 'Isolation', 'Cleanup automation'],
+      cons: ['Resource overhead', 'Slower execution'],
+      researchBasis: 'https://testcontainers.org/modules/pulumi/',
+      recommendation: 'Use for integration testing'
+    }
+  ],
+
+  patternAnalysis: [
+    {
+      pattern: 'Property-based testing for configuration',
+      source: 'https://fast-check.dev/',
+      applicability: 'Configuration validation edge cases',
+      implementation: 'Generate random valid/invalid configs'
+    },
+    {
+      pattern: 'Snapshot testing for resource output',
+      source: 'https://jestjs.io/docs/snapshot-testing',
+      applicability: 'Pulumi resource generation',
+      implementation: 'Snapshot expected resource configurations'
+    }
+  ],
+
+  implementationPlan: {
+    phase1: 'Unit tests for all components with >80% coverage',
+    phase2: 'Integration tests for critical workflows',
+    phase3: 'Property-based testing for edge cases',
+    phase4: 'End-to-end testing with real infrastructure'
+  }
+};
+
+// Implementation based on research
+export class TestingFramework {
+  /**
+   * Research-based testing setup
+   * Sources: Jest docs, Pulumi testing guide, Testcontainers
+   */
+  public static setupUnitTesting(): void {
+    // Mock setup based on Pulumi testing documentation
+    jest.mock('@pulumi/pulumi', () => ({
+      ...jest.requireActual('@pulumi/pulumi'),
+      // Mock implementations based on research
+    }));
+  }
+
+  public static async setupIntegrationTesting(): Promise<TestEnvironment> {
+    // Testcontainer setup based on research
+    const proxmoxContainer = await GenericContainer.fromDockerfile('.')
+      .withBuildArgs({ BASE_IMAGE: 'proxmox/proxmox-ve' })
+      .build();
+
+    return new TestEnvironment(proxmoxContainer);
+  }
+}
+```
+
+## 🔍 **DEBUGGING RESEARCH WORKFLOWS**
+
+### **Issue Research Template**
+```bash
+#!/bin/bash
+# Research workflow for debugging issues
+
+ISSUE_DESCRIPTION="$1"
+COMPONENT_NAME="$2"
+
+echo "## Debugging Research - $ISSUE_DESCRIPTION" >> debug-research.md
+echo "Date: $(date)" >> debug-research.md
+echo "Component: $COMPONENT_NAME" >> debug-research.md
+echo "" >> debug-research.md
+
+# Step 1: Known Issues Research
+echo "### Known Issues Research" >> debug-research.md
+echo "GitHub Issues Search:" >> debug-research.md
+curl -s "https://api.github.com/search/issues?q=repo:muhlba91/pulumi-proxmoxve+$ISSUE_DESCRIPTION" | \
+  jq -r '.items[0:3][] | "- \(.html_url) - \(.title)"' >> debug-research.md
+
+echo "" >> debug-research.md
+echo "Stack Overflow Search:" >> debug-research.md
+echo "- https://stackoverflow.com/search?q=proxmox+$ISSUE_DESCRIPTION" >> debug-research.md
+echo "" >> debug-research.md
+
+# Step 2: Documentation Research
+echo "### Documentation Research" >> debug-research.md
+echo "- Pulumi Provider Docs: https://pulumi.com/registry/packages/proxmoxve/" >> debug-research.md
+echo "- Proxmox API Docs: https://pve.proxmox.com/pve-docs/api-viewer/" >> debug-research.md
+echo "- Community Forums: https://forum.proxmox.com/" >> debug-research.md
+echo "" >> debug-research.md
+
+# Step 3: Solution Tracking
+echo "### Solution Tracking" >> debug-research.md
+echo "- [ ] Reproduce issue in isolation" >> debug-research.md
+echo "- [ ] Identify root cause from research" >> debug-research.md
+echo "- [ ] Apply researched solution" >> debug-research.md
+echo "- [ ] Verify fix with testing" >> debug-research.md
+echo "- [ ] Document solution for future reference" >> debug-research.md
+echo "" >> debug-research.md
+
+git add debug-research.md
+git commit -m "debug: research phase for $ISSUE_DESCRIPTION
+
+- Known issues researched across GitHub, Stack Overflow
+- Official documentation consulted
+- Solution tracking initiated"
+```
+
+## 📚 **KNOWLEDGE BASE BUILDING**
+
+### **Research Knowledge Extraction**
+```typescript
+/**
+ * Extract and codify research findings for reuse
+ */
+
+interface ResearchKnowledge {
+  topic: string;
+  researchDate: string;
+  sources: ResearchSource[];
+  keyFindings: string[];
+  applicablePatterns: CodePattern[];
+  lessons: string[];
+  futureResearch: string[];
+}
+
+export class KnowledgeBase {
+  /**
+   * Store research findings for future reference
+   * Based on spaced repetition learning research
+   */
+  public static async storeResearch(research: ResearchKnowledge): Promise<void> {
+    const knowledgeFile = `research/knowledge-base/${research.topic.toLowerCase().replace(/\s+/g, '-')}.md`;
+
+    const content = `# ${research.topic} - Research Summary
+
+## Research Date: ${research.researchDate}
+
+## Sources
+${research.sources.map(s => `- [${s.type}] ${s.url}`).join('\n')}
+
+## Key Findings
+${research.keyFindings.map(f => `- ${f}`).join('\n')}
+
+## Applicable Patterns
+${research.applicablePatterns.map(p => `### ${p.name}\n\`\`\`typescript\n${p.code}\n\`\`\``).join('\n\n')}
+
+## Lessons Learned
+${research.lessons.map(l => `- ${l}`).join('\n')}
+
+## Future Research Directions
+${research.futureResearch.map(f => `- ${f}`).join('\n')}
+
+## Implementation Status
+- [ ] Pattern implemented
+- [ ] Tests written
+- [ ] Documentation updated
+- [ ] Knowledge shared with team
+`;
+
+    await fs.writeFile(knowledgeFile, content);
+
+    // Git integration for knowledge management
+    await exec(`git add ${knowledgeFile}`);
+    await exec(`git commit -m "knowledge: research findings for ${research.topic}
+
+- Research sources documented and validated
+- Key patterns extracted for reuse
+- Implementation guidance provided"`);
+  }
+
+  /**
+   * Query knowledge base for similar research
+   */
+  public static async findRelatedResearch(topic: string): Promise<ResearchKnowledge[]> {
+    // Implementation would search existing research files
+    // and return related knowledge for reference
+    return [];
+  }
+}
+
+// Usage example:
+const vmResearch: ResearchKnowledge = {
+  topic: 'Proxmox VM Template Optimization',
+  researchDate: new Date().toISOString(),
+  sources: [
+    {
+      url: 'https://pve.proxmox.com/pve-docs/chapter-qm.html#qm_templates',
+      type: 'official',
+      relevance: 'high',
+      keyFindings: ['Templates reduce disk usage', 'Cloud-init integration possible'],
+      applicablePatterns: ['Template cloning', 'Cloud-init automation']
+    }
+  ],
+  keyFindings: [
+    'Template-based deployment is 10x faster than fresh installation',
+    'Templates support cloud-init for automated configuration',
+    'Template versioning enables rollback capabilities'
+  ],
+  applicablePatterns: [
+    {
+      name: 'Fast VM Deployment',
+      code: `
+        const vm = new proxmox.vm.VirtualMachine('vm', {
+          clone: {
+            vmId: templateId,
+            full: true // Full clone for independence
+          }
+        });
+      `
+    }
+  ],
+  lessons: [
+    'Templates should be regularly updated with latest base images',
+    'Cloud-init requires specific template preparation',
+    'Full clones provide better isolation than linked clones'
+  ],
+  futureResearch: [
+    'Automated template update workflows',
+    'Template testing and validation strategies',
+    'Multi-tier template hierarchies'
+  ]
+};
+
+KnowledgeBase.storeResearch(vmResearch);
+```
+
+These research workflows ensure **systematic**, **documented**, and **reusable** knowledge building that enhances future development velocity and decision quality.

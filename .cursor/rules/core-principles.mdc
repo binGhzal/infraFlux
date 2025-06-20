@@ -1,0 +1,210 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# InfraFlux v2.0 - Core Development Principles
+
+## 🎯 **MANDATORY APPROACHES**
+
+### **Research-First Development**
+- **ALWAYS** consult official documentation before implementing
+- **WEB SEARCH** for latest patterns and best practices
+- **Document research** with links in code comments
+- **Validate approaches** align with declarative IaC principles
+
+### **Pure Pulumi Philosophy**
+- **NEVER** use shell commands or `command.local.Command`
+- **USE** native Pulumi providers exclusively
+- **DECLARE** everything as Pulumi resources
+- **LEVERAGE** resource dependencies and outputs
+
+### **Git Integration Workflow**
+```bash
+# After every significant change:
+git add .
+git commit -m "type: description with research refs"
+git push origin main
+# Update memory with completion status
+```
+
+### **Memory-Driven Task Management**
+After each task completion, store:
+- **Task completed** with research references
+- **Files modified** and next priorities
+- **Auto-maintenance** features implemented
+- **Blockers** and next steps identified
+
+## 🏗️ **COMPONENT PATTERNS**
+
+### **Standard Component Template**
+```typescript
+/**
+ * Component: ComponentName
+ * Research: [links to documentation consulted]
+ * Auto-Maintenance: [self-updating capabilities]
+ * GitOps Integration: [declarative management]
+ */
+export class ComponentName extends pulumi.ComponentResource {
+  public readonly output: ComponentOutput;
+
+  constructor(name: string, args: ComponentArgs, opts?: pulumi.ComponentResourceOptions) {
+    super('infraflux:category:ComponentName', name, {}, opts);
+
+    // 1. Validate inputs with researched patterns
+    // 2. Check existing resources using data sources
+    // 3. Create with auto-update capabilities
+    // 4. Configure GitOps integration
+    // 5. Register outputs with monitoring
+
+    this.registerOutputs({ output: this.output });
+  }
+}
+```
+
+### **Error Handling Pattern**
+```typescript
+import { retryOperation, ErrorContext } from '@/utils/error-handler';
+
+const context: ErrorContext = {
+  component: 'ComponentName',
+  operation: 'description',
+  researchRefs: ['https://docs.example.com/...'],
+};
+
+const resource = await retryOperation(async () => {
+  return new provider.Resource(/* config */);
+}, context);
+```
+
+### **Configuration Validation Pattern**
+```typescript
+import * as Joi from 'joi';
+
+const schema = Joi.object({
+  field: Joi.string().required(),
+  autoUpdate: Joi.boolean().default(true),
+}).meta({
+  research: ['https://joi.dev/api/'],
+  autoMaintenance: ['Auto-correction to safe defaults']
+});
+```
+
+## 🔧 **RESOURCE MANAGEMENT**
+
+### **Template-First Strategy**
+1. **ISO Download** → Check existence, download if needed
+2. **Template Creation** → Master + Worker templates with ISO attached
+3. **VM Cloning** → Clone from templates (10x faster than fresh install)
+4. **Cluster Bootstrap** → Apply Talos configurations
+
+### **Storage Separation**
+- **ISOs**: `local` storage (cheaper/slower)
+- **VMs**: `local-lvm` storage (faster/SSD)
+- **Organization**: Separate pools for better management
+
+### **ID Ranges (Auto-Managed)**
+- **Masters**: 8000-8099
+- **Workers**: 8100-8199
+- **Templates**: 9010+ (avoid conflicts)
+
+### **Network Auto-Discovery**
+- Empty `NETWORK_GATEWAY` + `NETWORK_SUBNET` = auto-discover from Proxmox bridge
+- Native QEMU Guest Agent integration for real-time VM network info
+- No shell scripts - pure Pulumi VM outputs
+
+## 🚨 **CRITICAL REQUIREMENTS**
+
+### **Technology Selection Criteria** (Weighted)
+1. **Declarative configuration** (10/10) - YAML/JSON/code-based
+2. **Auto-update capabilities** (9/10) - Self-managing versions
+3. **GitOps compatibility** (9/10) - FluxCD/ArgoCD friendly
+4. **Pulumi provider support** (8/10) - Native resource management
+5. **Community maintenance** (7/10) - Active development
+
+### **Auto-Maintaining Solutions Priority**
+- **Self-Managing**: Systems update and maintain themselves
+- **GitOps Integration**: Changes via Git commits only
+- **Zero-Touch Operations**: No manual intervention required
+- **Self-Healing**: Automatic correction of drift
+- **Automated Updates**: Components self-update safely
+
+### **Security and Compliance**
+- **Pulumi Secrets**: Use `pulumi.secret()` for sensitive data
+- **No Hardcoding**: Credentials in env vars only
+- **Resource Tagging**: All resources tagged 'infraflux-managed'
+- **ESC Integration**: Pulumi ESC for production secrets
+
+## 📊 **QUALITY STANDARDS**
+
+### **Before Every Commit**
+```bash
+npm run lint:fix    # Zero tolerance for linting errors
+npm test           # All tests must pass
+npm run validate-config  # Configuration validation
+npm run build      # TypeScript compilation success
+```
+
+### **Performance Targets**
+- **Template Creation**: < 5 minutes
+- **VM Cloning**: < 2 minutes per VM
+- **Cluster Bootstrap**: < 10 minutes total
+- **Network Discovery**: < 30 seconds
+
+### **Testing Requirements**
+- **Unit Tests**: 80%+ coverage with mocked Pulumi APIs
+- **Integration Tests**: Real Proxmox sandbox with cleanup
+- **Property-Based**: Random configuration validation
+- **Error Testing**: All error scenarios with recovery
+
+## 🔄 **DEVELOPMENT WORKFLOW**
+
+### **Task Execution Pattern**
+1. **Research Phase** (20% of time) - Consult documentation
+2. **Implementation Phase** (60% of time) - Follow patterns above
+3. **Testing Phase** (15% of time) - Comprehensive validation
+4. **Documentation Phase** (5% of time) - Update with research refs
+
+### **Memory Update Template**
+```typescript
+const taskMemory = {
+  completed: 'Brief description',
+  research: ['https://docs.consulted.com/...'],
+  filesChanged: ['src/components/...'],
+  nextPriority: 'What to work on next',
+  autoMaintenance: 'Self-updating features added',
+  gitCommit: 'abc123'
+};
+```
+
+## 📁 **KEY FILE REFERENCES**
+
+### **Entry Points**
+- `src/index.ts` - Main deployment orchestration
+- `src/config/index.ts` - Environment-based configuration
+- `src/components/` - Reusable infrastructure components
+
+### **Essential Utilities**
+- `src/utils/error-handler.ts` - Enhanced error handling with recovery
+- `src/utils/logger.ts` - Structured logging with context
+- `src/utils/config-validator.ts` - Joi validation with auto-correction
+
+### **Rule Navigation**
+- `development-guidelines.mdc` - Detailed coding standards (3,900+ lines)
+- `implementation-roadmap.mdc` - Task prioritization and management
+- `technology-stack.mdc` - Provider patterns and integrations
+- `troubleshooting-guide.mdc` - Research-driven debugging
+
+## 🎯 **SUCCESS METRICS**
+
+- **Reliability**: 99%+ successful deployments
+- **Performance**: Sub-10 minute cluster deployments
+- **Security**: Zero critical vulnerabilities
+- **Automation**: Minimal manual intervention required
+- **Research Integration**: All decisions documented with sources
+
+---
+
+**Quick Start**: Copy env.example to .env, set Proxmox credentials, run `pulumi up`
+**Documentation**: Everything auto-configured with production defaults
+**Support**: Research-first approach with comprehensive troubleshooting

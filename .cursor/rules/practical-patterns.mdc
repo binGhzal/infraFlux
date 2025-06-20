@@ -1,0 +1,473 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# InfraFlux v2.0 - Practical Patterns & Code Templates
+
+## 🏗️ **COMPONENT TEMPLATES**
+
+### **Standard Pulumi Component Template**
+```typescript
+import * as pulumi from '@pulumi/pulumi';
+import * as proxmox from '@muhlba91/pulumi-proxmoxve';
+import { logResource } from '@/utils/logger';
+import { retryOperation, ErrorContext } from '@/utils/error-handler';
+
+/**
+ * ComponentName - [Brief description]
+ *
+ * Research Sources:
+ * - https://pulumi.com/registry/packages/proxmoxve/api-docs/
+ * - https://pve.proxmox.com/pve-docs/api-viewer/
+ *
+ * Auto-Maintenance Features:
+ * - [List self-updating capabilities]
+ * - [Describe automated management]
+ *
+ * GitOps Integration:
+ * - [Explain declarative management]
+ */
+
+export interface ComponentNameArgs {
+  provider: proxmox.Provider;
+  name: string;
+  autoUpdate?: boolean;
+  tags?: string[];
+}
+
+export interface ComponentNameOutput {
+  id: pulumi.Output<string>;
+  name: pulumi.Output<string>;
+  ready: pulumi.Output<boolean>;
+  status: pulumi.Output<string>;
+}
+
+export class ComponentName extends pulumi.ComponentResource {
+  public readonly output: ComponentNameOutput;
+
+  constructor(
+    name: string,
+    args: ComponentNameArgs,
+    opts?: pulumi.ComponentResourceOptions
+  ) {
+    super('infraflux:category:ComponentName', name, {}, opts);
+
+    logResource('ComponentName', 'Creating', {
+      name,
+      autoUpdate: args.autoUpdate ?? true,
+      researchValidated: true,
+    });
+
+    // 1. Validate inputs with researched patterns
+    this.validateInputs(args);
+
+    // 2. Check for existing resources using data sources
+    const existing = this.checkExisting(args);
+
+    // 3. Create resource with error handling
+    const resource = this.createResource(args, existing);
+
+    // 4. Configure auto-maintenance
+    this.configureAutoMaintenance(resource, args);
+
+    // 5. Register outputs
+    this.output = {
+      id: resource.apply(r => r.id),
+      name: resource.apply(r => r.name),
+      ready: resource.apply(r => this.isReady(r)),
+      status: resource.apply(r => r.status || 'created'),
+    };
+
+    this.registerOutputs({ output: this.output });
+  }
+
+  private validateInputs(args: ComponentNameArgs): void {
+    if (!args.name || args.name.trim().length === 0) {
+      throw new Error('Component name is required');
+    }
+  }
+
+  private checkExisting(args: ComponentNameArgs): pulumi.Output<boolean> {
+    // Use data sources to check for existing resources
+    return pulumi.output(false); // Implement actual check
+  }
+
+  private createResource(args: ComponentNameArgs, existing: pulumi.Output<boolean>) {
+    const context: ErrorContext = {
+      component: 'ComponentName',
+      operation: 'resource creation',
+      resourceId: args.name,
+    };
+
+    return retryOperation(async () => {
+      return new proxmox.vm.VirtualMachine(`${args.name}-resource`, {
+        nodeName: 'pve',
+        name: args.name,
+        tags: ['infraflux-managed', ...(args.tags || [])],
+      }, { provider: args.provider });
+    }, context);
+  }
+
+  private configureAutoMaintenance(resource: any, args: ComponentNameArgs): void {
+    if (args.autoUpdate) {
+      logResource('ComponentName', 'AutoMaintenance', {
+        enabled: true,
+        features: ['self-updating', 'drift-correction'],
+      });
+    }
+  }
+
+  private isReady(resource: any): boolean {
+    return resource.status === 'running';
+  }
+}
+```
+
+### **Data Source Checker Pattern**
+```typescript
+/**
+ * Use this pattern to check for existing resources before creation
+ */
+export class ExistingResourceChecker extends pulumi.ComponentResource {
+  public readonly exists: pulumi.Output<boolean>;
+  public readonly resourceData: pulumi.Output<any>;
+
+  constructor(name: string, args: { resourceId: string; provider: proxmox.Provider }) {
+    super('infraflux:data:ExistingResourceChecker', name, {});
+
+    this.resourceData = pulumi.output(
+      proxmox.vm.getVirtualMachineOutput({
+        vmId: parseInt(args.resourceId),
+        nodeName: 'pve',
+      })
+    ).apply(data => data || null);
+
+    this.exists = this.resourceData.apply(data => !!data);
+
+    logResource('ExistingResourceChecker', 'Checking', {
+      resourceId: args.resourceId,
+      method: 'Pulumi data source query',
+    });
+
+    this.registerOutputs({
+      exists: this.exists,
+      resourceData: this.resourceData,
+    });
+  }
+}
+```
+
+## 🔧 **CONFIGURATION PATTERNS**
+
+### **Environment-Based Configuration**
+```typescript
+// src/config/component-config.ts
+import * as Joi from 'joi';
+
+export interface ComponentConfig {
+  enabled: boolean;
+  autoUpdate: boolean;
+  specs: {
+    cores: number;
+    memory: number;
+    diskSize: string;
+  };
+  monitoring: {
+    enabled: boolean;
+    interval: string;
+  };
+}
+
+const componentConfigSchema = Joi.object({
+  enabled: Joi.boolean().default(true),
+  autoUpdate: Joi.boolean().default(true),
+  specs: Joi.object({
+    cores: Joi.number().min(1).max(64).default(2),
+    memory: Joi.number().min(512).max(1048576).default(4096),
+    diskSize: Joi.string().pattern(/^\d+[GT]$/).default('20G'),
+  }),
+  monitoring: Joi.object({
+    enabled: Joi.boolean().default(true),
+    interval: Joi.string().default('30s'),
+  }),
+}).meta({
+  description: 'Component configuration with auto-maintenance',
+  research: ['https://joi.dev/api/'],
+});
+
+export function getComponentConfig(): ComponentConfig {
+  const rawConfig = {
+    enabled: process.env.COMPONENT_ENABLED !== 'false',
+    autoUpdate: process.env.COMPONENT_AUTO_UPDATE !== 'false',
+    specs: {
+      cores: parseInt(process.env.COMPONENT_CORES || '2'),
+      memory: parseInt(process.env.COMPONENT_MEMORY || '4096'),
+      diskSize: process.env.COMPONENT_DISK || '20G',
+    },
+    monitoring: {
+      enabled: process.env.COMPONENT_MONITORING !== 'false',
+      interval: process.env.COMPONENT_MONITORING_INTERVAL || '30s',
+    },
+  };
+
+  const { error, value } = componentConfigSchema.validate(rawConfig);
+  if (error) {
+    throw new Error(`Component configuration validation failed: ${error.message}`);
+  }
+
+  return value;
+}
+```
+
+## 🌐 **NETWORK PATTERNS**
+
+### **Auto-Discovery Network Configuration**
+```typescript
+/**
+ * Auto-discover network configuration from Proxmox bridge
+ */
+export class NetworkAutoDiscovery extends pulumi.ComponentResource {
+  public readonly config: pulumi.Output<NetworkConfig>;
+
+  constructor(name: string, args: { provider: proxmox.Provider; bridgeName: string }) {
+    super('infraflux:network:AutoDiscovery', name, {});
+
+    logResource('NetworkAutoDiscovery', 'Starting', {
+      bridge: args.bridgeName,
+      method: 'Proxmox bridge auto-discovery',
+    });
+
+    this.config = this.discoverNetworkConfig(args);
+    this.registerOutputs({ config: this.config });
+  }
+
+  private discoverNetworkConfig(args: { bridgeName: string }): pulumi.Output<any> {
+    const hostNetwork = pulumi.output(
+      proxmox.network.getHostsOutput({ nodeName: 'pve' })
+    );
+
+    return hostNetwork.apply(data => {
+      const discovered = {
+        bridge: args.bridgeName,
+        gateway: '192.168.1.1', // Extract from data
+        subnet: '192.168.1.0/24', // Extract from data
+        dns: ['1.1.1.1', '1.0.0.1'],
+      };
+
+      logResource('NetworkAutoDiscovery', 'Discovered', discovered);
+      return discovered;
+    });
+  }
+}
+```
+
+### **VM Network Discovery with QEMU Guest Agent**
+```typescript
+/**
+ * Native QEMU Guest Agent network discovery
+ */
+export class VMNetworkInfo extends pulumi.ComponentResource {
+  public readonly networkData: pulumi.Output<any>;
+
+  constructor(name: string, args: { vm: proxmox.vm.VirtualMachine }) {
+    super('infraflux:network:VMNetworkInfo', name, {});
+
+    // Use native Pulumi VM outputs (no shell commands!)
+    this.networkData = pulumi.all([
+      args.vm.macAddresses,
+      args.vm.ipv4Addresses,
+      args.vm.ipv6Addresses,
+      args.vm.networkInterfaceNames,
+    ]).apply(([macs, ipv4s, ipv6s, interfaces]) => ({
+      macAddresses: macs || [],
+      ipv4Addresses: ipv4s || [],
+      ipv6Addresses: ipv6s || [],
+      interfaces: interfaces || [],
+      primaryIP: ipv4s?.[0]?.[0] || '',
+      ready: interfaces.length > 0 && ipv4s.length > 0,
+    }));
+
+    this.registerOutputs({ networkData: this.networkData });
+  }
+}
+```
+
+## 🚨 **ERROR HANDLING PATTERNS**
+
+### **Resource Creation with Recovery**
+```typescript
+/**
+ * Create resources with automated recovery strategies
+ */
+export async function createResourceWithRecovery<T>(
+  name: string,
+  createFn: () => Promise<T>,
+  context: ErrorContext,
+  maxRetries: number = 3
+): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      logResource('ResourceCreation', 'Attempting', {
+        attempt,
+        maxRetries,
+        context: context.component,
+      });
+
+      return await createFn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError || new Error('Resource creation failed after all retries');
+}
+```
+
+## 🧪 **TESTING PATTERNS**
+
+### **Component Unit Test Template**
+```typescript
+// tests/unit/components/component-name.test.ts
+import { ComponentName } from '@/components/component-name';
+
+describe('ComponentName', () => {
+  let mockProvider: any;
+
+  beforeEach(() => {
+    mockProvider = { /* mock provider */ };
+  });
+
+  it('should create component with default configuration', async () => {
+    const component = new ComponentName('test-component', {
+      provider: mockProvider,
+      name: 'test',
+    });
+
+    expect(component.output).toBeDefined();
+  });
+
+  it('should validate input parameters', () => {
+    expect(() => {
+      new ComponentName('test-component', {
+        provider: mockProvider,
+        name: '', // Invalid empty name
+      });
+    }).toThrow('validation failed');
+  });
+});
+```
+
+## 📋 **MEMORY UPDATE PATTERNS**
+
+### **Task Completion Memory Template**
+```typescript
+const taskMemory = {
+  taskCompleted: 'Implemented auto-updating monitoring component',
+  dateCompleted: new Date().toISOString(),
+  timeSpent: '8 hours',
+
+  researchPhase: {
+    timeSpent: '2 hours',
+    primarySources: [
+      'https://prometheus.io/docs/prometheus/latest/configuration/',
+      'https://pulumi.com/registry/packages/kubernetes/api-docs/helm/v3/release/',
+    ],
+    keyFindings: [
+      'Helm charts support auto-updates via renovate bot',
+      'Prometheus can be configured declaratively',
+    ],
+  },
+
+  implementation: {
+    approach: 'Declarative Helm deployment with GitOps integration',
+    autoMaintenance: [
+      'Chart updates via renovate bot',
+      'Configuration changes via Git commits',
+    ],
+    filesChanged: [
+      'src/components/monitoring.ts',
+      'src/config/monitoring.ts',
+    ],
+  },
+
+  nextPriorities: [
+    {
+      task: 'Implement Grafana dashboards with auto-import',
+      priority: 'HIGH',
+      estimatedTime: '8-10 hours',
+      dependencies: ['Prometheus metrics collection'],
+    },
+  ],
+
+  lessonsLearned: [
+    'Helm values.yaml should be stored in Git for GitOps integration',
+    'Auto-discovery works better than static configuration',
+  ],
+};
+```
+
+## 🔄 **GITOPS PATTERNS**
+
+### **Declarative Application Deployment**
+```typescript
+/**
+ * GitOps application deployment pattern
+ */
+export class GitOpsApplication extends pulumi.ComponentResource {
+  public readonly ready: pulumi.Output<boolean>;
+
+  constructor(name: string, args: {
+    kubeProvider: any;
+    appName: string;
+    namespace: string;
+    gitRepo: string;
+    path: string;
+  }) {
+    super('infraflux:gitops:Application', name, {});
+
+    logResource('GitOpsApplication', 'Creating', {
+      app: args.appName,
+      repo: args.gitRepo,
+      path: args.path,
+      method: 'FluxCD Kustomization',
+    });
+
+    // Create Kustomization for the application
+    const kustomization = new k8s.apiextensions.CustomResource(
+      `${name}-kustomization`,
+      {
+        apiVersion: 'kustomize.toolkit.fluxcd.io/v1',
+        kind: 'Kustomization',
+        metadata: {
+          name: args.appName,
+          namespace: 'flux-system',
+        },
+        spec: {
+          interval: '5m',
+          path: args.path,
+          prune: true,
+          sourceRef: {
+            kind: 'GitRepository',
+            name: 'flux-system',
+          },
+          targetNamespace: args.namespace,
+        },
+      },
+      { provider: args.kubeProvider, parent: this }
+    );
+
+    this.ready = pulumi.output(true);
+    this.registerOutputs({ ready: this.ready });
+  }
+}
+```
+
+These patterns provide concrete, copy-paste templates that follow research-first, auto-maintaining, and GitOps principles while being immediately usable for development.

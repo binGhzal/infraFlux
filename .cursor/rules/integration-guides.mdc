@@ -1,0 +1,320 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# InfraFlux v2.0 - Integration Guides
+
+## 🔗 **CODEBASE INTEGRATION**
+
+### **Adding New Components to Existing Architecture**
+
+When adding new components to InfraFlux, follow these integration patterns:
+
+```typescript
+// Follow existing component structure from src/components/
+export class NewComponent extends pulumi.ComponentResource {
+  constructor(name: string, args: NewComponentArgs, opts?: pulumi.ComponentResourceOptions) {
+    super('infraflux:category:NewComponent', name, {}, opts);
+
+    // Integration Point 1: Use existing configuration patterns
+    const config = getConfig(); // From src/config/index.ts
+
+    // Integration Point 2: Use existing error handling
+    const context: ErrorContext = {
+      component: 'NewComponent',
+      operation: 'creating resource',
+      resourceId: args.resourceId,
+    };
+
+    // Integration Point 3: Use existing logging
+    logResource('NewComponent', 'Creating', {
+      name,
+      integration: 'InfraFlux v2.0',
+      researchValidated: true,
+    });
+
+    this.registerOutputs({ /* outputs */ });
+  }
+}
+```
+
+### **Component Integration Steps**
+
+1. **Add to component index** - `src/components/index.ts`
+2. **Add to main deployment** - `src/index.ts`
+3. **Add configuration support** - `src/config/index.ts`
+4. **Add to types** - `src/types/index.ts`
+5. **Add validation** - `src/utils/config-validator.ts`
+
+### **Extending Existing Components**
+
+Use composition over inheritance:
+
+```typescript
+// Recommended: Composition pattern
+export class EnhancedVM extends pulumi.ComponentResource {
+  public readonly vm: VM;
+  public readonly enhancement: EnhancementFeature;
+
+  constructor(name: string, args: EnhancedVMArgs, opts?: pulumi.ComponentResourceOptions) {
+    super('infraflux:vm:EnhancedVM', name, {}, opts);
+
+    // Use existing VM component
+    this.vm = new VM(`${name}-vm`, {
+      provider: args.provider,
+      vmId: args.vmId,
+      templateManager: args.templateManager,
+    }, { parent: this });
+
+    // Add new functionality
+    this.enhancement = new EnhancementFeature(`${name}-enhancement`, {
+      vm: this.vm,
+    }, { parent: this });
+
+    this.registerOutputs({
+      vm: this.vm.output,
+      enhancement: this.enhancement.output,
+    });
+  }
+}
+```
+
+## 🔄 **GITOPS INTEGRATION PATTERNS**
+
+### **Integrating with Existing GitOps Setup**
+
+Reference existing GitOps component: `src/components/gitops.ts`
+
+```typescript
+import { InfraFluxGitOps } from '@/components/gitops';
+
+export class GitOpsIntegratedComponent extends pulumi.ComponentResource {
+  constructor(name: string, args: ComponentArgs) {
+    super('infraflux:gitops:GitOpsIntegratedComponent', name, {});
+
+    // Use existing GitOps setup
+    const gitops = new InfraFluxGitOps(`${name}-gitops`, {
+      kubeProvider: args.kubeProvider,
+      gitConfig: config.gitOpsConfig,
+    }, { parent: this });
+
+    // Add component-specific GitOps resources
+    const gitOpsConfig = gitops.ready.apply(ready => {
+      return new k8s.apiextensions.CustomResource(`${name}-kustomization`, {
+        apiVersion: 'kustomize.toolkit.fluxcd.io/v1',
+        kind: 'Kustomization',
+        metadata: {
+          name: `${name}-component`,
+          namespace: 'flux-system',
+        },
+        spec: {
+          interval: '5m',
+          path: `./components/${name}`,
+          prune: true,
+          sourceRef: {
+            kind: 'GitRepository',
+            name: 'flux-system',
+          },
+        },
+      }, { provider: args.kubeProvider, parent: this });
+    });
+
+    this.registerOutputs({ gitOpsConfig });
+  }
+}
+```
+
+## 🌐 **NETWORK INTEGRATION**
+
+### **Integrating with Network Discovery**
+
+Reference: `src/components/network-discovery.ts`
+
+```typescript
+import { ProxmoxNetworkDiscovery } from '@/components/network-discovery';
+
+export class NetworkAwareComponent extends pulumi.ComponentResource {
+  constructor(name: string, args: ComponentArgs) {
+    super('infraflux:network:NetworkAwareComponent', name, {});
+
+    // Use existing network discovery
+    const networkDiscovery = new ProxmoxNetworkDiscovery(`${name}-network`, {
+      provider: args.provider,
+      nodeName: config.proxmox.node,
+      bridgeName: config.network.bridge,
+    }, { parent: this });
+
+    // Use discovered network configuration
+    const resource = networkDiscovery.networkConfig.apply(netConfig => {
+      return new proxmox.vm.VirtualMachine(`${name}-vm`, {
+        networkDevices: [{
+          bridge: netConfig.bridge,
+          model: 'virtio',
+        }],
+      }, { provider: args.provider, parent: this });
+    });
+
+    this.registerOutputs({ resource });
+  }
+}
+```
+
+## 🏗️ **TEMPLATE INTEGRATION**
+
+### **Integrating with Template Management**
+
+Reference: `src/components/cloud-image-template.ts`
+
+```typescript
+import { TalosTemplateManager } from '@/components/cloud-image-template';
+
+export class TemplateAwareComponent extends pulumi.ComponentResource {
+  constructor(name: string, args: ComponentArgs) {
+    super('infraflux:template:TemplateAwareComponent', name, {});
+
+    // Use existing template manager
+    const templateManager = new TalosTemplateManager(`${name}-templates`, {
+      provider: args.provider,
+      nodeType: args.nodeType,
+      forceDownload: args.forceDownload || false,
+    }, { parent: this });
+
+    // Wait for templates and use appropriate one
+    const resource = templateManager.ready.apply(ready => {
+      if (!ready) {
+        throw new Error('Templates not ready for component creation');
+      }
+
+      const templateId = args.nodeType === 'master'
+        ? templateManager.masterTemplate.vmId
+        : templateManager.workerTemplate.vmId;
+
+      return new proxmox.vm.VirtualMachine(`${name}-vm`, {
+        clone: {
+          vmId: templateId,
+          full: true,
+        },
+      }, { provider: args.provider, parent: this });
+    });
+
+    this.registerOutputs({ resource });
+  }
+}
+```
+
+## 📋 **CONFIGURATION INTEGRATION**
+
+### **Adding New Configuration Options**
+
+Follow existing patterns in `src/config/index.ts` and `src/utils/config-validator.ts`:
+
+```typescript
+// 1. Add to types (src/types/index.ts)
+export interface NewComponentConfig {
+  enabled: boolean;
+  autoUpdate: boolean;
+  customSetting: string;
+}
+
+// 2. Extend main config interface (src/config/index.ts)
+export interface InfraFluxConfig {
+  newComponent: NewComponentConfig;
+}
+
+// 3. Add configuration loading
+function loadNewComponentConfig(): NewComponentConfig {
+  return {
+    enabled: process.env.NEW_COMPONENT_ENABLED !== 'false',
+    autoUpdate: process.env.NEW_COMPONENT_AUTO_UPDATE !== 'false',
+    customSetting: process.env.NEW_COMPONENT_CUSTOM || 'default',
+  };
+}
+
+// 4. Add to main config object
+export const config: InfraFluxConfig = {
+  newComponent: loadNewComponentConfig(),
+};
+
+// 5. Add validation schema (src/utils/config-validator.ts)
+const newComponentConfigSchema = Joi.object({
+  enabled: Joi.boolean().default(true),
+  autoUpdate: Joi.boolean().default(true),
+  customSetting: Joi.string().min(1).max(100).default('default'),
+});
+
+// 6. Add to env.example
+# New Component Configuration
+NEW_COMPONENT_ENABLED=true
+NEW_COMPONENT_AUTO_UPDATE=true
+NEW_COMPONENT_CUSTOM=production-value
+```
+
+## 🧪 **TESTING INTEGRATION**
+
+### **Adding Tests for New Components**
+
+Follow existing test structure in `tests/`:
+
+```typescript
+// tests/unit/components/new-component.test.ts
+import { NewComponent } from '@/components/new-component';
+import { createMockProvider } from '../mocks/proxmox-provider';
+
+describe('NewComponent Integration', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should integrate with existing VM component', async () => {
+    const mockProvider = createMockProvider();
+
+    const component = new NewComponent('test-component', {
+      provider: mockProvider,
+    });
+
+    expect(component.output).toBeDefined();
+  });
+
+  it('should use existing configuration patterns', () => {
+    const component = new NewComponent('test-component', {
+      provider: createMockProvider(),
+    });
+
+    // Verify configuration integration
+    expect(component).toBeDefined();
+  });
+});
+```
+
+## 🚀 **DEPLOYMENT INTEGRATION**
+
+### **Integrating with Main Deployment**
+
+Add to `src/index.ts`:
+
+```typescript
+import { NewComponent } from '@/components/new-component';
+
+export async function deployInfraFlux(): Promise<InfraFluxOutputs> {
+  // ... existing deployment logic
+
+  // Deploy new component with dependencies
+  const newComponent = cluster.ready.apply(ready => {
+    if (!ready) return undefined;
+
+    return new NewComponent('production-component', {
+      provider: proxmoxProvider,
+      templateManager: templateManager,
+      networkDiscovery: networkDiscovery,
+    });
+  });
+
+  return {
+    // ... existing outputs
+    newComponent: newComponent?.apply(c => c?.output),
+  };
+}
+```
+
+These integration guides ensure seamless addition of new components while maintaining consistency with existing architecture.

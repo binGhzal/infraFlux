@@ -7,14 +7,42 @@ alwaysApply: true
 
 ## 📚 **Rule Navigation**
 
-### **Start Here - Core Understanding**
+### **🎯 Core Principles (Start Here)**
+- [core-principles.mdc](mdc:.cursor/rules/core-principles.mdc) - **MANDATORY** approaches and essential rules
 - [infraflux-overview.mdc](mdc:.cursor/rules/infraflux-overview.mdc) - Project architecture and principles
-- [development-guidelines.mdc](mdc:.cursor/rules/development-guidelines.mdc) - Coding standards and patterns
+- [development-guidelines.mdc](mdc:.cursor/rules/development-guidelines.mdc) - Comprehensive coding standards
+
+### **🏗️ Implementation & Patterns**
+- [practical-patterns.mdc](mdc:.cursor/rules/practical-patterns.mdc) - Code templates and copy-paste patterns
+- [research-workflows.mdc](mdc:.cursor/rules/research-workflows.mdc) - Research-first development workflows
+- [integration-guides.mdc](mdc:.cursor/rules/integration-guides.mdc) - How to integrate with existing codebase
 - [technology-stack.mdc](mdc:.cursor/rules/technology-stack.mdc) - Provider patterns and integrations
 
-### **Implementation Guidance**
+### **📋 Management & Operations**
 - [implementation-roadmap.mdc](mdc:.cursor/rules/implementation-roadmap.mdc) - Task prioritization and project management
 - [troubleshooting-guide.mdc](mdc:.cursor/rules/troubleshooting-guide.mdc) - Debugging and recovery procedures
+
+## 🚀 **WHICH RULE TO USE WHEN**
+
+### **Starting a New Component**
+1. **Read**: [core-principles.mdc](mdc:.cursor/rules/core-principles.mdc) - Mandatory approaches
+2. **Research**: [research-workflows.mdc](mdc:.cursor/rules/research-workflows.mdc) - Research methodology
+3. **Code**: [practical-patterns.mdc](mdc:.cursor/rules/practical-patterns.mdc) - Component templates
+4. **Integrate**: [integration-guides.mdc](mdc:.cursor/rules/integration-guides.mdc) - How to integrate
+
+### **Debugging Issues**
+1. **Research**: [troubleshooting-guide.mdc](mdc:.cursor/rules/troubleshooting-guide.mdc) - Research-driven debugging
+2. **Patterns**: [technology-stack.mdc](mdc:.cursor/rules/technology-stack.mdc) - Provider-specific solutions
+
+### **Understanding Architecture**
+1. **Overview**: [infraflux-overview.mdc](mdc:.cursor/rules/infraflux-overview.mdc) - High-level architecture
+2. **Guidelines**: [development-guidelines.mdc](mdc:.cursor/rules/development-guidelines.mdc) - Detailed patterns
+3. **Stack**: [technology-stack.mdc](mdc:.cursor/rules/technology-stack.mdc) - Technology patterns
+
+### **Project Management**
+1. **Roadmap**: [implementation-roadmap.mdc](mdc:.cursor/rules/implementation-roadmap.mdc) - Current priorities
+2. **Research**: [research-workflows.mdc](mdc:.cursor/rules/research-workflows.mdc) - Research planning
+3. **Principles**: [core-principles.mdc](mdc:.cursor/rules/core-principles.mdc) - Git workflow integration
 
 ## 🚀 **Quick Start Checklist**
 
