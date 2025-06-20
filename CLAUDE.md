@@ -170,7 +170,7 @@ The `.claude/settings.json` file defines comprehensive workflow commands:
 ```bash
 # Get comprehensive project status
 # - TodoRead for current tasks
-# - memory-plus recent for latest context  
+# - memory-plus recent for latest context
 # - Read CLAUDE.md overview
 # - Summarize current state and next steps
 ```
