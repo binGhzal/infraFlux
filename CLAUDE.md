@@ -7,8 +7,7 @@ repository.
 
 InfraFlux v2.0 is a modern infrastructure automation project that uses Pulumi with TypeScript to
 provision and manage a homelab on Proxmox virtual machines. The project provides a unified
-Infrastructure as Code solution that manages the entire lifecycle from VM template creation to Talos
-Kubernetes cluster deployment and GitOps-ready application orchestration.
+Infrastructure as Code solution that manages the entire lifecycle from VM template creation to Talos Kubernetes cluster deployment and GitOps-ready application orchestration.
 
 The whole project is designed to be deployable with a single command to create a reproducible
 homelab environment. It emphasizes type safety, developer experience, and maintainability through
