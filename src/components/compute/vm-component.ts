@@ -7,7 +7,7 @@
 
 import * as pulumi from '@pulumi/pulumi';
 import * as proxmoxve from '@muhlba91/pulumi-proxmoxve';
-import { NodeConfig, VMOutput, ComponentProps } from '../../types';
+import { NodeConfig, NodeSpecs, DiskConfig, VMOutput, ComponentProps } from '../../types';
 import { VMTemplateComponent, TemplateInfo, TemplateStatus } from '../storage/vm-template';
 import { NetworkComponent } from '../network/network-component';
 import { logger } from '../../utils/logger';
@@ -493,6 +493,122 @@ export class VMComponent extends pulumi.ComponentResource {
   }
 
   /**
+   * T3.1.4.3.1: CPU configuration
+   * Applies CPU configuration from NodeConfig with optimization settings
+   */
+  private applyCPUConfig(nodeSpecs: NodeSpecs, optimization?: VMOptimizationConfig): {
+    cores: number;
+    sockets: number;
+    type: string;
+    units?: number;
+    limit?: number;
+    numa?: boolean;
+  } {
+    logger.debug(`Applying CPU configuration`, {
+      cores: nodeSpecs.cores,
+      optimization: !!optimization?.cpuTopology,
+    });
+
+    // Basic CPU configuration with optional optimization features
+    const cpuOpts = optimization?.cpuTopology;
+    
+    const cpuConfig = {
+      cores: nodeSpecs.cores,
+      sockets: 1, // Default to single socket for simplicity
+      type: 'host', // Use host CPU type for best performance
+      // Optional CPU optimization settings
+      ...(cpuOpts?.cpuUnits !== undefined && { units: cpuOpts.cpuUnits }),
+      ...(cpuOpts?.cpuLimit !== undefined && { limit: cpuOpts.cpuLimit }),
+      ...(cpuOpts?.numa !== undefined && { numa: cpuOpts.numa }),
+    };
+
+    logger.debug(`CPU configuration applied`, {
+      cores: cpuConfig.cores,
+      sockets: cpuConfig.sockets,
+      type: cpuConfig.type,
+      units: cpuConfig.units,
+      limit: cpuConfig.limit,
+      numa: cpuConfig.numa,
+    });
+
+    return cpuConfig;
+  }
+
+  /**
+   * T3.1.4.3.2: Memory configuration
+   * Applies memory configuration from NodeConfig with optimization settings
+   */
+  private applyMemoryConfig(nodeSpecs: NodeSpecs, optimization?: VMOptimizationConfig): {
+    dedicated: number;
+    balloon?: number;
+    hugepages?: string;
+  } {
+    logger.debug(`Applying memory configuration`, {
+      dedicated: nodeSpecs.memory,
+      optimization: !!optimization?.memory,
+    });
+
+    // Basic memory configuration with optional optimization features
+    const memOpts = optimization?.memory;
+    
+    const memoryConfig = {
+      dedicated: nodeSpecs.memory, // Dedicated memory in MB
+      // Optional memory optimization settings
+      ...(memOpts?.ballooning && {
+        balloon: Math.floor(nodeSpecs.memory * 0.8) // 80% for dynamic allocation
+      }),
+      ...(memOpts?.hugepages && {
+        hugepages: 'any' // Let Proxmox choose appropriate hugepage size
+      }),
+    };
+
+    logger.debug(`Memory configuration applied`, {
+      dedicated: memoryConfig.dedicated,
+      balloon: memoryConfig.balloon,
+      hugepages: memoryConfig.hugepages,
+    });
+
+    return memoryConfig;
+  }
+
+  /**
+   * T3.1.4.3.3: Disk configuration
+   * Applies disk configuration from NodeConfig with optimization settings
+   */
+  private applyDiskConfig(nodeSpecs: NodeSpecs, optimization?: VMOptimizationConfig) {
+    logger.debug(`Applying disk configuration`, {
+      diskCount: nodeSpecs.disk.length,
+      optimization: !!optimization?.disk,
+    });
+
+    // Convert DiskConfig array to Proxmox disk configuration
+    const diskConfigs = nodeSpecs.disk.map((diskConfig: DiskConfig, index: number) => {
+      // Parse size from string (e.g., "100G" -> 100)
+      const sizeInGB = parseInt(diskConfig.size.replace(/[^0-9]/g, ''));
+      
+      // Basic disk configuration
+      const proxmoxDisk = {
+        interface: `scsi${index}`, // scsi0, scsi1, etc.
+        datastoreId: 'local-lvm', // Default storage datastore - TODO: make configurable
+        size: sizeInGB,
+        fileFormat: diskConfig.format,
+      };
+      
+      logger.debug(`Disk ${index} configuration applied`, {
+        interface: proxmoxDisk.interface,
+        size: proxmoxDisk.size,
+        format: proxmoxDisk.fileFormat,
+        datastoreId: proxmoxDisk.datastoreId,
+      });
+      
+      return proxmoxDisk;
+    });
+
+    logger.debug(`Disk configuration applied for ${diskConfigs.length} disks`);
+    return diskConfigs;
+  }
+
+  /**
    * T3.1.4.2.3: VM cloning implementation
    * Creates VM from template using Proxmox VirtualMachine resource
    */
@@ -527,19 +643,15 @@ export class VMComponent extends pulumi.ComponentResource {
           clone: cloneConfig,
 
           // TODO: The following will be implemented in subsequent tasks:
-          // - T3.1.4.3: Resource specification application (CPU, memory, disk)
           // - T3.1.4.4: Network interface configuration
           // - T3.1.4.5: Cloud-init integration
 
-          // Placeholder minimal configuration
-          cpu: {
-            cores: this.props.nodeConfig.specs.cores,
-            sockets: 1,
-            type: 'host',
-          },
-          memory: {
-            dedicated: this.props.nodeConfig.specs.memory,
-          },
+          // T3.1.4.3.1: CPU configuration
+          cpu: this.applyCPUConfig(this.props.nodeConfig.specs, this.props.optimization),
+          // T3.1.4.3.2: Memory configuration
+          memory: this.applyMemoryConfig(this.props.nodeConfig.specs, this.props.optimization),
+          // T3.1.4.3.3: Disk configuration
+          disks: this.applyDiskConfig(this.props.nodeConfig.specs, this.props.optimization),
 
           // VM lifecycle configuration
           onBoot: this.props.lifecycle?.onBoot ?? false,
