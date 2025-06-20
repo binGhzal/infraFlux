@@ -7,18 +7,20 @@ homelab and cloud deployments.
 
 ## 🔥 **Critical Issues (Fix Immediately)**
 
-### 1. Network Configuration Flow
+### 1. Network Configuration Flow ✅
 
 **Problem**: VMs get DHCP IPs but Talos config applies static IPs, creating bootstrap failures.
 
 **Solutions**:
 
-- [ ] Add DHCP discovery mechanism for initial bootstrap
-- [ ] Implement graceful transition from DHCP to static IPs
-- [ ] Add network validation before cluster creation
-- [ ] Support both DHCP and static IP strategies
+- [x] Add DHCP discovery mechanism for initial bootstrap
+- [x] Implement graceful transition from DHCP to static IPs
+- [x] Add network validation before cluster creation
+- [x] Support both DHCP and static IP strategies
+- [x] Configuration-aware VM ID generation
+- [x] Dynamic cluster size handling
 
-**Files to modify**: `src/components/talos-cluster.ts`, `src/config/index.ts`
+**Files modified**: `src/components/network-discovery.ts`, `src/components/talos-cluster.ts`
 
 ### 2. Template Existence Validation
 
@@ -78,7 +80,7 @@ error messages
 **Implementation**:
 
 - [ ] Prometheus metrics for deployment status
-- [ ] Grafana dashboards for infrastructure monitoring
+- [ ] Grafana dashboards for infrastructure monitoring with loki
 - [ ] Alert manager for critical failures
 - [ ] Distributed tracing for deployment flows
 
@@ -88,7 +90,7 @@ error messages
 
 **Implementation**:
 
-- [ ] Secret management with HashiCorp Vault integration
+- [ ] Secret management with pulumi esc
 - [ ] RBAC for multi-user environments
 - [ ] Network policies and security groups
 - [ ] Compliance scanning and reporting
@@ -113,9 +115,11 @@ error messages
 **Implementation**:
 
 - [ ] VLAN support and management
-- [ ] Load balancer integration (MetalLB, HAProxy)
+- [ ] User authentication (authentik)
+- [ ] Load balancer integration (cilium)
 - [ ] Service mesh setup (Istio, Linkerd)
 - [ ] Network policy automation
+- [ ] persistant Storage solution (longhorn)
 
 ### 10. Backup & Disaster Recovery
 
@@ -186,9 +190,7 @@ error messages
 **Implementation**:
 
 - [ ] GitHub Actions workflows
-- [ ] GitLab CI integration
-- [ ] Jenkins pipeline templates
-- [ ] ArgoCD application sets
+- [ ] FLUXCD integration
 
 ## 🎯 **Priority Order Recommendation**
 

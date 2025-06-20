@@ -82,3 +82,6 @@ id_rsa
 id_rsa.pub
 *.key
 !*.key.example
+
+# Examples (demonstration only)
+examples/
