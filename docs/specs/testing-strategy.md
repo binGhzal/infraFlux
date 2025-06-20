@@ -1,7 +1,9 @@
 # Testing Strategy for InfraFlux v2.0
 
 ## Overview
-This document defines the comprehensive testing strategy for InfraFlux v2.0, covering all aspects from unit tests to end-to-end deployment validation.
+
+This document defines the comprehensive testing strategy for InfraFlux v2.0, covering all aspects
+from unit tests to end-to-end deployment validation.
 
 ## Testing Pyramid
 
@@ -25,6 +27,7 @@ This document defines the comprehensive testing strategy for InfraFlux v2.0, cov
 ## Testing Frameworks and Tools
 
 ### Primary Testing Stack
+
 - **Unit Testing**: Jest with TypeScript
 - **Integration Testing**: Jest + Testcontainers
 - **Property Testing**: fast-check
@@ -34,6 +37,7 @@ This document defines the comprehensive testing strategy for InfraFlux v2.0, cov
 - **Performance Testing**: k6 + custom metrics
 
 ### Testing Infrastructure
+
 ```typescript
 // Test configuration
 interface TestConfig {
@@ -57,20 +61,27 @@ interface TestConfig {
 ## Unit Testing Strategy
 
 ### Component Unit Tests
+
 ```typescript
 // Example: VM Template component tests
 describe('VMTemplate Component', () => {
   describe('configuration validation', () => {
     it('should validate CPU core range', () => {
-      expect(() => new VMTemplate({
-        cores: 65 // Invalid: exceeds maximum
-      })).toThrow('CPU cores must be between 1 and 64');
+      expect(
+        () =>
+          new VMTemplate({
+            cores: 65, // Invalid: exceeds maximum
+          })
+      ).toThrow('CPU cores must be between 1 and 64');
     });
 
     it('should validate memory minimum', () => {
-      expect(() => new VMTemplate({
-        memory: 256 // Invalid: below minimum
-      })).toThrow('Memory must be at least 512MB');
+      expect(
+        () =>
+          new VMTemplate({
+            memory: 256, // Invalid: below minimum
+          })
+      ).toThrow('Memory must be at least 512MB');
     });
   });
 
@@ -78,7 +89,7 @@ describe('VMTemplate Component', () => {
     it('should generate correct Proxmox VM configuration', () => {
       const template = new VMTemplate(validConfig);
       const resources = template.getResources();
-      
+
       expect(resources).toHaveProperty('vm');
       expect(resources.vm.cores).toBe(validConfig.cores);
       expect(resources.vm.memory).toBe(validConfig.memory);
@@ -88,6 +99,7 @@ describe('VMTemplate Component', () => {
 ```
 
 ### Utility Function Tests
+
 ```typescript
 // Network utility tests
 describe('Network Utilities', () => {
@@ -96,7 +108,7 @@ describe('Network Utilities', () => {
       ['192.168.1.1', true],
       ['10.0.0.0/24', true],
       ['invalid-ip', false],
-      ['256.256.256.256', false]
+      ['256.256.256.256', false],
     ])('validates IP %s as %s', (ip, expected) => {
       expect(isValidIP(ip)).toBe(expected);
     });
@@ -114,28 +126,31 @@ describe('Network Utilities', () => {
 ```
 
 ### Property-Based Testing
+
 ```typescript
 // Property-based tests for configuration generation
 import fc from 'fast-check';
 
 describe('Configuration Generation Properties', () => {
   it('should always generate valid VM configurations', () => {
-    fc.assert(fc.property(
-      fc.record({
-        cores: fc.integer({ min: 1, max: 64 }),
-        memory: fc.integer({ min: 512, max: 65536 }),
-        name: fc.stringOf(fc.char(), { minLength: 1, maxLength: 63 })
-      }),
-      (config) => {
-        const vm = new VMTemplate(config);
-        const resources = vm.getResources();
-        
-        // Properties that should always hold
-        expect(resources.vm.cores).toBeGreaterThan(0);
-        expect(resources.vm.memory).toBeGreaterThanOrEqual(512);
-        expect(resources.vm.name).toMatch(/^[a-zA-Z][a-zA-Z0-9-]*$/);
-      }
-    ));
+    fc.assert(
+      fc.property(
+        fc.record({
+          cores: fc.integer({ min: 1, max: 64 }),
+          memory: fc.integer({ min: 512, max: 65536 }),
+          name: fc.stringOf(fc.char(), { minLength: 1, maxLength: 63 }),
+        }),
+        (config) => {
+          const vm = new VMTemplate(config);
+          const resources = vm.getResources();
+
+          // Properties that should always hold
+          expect(resources.vm.cores).toBeGreaterThan(0);
+          expect(resources.vm.memory).toBeGreaterThanOrEqual(512);
+          expect(resources.vm.name).toMatch(/^[a-zA-Z][a-zA-Z0-9-]*$/);
+        }
+      )
+    );
   });
 });
 ```
@@ -143,6 +158,7 @@ describe('Configuration Generation Properties', () => {
 ## Integration Testing Strategy
 
 ### Multi-Component Integration
+
 ```typescript
 // Example: Network + Storage integration test
 describe('Network and Storage Integration', () => {
@@ -168,7 +184,7 @@ describe('Network and Storage Integration', () => {
     const network = new NetworkComponent('test-network', networkConfig);
     const storage = new StorageComponent('test-storage', storageConfig);
     const vm = new VMComponent('test-vm', vmConfig, {
-      dependsOn: [network, storage]
+      dependsOn: [network, storage],
     });
 
     await testStack.deploy([network, storage, vm]);
@@ -183,6 +199,7 @@ describe('Network and Storage Integration', () => {
 ```
 
 ### Provider Integration Tests
+
 ```typescript
 // Proxmox provider integration tests
 describe('Proxmox Provider Integration', () => {
@@ -202,7 +219,7 @@ describe('Proxmox Provider Integration', () => {
       name: 'test-vm-lifecycle',
       template: 'ubuntu-cloud',
       cores: 2,
-      memory: 2048
+      memory: 2048,
     });
 
     expect(vm.status).toBe('running');
@@ -211,7 +228,7 @@ describe('Proxmox Provider Integration', () => {
     // Test VM modification
     await proxmoxTest.updateVM(vm.id, {
       cores: 4,
-      memory: 4096
+      memory: 4096,
     });
 
     const updatedVM = await proxmoxTest.getVM(vm.id);
@@ -229,6 +246,7 @@ describe('Proxmox Provider Integration', () => {
 ## End-to-End Testing Strategy
 
 ### Full Deployment Tests
+
 ```typescript
 // Complete infrastructure deployment test
 describe('Full Infrastructure Deployment', () => {
@@ -246,7 +264,7 @@ describe('Full Infrastructure Deployment', () => {
     // Deploy infrastructure
     const deployment = await e2eTest.deployStack('homelab-e2e-test', {
       nodeCount: 3,
-      environment: 'test'
+      environment: 'test',
     });
 
     // Validate infrastructure
@@ -275,6 +293,7 @@ describe('Full Infrastructure Deployment', () => {
 ```
 
 ### Chaos Engineering Tests
+
 ```typescript
 // Resilience and failure testing
 describe('Chaos Engineering Tests', () => {
@@ -295,7 +314,7 @@ describe('Chaos Engineering Tests', () => {
 
     // Validate cluster recovery
     await chaosTest.waitForClusterStability();
-    
+
     const clusterHealth = await chaosTest.getClusterHealth();
     expect(clusterHealth.status).toBe('healthy');
     expect(clusterHealth.readyNodes).toBeGreaterThanOrEqual(2);
@@ -316,6 +335,7 @@ describe('Chaos Engineering Tests', () => {
 ## Performance Testing Strategy
 
 ### Load Testing
+
 ```typescript
 // Infrastructure load testing
 describe('Performance Load Tests', () => {
@@ -326,26 +346,24 @@ describe('Performance Load Tests', () => {
     const vmConfigs = Array.from({ length: concurrentDeployments }, (_, i) => ({
       name: `load-test-vm-${i}`,
       cores: 2,
-      memory: 2048
+      memory: 2048,
     }));
 
     const startTime = Date.now();
-    
+
     // Deploy VMs concurrently
-    const deploymentPromises = vmConfigs.map(config => 
-      loadTest.deployVM(config)
-    );
-    
+    const deploymentPromises = vmConfigs.map((config) => loadTest.deployVM(config));
+
     const results = await Promise.allSettled(deploymentPromises);
     const endTime = Date.now();
-    
+
     // Validate results
-    const successful = results.filter(r => r.status === 'fulfilled').length;
+    const successful = results.filter((r) => r.status === 'fulfilled').length;
     const deploymentTime = endTime - startTime;
-    
+
     expect(successful).toBe(concurrentDeployments);
     expect(deploymentTime).toBeLessThan(600000); // 10 minutes
-    
+
     // Cleanup
     await loadTest.cleanupAllVMs();
   });
@@ -353,30 +371,31 @@ describe('Performance Load Tests', () => {
 ```
 
 ### Resource Utilization Tests
+
 ```typescript
 // Resource efficiency testing
 describe('Resource Utilization Tests', () => {
   it('should efficiently use Proxmox resources', async () => {
     const baseline = await getProxmoxResourceUsage();
-    
+
     // Deploy standard cluster
     await deployStandardCluster();
-    
+
     const afterDeployment = await getProxmoxResourceUsage();
-    
+
     // Calculate resource efficiency
     const cpuEfficiency = calculateEfficiency(
-      baseline.cpu, 
-      afterDeployment.cpu, 
+      baseline.cpu,
+      afterDeployment.cpu,
       getClusterCPURequests()
     );
-    
+
     const memoryEfficiency = calculateEfficiency(
-      baseline.memory, 
-      afterDeployment.memory, 
+      baseline.memory,
+      afterDeployment.memory,
       getClusterMemoryRequests()
     );
-    
+
     expect(cpuEfficiency).toBeGreaterThan(0.8); // 80% efficiency
     expect(memoryEfficiency).toBeGreaterThan(0.8); // 80% efficiency
   });
@@ -386,6 +405,7 @@ describe('Resource Utilization Tests', () => {
 ## Security Testing Strategy
 
 ### Security Scan Integration
+
 ```typescript
 // Automated security testing
 describe('Security Validation Tests', () => {
@@ -393,9 +413,9 @@ describe('Security Validation Tests', () => {
     const scanResults = await runSecurityScan({
       images: ['talos', 'flux', 'monitoring'],
       configurations: ['kubernetes', 'network-policies'],
-      secrets: ['encryption-at-rest', 'tls-certificates']
+      secrets: ['encryption-at-rest', 'tls-certificates'],
     });
-    
+
     expect(scanResults.vulnerabilities.critical).toBe(0);
     expect(scanResults.vulnerabilities.high).toBeLessThanOrEqual(2);
     expect(scanResults.configurations.passed).toBeGreaterThan(0.95);
@@ -404,10 +424,10 @@ describe('Security Validation Tests', () => {
   it('should enforce network policies', async () => {
     // Deploy test workloads
     await deployTestWorkloads();
-    
+
     // Test network isolation
     const networkTests = await runNetworkPolicyTests();
-    
+
     expect(networkTests.isolation.namespaces).toBe(true);
     expect(networkTests.isolation.pods).toBe(true);
     expect(networkTests.egress.restricted).toBe(true);
@@ -418,6 +438,7 @@ describe('Security Validation Tests', () => {
 ## Test Data Management
 
 ### Test Fixtures
+
 ```typescript
 // Reusable test data
 export const testFixtures = {
@@ -425,63 +446,64 @@ export const testFixtures = {
     minimal: {
       cores: 1,
       memory: 512,
-      disk: { size: '10G', format: 'qcow2' }
+      disk: { size: '10G', format: 'qcow2' },
     },
     standard: {
       cores: 2,
       memory: 2048,
-      disk: { size: '20G', format: 'qcow2' }
+      disk: { size: '20G', format: 'qcow2' },
     },
     performance: {
       cores: 8,
       memory: 16384,
-      disk: { size: '100G', format: 'qcow2' }
-    }
+      disk: { size: '100G', format: 'qcow2' },
+    },
   },
-  
+
   networkConfigs: {
     simple: {
       bridge: 'vmbr0',
       vlan: null,
-      dhcp: true
+      dhcp: true,
     },
     vlan: {
       bridge: 'vmbr0',
       vlan: 100,
       dhcp: false,
-      staticIP: '192.168.100.10/24'
-    }
+      staticIP: '192.168.100.10/24',
+    },
   },
-  
+
   clusterConfigs: {
     minimal: {
       nodes: 1,
       version: 'v1.28.0',
-      networking: 'cilium'
+      networking: 'cilium',
     },
     ha: {
       nodes: 3,
       version: 'v1.28.0',
       networking: 'cilium',
-      loadBalancer: true
-    }
-  }
+      loadBalancer: true,
+    },
+  },
 };
 ```
 
 ### Test Environment Management
+
 ```typescript
 // Environment lifecycle management
 class TestEnvironmentManager {
   private environments: Map<string, TestEnvironment> = new Map();
-  
+
   async createEnvironment(name: string, config: EnvironmentConfig): Promise<TestEnvironment> {
     const env = new TestEnvironment(name, config);
     await env.setup();
     this.environments.set(name, env);
     return env;
   }
-  
+
   async cleanupEnvironment(name: string): Promise<void> {
     const env = this.environments.get(name);
     if (env) {
@@ -489,10 +511,11 @@ class TestEnvironmentManager {
       this.environments.delete(name);
     }
   }
-  
+
   async cleanupAll(): Promise<void> {
-    const cleanupPromises = Array.from(this.environments.keys())
-      .map(name => this.cleanupEnvironment(name));
+    const cleanupPromises = Array.from(this.environments.keys()).map((name) =>
+      this.cleanupEnvironment(name)
+    );
     await Promise.all(cleanupPromises);
   }
 }
@@ -501,6 +524,7 @@ class TestEnvironmentManager {
 ## Continuous Testing Integration
 
 ### CI/CD Pipeline Tests
+
 ```yaml
 # GitHub Actions test workflow
 name: Test Suite
@@ -540,6 +564,7 @@ jobs:
 ```
 
 ### Quality Gates
+
 ```typescript
 // Quality gate configuration
 const qualityGates = {
@@ -547,24 +572,25 @@ const qualityGates = {
     statements: 80,
     branches: 75,
     functions: 80,
-    lines: 80
+    lines: 80,
   },
   performance: {
     deploymentTime: 1800, // 30 minutes max
     resourceEfficiency: 0.8, // 80% minimum
-    testExecutionTime: 3600 // 1 hour max
+    testExecutionTime: 3600, // 1 hour max
   },
   security: {
     criticalVulnerabilities: 0,
     highVulnerabilities: 2,
-    securityTestPassed: 1.0 // 100%
-  }
+    securityTestPassed: 1.0, // 100%
+  },
 };
 ```
 
 ## Test Reporting and Metrics
 
 ### Test Result Dashboard
+
 ```typescript
 // Test metrics collection
 interface TestMetrics {
@@ -582,12 +608,13 @@ async function generateTestReport(): Promise<TestMetrics> {
     performance: await getPerformanceMetrics(),
     reliability: await getReliabilityMetrics(),
     security: await getSecurityMetrics(),
-    trends: await getTestTrends()
+    trends: await getTestTrends(),
   };
 }
 ```
 
 ### Automated Test Analysis
+
 ```typescript
 // Test result analysis and recommendations
 class TestAnalyzer {
@@ -596,18 +623,19 @@ class TestAnalyzer {
       overallHealth: this.calculateOverallHealth(results),
       riskAreas: this.identifyRiskAreas(results),
       recommendations: this.generateRecommendations(results),
-      trends: this.analyzeTrends(results)
+      trends: this.analyzeTrends(results),
     };
-    
+
     return analysis;
   }
-  
+
   private calculateOverallHealth(results: TestResults): HealthScore {
     // Algorithm to calculate overall test health
     return {
       score: 0.92, // 92%
       grade: 'A',
-      status: 'healthy'
+      status: 'healthy',
     };
   }
 }
+```

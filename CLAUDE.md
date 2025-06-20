@@ -1,12 +1,19 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+repository.
 
 ## Project Overview
 
-InfraFlux v2.0 is an infrastructure automation project that uses Ansible and Terraform to provision and manage a homelab on Proxmox virtual machines. The project dynamically generates Terraform configurations based on Ansible inventory and manages the entire lifecycle from VM template creation to cluster deployment and pod orchestration.
+InfraFlux v2.0 is a modern infrastructure automation project that uses Pulumi with TypeScript to
+provision and manage a homelab on Proxmox virtual machines. The project provides a unified
+Infrastructure as Code solution that manages the entire lifecycle from VM template creation to Talos
+Kubernetes cluster deployment and GitOps-ready application orchestration.
 
-The whole project is designed to be deployable with a single command to create a reproducible homelab environment. It emphasizes flexibility, scalability, and maintainability, allowing users to quickly set up their homelab environment with minimal configuration. The repository is structured to allow for easy addition of new features and components, with a focus on modularity and reusability.
+The whole project is designed to be deployable with a single command to create a reproducible
+homelab environment. It emphasizes type safety, developer experience, and maintainability through
+modern TypeScript development patterns. The repository uses a component-based architecture with
+comprehensive testing and integrated secret management via Pulumi ESC.
 
 ## Quick Start
 
@@ -15,27 +22,29 @@ The whole project is designed to be deployable with a single command to create a
 git clone https://github.com/yourusername/infraflux.git
 cd infraflux
 
-# 2. Configure your environment
-cp configs/global.yaml.example configs/global.yaml
-# Edit configs/global.yaml with your Proxmox details
+# 2. Install dependencies
+npm install
 
-# 3. Set up secrets
-./scripts/setup-vault.sh
+# 3. Configure your stack
+pulumi stack init homelab-dev
+pulumi config set proxmox:endpoint https://proxmox.example.com:8006
+pulumi config set --secret proxmox:api_token_secret <your-api-token>
 
 # 4. Deploy your infrastructure
-ansible-playbook -i ansible/inventory/hosts.ini ansible/site.yml
+pulumi up
 ```
 
 ## Prerequisites and Dependencies
 
 ### Required Software
 
-- Ansible >= 2.14
-- Terraform >= 1.5.0
-- Packer >= 1.9.0
-- Python >= 3.9
-- jinja2 >= 3.0
-- talosctl >= 1.5.0 (for Talos cluster management)
+- Node.js >= 18.0.0
+- npm >= 9.0.0
+- Pulumi >= 3.178.0
+- TypeScript >= 4.9.0
+- talosctl >= 1.10.0 (for Talos cluster management)
+- kubectl >= 1.28.0 (for Kubernetes management)
+- Docker >= 24.0.0 (for container operations)
 
 ### Proxmox Requirements
 
@@ -56,7 +65,7 @@ ansible-playbook -i ansible/inventory/hosts.ini ansible/site.yml
 
 ### Deployment Principles
 
-- **One-Command Deployment**: The entire infrastructure must be deployable with `ansible-playbook -i ansible/inventory/hosts.ini ansible/site.yml`
+- **One-Command Deployment**: The entire infrastructure must be deployable with `pulumi up`
 - **Declarative Approach**: Users define desired state; the system applies necessary changes
 - **No Hardcoded Values**: All configurations use variables and templates
 - **Reproducible Environments**: Every deployment produces identical results
@@ -64,16 +73,18 @@ ansible-playbook -i ansible/inventory/hosts.ini ansible/site.yml
 
 ### Code Quality Standards
 
-- **Modular Components**: Small, focused, reusable modules over monolithic scripts
-- **Readable Code**: Clear variable names, comprehensive comments, consistent style
-- **Error Handling**: Graceful failure modes with clear error messages
-- **Best Practices**: Follow Ansible, Terraform, and Kubernetes community standards
+- **Modular Components**: TypeScript components with clear interfaces and separation of concerns
+- **Type Safety**: Comprehensive TypeScript types for all infrastructure resources
+- **Testing First**: Unit, integration, and end-to-end tests for all components
+- **Error Handling**: Type-safe error handling with detailed validation
+- **Best Practices**: Follow TypeScript, Pulumi, and Kubernetes community standards
 
 ### Architectural Decisions
 
-- **Dynamic Generation**: Jinja2 templates for Terraform configurations
-- **Inventory-Driven**: Ansible inventory defines infrastructure topology
-- **GitOps Ready**: Native integration with FluxCD/ArgoCD
+- **Component-Based Design**: Reusable Pulumi components with composition patterns
+- **Stack-Driven**: Pulumi stacks define environment-specific configurations
+- **GitOps Ready**: Native FluxCD integration via Pulumi Automation API
+- **Integrated Secrets**: Pulumi ESC for unified secret and configuration management
 - **Multi-Tenancy**: Resource isolation through namespaces and RBAC
 
 ### Extension Guidelines
@@ -85,49 +96,65 @@ ansible-playbook -i ansible/inventory/hosts.ini ansible/site.yml
 
 ## Configuration Structure
 
-### Global Configuration (`configs/global.yaml`)
+### Stack Configuration (`Pulumi.<stack>.yaml`)
 
 ```yaml
-# Proxmox settings
-proxmox:
-  api_url: https://proxmox.example.com:8006
-  api_user: root@pam
-  api_token_id: infraflux
-  api_token_secret: !vault
-  default_node: proxmox-node1
-  default_storage: local-lvm
-  default_network: vmbr0
+config:
+  # Proxmox settings
+  proxmox:endpoint: https://proxmox.example.com:8006
+  proxmox:node: proxmox-node1
+  proxmox:datastore: local-lvm
+  proxmox:network_bridge: vmbr0
 
-# Cluster settings
-cluster:
-  type: talos # Options: talos, k3s
-  version: v1.6.0
-  api_endpoint: 10.0.1.100
-  pod_subnet: 10.244.0.0/16
-  service_subnet: 10.96.0.0/12
+  # Cluster settings
+  infraflux:cluster_name: homelab-dev
+  infraflux:cluster_version: v1.6.0
+  infraflux:node_count: 3
+  infraflux:vm_template: talos-v1.6.0
 
-# Template settings
-templates:
-  ubuntu:
-    iso_url: "https://releases.ubuntu.com/22.04/ubuntu-22.04.3-live-server-amd64.iso"
-  talos:
-    image_url: "https://github.com/siderolabs/talos/releases/download/v1.6.0/metal-amd64.iso"
+  # Network settings
+  infraflux:domain: homelab.local
+  infraflux:pod_subnet: 10.244.0.0/16
+  infraflux:service_subnet: 10.96.0.0/12
 
-# Network settings
-network:
-  domain: homelab.local
-  dns_servers:
-    - 1.1.1.1
-    - 8.8.8.8
-  ntp_servers:
-    - time.cloudflare.com
+  # Secret references (managed by Pulumi ESC)
+  infraflux:environment: infraflux-dev
 ```
 
-### Talos os image url
+### TypeScript Configuration (`src/types/config.ts`)
 
-Talos Linux Image Factory enables us to create a Talos image with the configuration we want either through point and click, or by POSTing a YAML/JSON schematic to https://factory.talos.dev/schematics to get back a unique schematic ID.
+```typescript
+export interface GlobalConfig {
+  readonly project: ProjectConfig;
+  readonly proxmox: ProxmoxConfig;
+  readonly cluster: ClusterConfig;
+  readonly network: NetworkConfig;
+}
 
-In our example we want to install QEMU guest agent to report VM status to the Proxmox hypervisor, including Intel microcode and iGPU drivers to be able to take full advantage of Quick Sync Video on Kubernetes.
+export interface ProxmoxConfig {
+  readonly endpoint: string;
+  readonly node: string;
+  readonly datastore: string;
+  readonly networkBridge: string;
+}
+
+export interface ClusterConfig {
+  readonly name: string;
+  readonly version: string;
+  readonly nodeCount: number;
+  readonly distribution: 'talos' | 'k3s';
+}
+```
+
+### Talos Image Factory Integration
+
+Talos Linux Image Factory enables us to create a Talos image with the configuration we want either
+through point and click, or by POSTing a YAML/JSON schematic to https://factory.talos.dev/schematics
+to get back a unique schematic ID.
+
+In our example we want to install QEMU guest agent to report VM status to the Proxmox hypervisor,
+including Intel microcode and iGPU drivers to be able to take full advantage of Quick Sync Video on
+Kubernetes.
 
 ```yaml
 # tofu/talos/image/schematic.yaml
@@ -143,7 +170,7 @@ which yields the schematic ID
 
 ```json
 {
-	"id": "dcac6b92c17d1d8947a0cee5e0e6b6904089aa878c70d66196bb1138dbd05d1a"
+  "id": "dcac6b92c17d1d8947a0cee5e0e6b6904089aa878c70d66196bb1138dbd05d1a"
 }
 ```
 
@@ -157,7 +184,8 @@ https://factory.talos.dev/image/<schematid_id>/<version>/<platform>-<architectur
 
 as a template to craft a URL to download the requested image.
 
-A simplified Terraform recipe to automate the process of downloading the Talos image to a Proxmox host looks like
+A simplified Terraform recipe to automate the process of downloading the Talos image to a Proxmox
+host looks like
 
 ```yaml
 # terraform/talos/image.tf
@@ -201,12 +229,16 @@ resource "proxmox_virtual_environment_download_file" "this" {
 
 ## Key Features
 
-- **Dynamic Terraform Generation**: Uses Jinja2 templates to create Terraform configurations based on Ansible inventory
-- **Dynamic Inventory-Driven Configuration**: Ansible inventory defines infrastructure topology for flexible resource management
+- **Dynamic Terraform Generation**: Uses Jinja2 templates to create Terraform configurations based
+  on Ansible inventory
+- **Dynamic Inventory-Driven Configuration**: Ansible inventory defines infrastructure topology for
+  flexible resource management
 - **VM Template Management**: Packer creates and manages reusable VM templates on Proxmox
-- **Ansible Orchestration**: Manages entire infrastructure lifecycle from template creation to cluster deployment
+- **Ansible Orchestration**: Manages entire infrastructure lifecycle from template creation to
+  cluster deployment
 - **Proxmox Integration**: Native integration with Proxmox API for VM management
-- **Talos/K3s Cluster Deployment**: Automated deployment of lightweight, secure Kubernetes environments
+- **Talos/K3s Cluster Deployment**: Automated deployment of lightweight, secure Kubernetes
+  environments
 - **GitOps Integration**: Native FluxCD/ArgoCD support for continuous deployment
 - **Automated Scaling**: Dynamic infrastructure scaling based on resource requirements
 - **Modular Design**: Component-based architecture for easy extension

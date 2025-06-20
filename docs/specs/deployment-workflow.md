@@ -1,9 +1,11 @@
 # Deployment Workflow for InfraFlux v2.0
 
 ## Overview
+
 This document defines the operational procedures and workflows for deploying and managing infrastructure using InfraFlux v2.0 with Pulumi.
 
 ## Core Deployment Command
+
 ```bash
 # One-command deployment
 pulumi up
@@ -12,10 +14,12 @@ pulumi up
 ## Workflow Phases
 
 ### Phase 1: Pre-deployment Validation
+
 **Duration**: 2-5 minutes
 **Purpose**: Ensure environment readiness and configuration validity
 
 #### 1.1 Environment Checks
+
 ```bash
 # Automated checks performed by Pulumi program
 - Proxmox API connectivity
@@ -26,6 +30,7 @@ pulumi up
 ```
 
 #### 1.2 Configuration Validation
+
 ```typescript
 // Validation performed during Pulumi preview
 - Schema validation against TypeScript types
@@ -36,6 +41,7 @@ pulumi up
 ```
 
 #### 1.3 Dependency Verification
+
 ```bash
 # External dependency checks
 - Pulumi CLI version compatibility
@@ -45,10 +51,12 @@ pulumi up
 ```
 
 ### Phase 2: Infrastructure Provisioning
+
 **Duration**: 10-20 minutes
 **Purpose**: Create and configure base infrastructure components
 
 #### 2.1 Network Infrastructure
+
 ```bash
 # Parallel execution order
 1. VLAN creation and configuration
@@ -59,6 +67,7 @@ pulumi up
 ```
 
 #### 2.2 Storage Infrastructure
+
 ```bash
 # Sequential execution for dependencies
 1. Datastore validation and preparation
@@ -69,6 +78,7 @@ pulumi up
 ```
 
 #### 2.3 Compute Infrastructure
+
 ```bash
 # Template-based VM creation
 1. VM template preparation/update
@@ -79,10 +89,12 @@ pulumi up
 ```
 
 ### Phase 3: Kubernetes Cluster Bootstrap
+
 **Duration**: 5-15 minutes
 **Purpose**: Initialize and configure Talos Kubernetes cluster
 
 #### 3.1 Talos Configuration
+
 ```bash
 # Machine configuration generation
 1. Generate machine configurations per node
@@ -93,6 +105,7 @@ pulumi up
 ```
 
 #### 3.2 Cluster Initialization
+
 ```bash
 # Sequential bootstrap process
 1. Apply control plane configuration
@@ -103,6 +116,7 @@ pulumi up
 ```
 
 #### 3.3 Core Components Installation
+
 ```bash
 # Essential cluster components
 1. CNI plugin installation (Cilium/Calico)
@@ -113,10 +127,12 @@ pulumi up
 ```
 
 ### Phase 4: Application Platform Setup
+
 **Duration**: 5-10 minutes
 **Purpose**: Install and configure platform services
 
 #### 4.1 GitOps Controller
+
 ```bash
 # FluxCD installation and configuration
 1. Install Flux controller components
@@ -127,6 +143,7 @@ pulumi up
 ```
 
 #### 4.2 Secret Management
+
 ```bash
 # Pulumi ESC integration
 1. Configure ESC environment access
@@ -137,6 +154,7 @@ pulumi up
 ```
 
 #### 4.3 Monitoring Stack
+
 ```bash
 # Observability platform
 1. Deploy Prometheus operator
@@ -147,10 +165,12 @@ pulumi up
 ```
 
 ### Phase 5: Validation and Health Checks
+
 **Duration**: 2-5 minutes
 **Purpose**: Verify deployment success and system health
 
 #### 5.1 Infrastructure Validation
+
 ```typescript
 // Automated validation checks
 - VM status and connectivity
@@ -161,6 +181,7 @@ pulumi up
 ```
 
 #### 5.2 Kubernetes Validation
+
 ```bash
 # Cluster health verification
 - Node ready status
@@ -171,6 +192,7 @@ pulumi up
 ```
 
 #### 5.3 Application Platform Validation
+
 ```bash
 # Platform service validation
 - GitOps synchronization test
@@ -185,6 +207,7 @@ pulumi up
 ### Daily Operations
 
 #### Morning Checks
+
 ```bash
 # Automated health checks
 pulumi refresh                    # Check for drift
@@ -194,6 +217,7 @@ flux get all                      # Validate GitOps sync
 ```
 
 #### Resource Monitoring
+
 ```bash
 # Resource utilization checks
 kubectl top nodes                 # Node resource usage
@@ -205,6 +229,7 @@ free -h                          # Memory usage
 ### Weekly Maintenance
 
 #### Security Updates
+
 ```bash
 # Update workflow
 pulumi preview                    # Check for updates
@@ -215,6 +240,7 @@ kubectl uncordon <node>          # Return node to service
 ```
 
 #### Backup Verification
+
 ```bash
 # Backup validation
 velero backup get                # Check backup status
@@ -226,6 +252,7 @@ velero restore create            # Test restore process
 ### Monthly Operations
 
 #### Capacity Planning
+
 ```bash
 # Resource analysis
 kubectl describe nodes           # Node capacity review
@@ -235,6 +262,7 @@ kubectl describe nodes           # Node capacity review
 ```
 
 #### Security Audit
+
 ```bash
 # Security validation
 kube-bench run                   # CIS benchmark
@@ -246,23 +274,25 @@ kubehunter                       # Security scanning
 ## Emergency Procedures
 
 ### Disaster Recovery
+
 ```bash
 # Complete cluster rebuild
 1. Backup current state
    pulumi stack export > backup.json
-   
+
 2. Destroy existing infrastructure
    pulumi destroy --yes
-   
+
 3. Restore from backup
    pulumi stack import < backup.json
    pulumi up
-   
+
 4. Restore application data
    velero restore create --from-backup <backup-name>
 ```
 
 ### Rollback Procedures
+
 ```bash
 # Infrastructure rollback
 pulumi stack select <previous-stack>
@@ -277,6 +307,7 @@ flux resume source git <source>
 ### Performance Optimization
 
 #### Resource Scaling
+
 ```bash
 # Horizontal scaling
 kubectl scale deployment <app> --replicas=<count>
@@ -290,6 +321,7 @@ pulumi up
 ```
 
 #### Network Optimization
+
 ```bash
 # Network performance tuning
 # MTU optimization
@@ -300,6 +332,7 @@ pulumi up
 ## Troubleshooting Workflows
 
 ### Infrastructure Issues
+
 ```bash
 # Proxmox connectivity
 curl -k https://<proxmox-host>:8006/api2/json/version
@@ -315,6 +348,7 @@ nmap -p <port> <target-ip>
 ```
 
 ### Kubernetes Issues
+
 ```bash
 # Cluster debugging
 kubectl cluster-info dump
@@ -330,6 +364,7 @@ kubectl get networkpolicies
 ```
 
 ### Application Issues
+
 ```bash
 # Application debugging
 kubectl logs -f <pod-name>
@@ -344,10 +379,11 @@ flux logs --follow
 ## Performance Monitoring
 
 ### Key Metrics
+
 ```bash
 # Infrastructure metrics
 - CPU utilization per node
-- Memory utilization per node  
+- Memory utilization per node
 - Storage I/O performance
 - Network throughput and latency
 - VM creation time
@@ -361,6 +397,7 @@ flux logs --follow
 ```
 
 ### Alerting Thresholds
+
 ```yaml
 # Example alert configurations
 - CPU utilization > 80% for 5 minutes
@@ -373,6 +410,7 @@ flux logs --follow
 ## Compliance and Governance
 
 ### Change Management
+
 ```bash
 # All changes through GitOps
 1. Create feature branch
@@ -385,6 +423,7 @@ flux logs --follow
 ```
 
 ### Audit Logging
+
 ```bash
 # Comprehensive audit trail
 - Pulumi state changes
@@ -395,6 +434,7 @@ flux logs --follow
 ```
 
 ### Backup Strategy
+
 ```bash
 # Multi-tier backup approach
 - Pulumi state backup (real-time)

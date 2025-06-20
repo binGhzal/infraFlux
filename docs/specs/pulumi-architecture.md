@@ -1,23 +1,28 @@
 # Pulumi Architecture for InfraFlux v2.0
 
 ## Overview
-This document defines the technical architecture for InfraFlux v2.0 using Pulumi as the unified Infrastructure as Code platform.
+
+This document defines the technical architecture for InfraFlux v2.0 using Pulumi as the unified
+Infrastructure as Code platform.
 
 ## Architecture Principles
 
 ### Unified Codebase
+
 - Single TypeScript codebase for all infrastructure
 - Modular component design for reusability
 - Type-safe infrastructure definitions
 - Native testing integration
 
 ### Component-Based Design
+
 - Reusable infrastructure components
 - Composition over inheritance
 - Clear separation of concerns
 - Parameterized configurations
 
 ### Multi-Environment Support
+
 - Stack-based environment isolation
 - Configuration-driven deployments
 - Environment-specific customizations
@@ -26,11 +31,12 @@ This document defines the technical architecture for InfraFlux v2.0 using Pulumi
 ## Core Components
 
 ### 1. Pulumi Project Structure
+
 ```
 src/
 ├── components/           # Reusable infrastructure components
 │   ├── network/         # Network infrastructure
-│   ├── storage/         # Storage management  
+│   ├── storage/         # Storage management
 │   ├── compute/         # VM and compute resources
 │   └── kubernetes/      # Kubernetes cluster components
 ├── stacks/              # Stack definitions per environment
@@ -45,24 +51,28 @@ src/
 ### 2. Component Architecture
 
 #### Network Components
+
 - **VLANBridge**: VLAN and bridge management
 - **IPAllocation**: IP address allocation and DHCP
 - **NetworkPolicy**: Security and access controls
 - **LoadBalancer**: Load balancing configuration
 
-#### Storage Components  
+#### Storage Components
+
 - **Datastore**: Proxmox datastore management
 - **Volume**: Volume provisioning and lifecycle
 - **Backup**: Backup policies and scheduling
 - **StorageClass**: Kubernetes storage class definitions
 
 #### Compute Components
+
 - **VMTemplate**: VM template creation and management
 - **VMInstance**: VM instance provisioning
 - **NodePool**: Kubernetes node pool management
 - **ClusterConfig**: Cluster-wide configuration
 
 #### Kubernetes Components
+
 - **TalosCluster**: Talos Kubernetes cluster
 - **ClusterBootstrap**: Cluster initialization
 - **NodeConfiguration**: Node-specific configuration
@@ -71,6 +81,7 @@ src/
 ### 3. Configuration Management
 
 #### Stack Configuration
+
 ```yaml
 # Pulumi.<stack>.yaml
 config:
@@ -82,6 +93,7 @@ config:
 ```
 
 #### Component Configuration
+
 ```typescript
 interface VMTemplateConfig {
   name: string;
@@ -96,12 +108,14 @@ interface VMTemplateConfig {
 ### 4. Secret Management Architecture
 
 #### Pulumi ESC Integration
+
 - Environment-based secret organization
 - Automatic secret injection
 - Rotation policy management
 - Kubernetes secret synchronization
 
 #### Secret Hierarchy
+
 ```
 environments/
 ├── infraflux-base/      # Base secrets and configuration
@@ -113,6 +127,7 @@ environments/
 ## Data Flow Architecture
 
 ### 1. Deployment Flow
+
 ```
 Configuration → Pulumi Program → Provider APIs → Infrastructure
      ↓               ↓              ↓              ↓
@@ -122,12 +137,14 @@ ESC Secrets → Template Values → API Calls → Talos Cluster
 ```
 
 ### 2. State Management
+
 - Pulumi state backend (Pulumi Cloud or S3)
 - Component-level state tracking
 - Dependency graph management
 - Rollback and recovery capabilities
 
 ### 3. Resource Dependencies
+
 ```
 Network → Storage → VM Templates → VM Instances → Kubernetes Cluster
    ↓         ↓          ↓             ↓              ↓
@@ -139,18 +156,21 @@ VLANs → Volumes → Cloud-init → Workers → Applications
 ## Integration Points
 
 ### 1. Proxmox Integration
+
 - **Provider**: @muhlba91/pulumi-proxmoxve
 - **Authentication**: API token-based
 - **Resource Management**: VMs, templates, networks, storage
 - **Monitoring**: Resource utilization and health
 
 ### 2. Talos Integration
+
 - **Bootstrap**: Machine configuration generation
 - **Cluster**: Control plane and worker configuration
 - **Networking**: CNI setup and network policies
 - **Certificates**: TLS certificate management
 
 ### 3. GitOps Integration
+
 - **FluxCD**: Continuous deployment controller
 - **Automation API**: Programmatic Pulumi operations
 - **Drift Detection**: State reconciliation
@@ -159,18 +179,21 @@ VLANs → Volumes → Cloud-init → Workers → Applications
 ## Security Architecture
 
 ### 1. Access Controls
+
 - **RBAC**: Role-based access control
 - **Network Policies**: Pod-to-pod communication
 - **Service Mesh**: Istio/Linkerd integration ready
 - **Certificate Management**: Automated TLS
 
 ### 2. Secret Security
+
 - **Encryption**: ESC-managed encryption at rest
 - **Rotation**: Automated secret rotation
 - **Audit**: Secret access logging
 - **Least Privilege**: Minimal secret exposure
 
 ### 3. Network Security
+
 - **Segmentation**: VLAN-based isolation
 - **Firewalls**: Iptables/nftables configuration
 - **VPN**: Optional VPN integration
@@ -179,12 +202,14 @@ VLANs → Volumes → Cloud-init → Workers → Applications
 ## Performance Considerations
 
 ### 1. Resource Optimization
+
 - **Parallel Execution**: Pulumi's concurrent resource creation
 - **Caching**: Template and image caching
 - **Resource Sizing**: Dynamic resource allocation
 - **Monitoring**: Performance metrics collection
 
 ### 2. Scalability Patterns
+
 - **Horizontal Scaling**: Worker node auto-scaling
 - **Vertical Scaling**: Resource adjustment
 - **Load Distribution**: Workload balancing
@@ -193,6 +218,7 @@ VLANs → Volumes → Cloud-init → Workers → Applications
 ## Testing Architecture
 
 ### 1. Testing Pyramid
+
 ```
 E2E Tests (Integration)
     ↑
@@ -204,6 +230,7 @@ Static Analysis (Type checking)
 ```
 
 ### 2. Test Categories
+
 - **Unit Tests**: Component logic validation
 - **Integration Tests**: Multi-component interaction
 - **Contract Tests**: Provider API contracts
@@ -213,12 +240,14 @@ Static Analysis (Type checking)
 ## Monitoring and Observability
 
 ### 1. Infrastructure Monitoring
+
 - **Resource Metrics**: CPU, memory, storage utilization
 - **Network Metrics**: Bandwidth, latency, packet loss
 - **Application Metrics**: Custom application metrics
 - **Log Aggregation**: Centralized logging with Loki
 
 ### 2. Pulumi-Specific Monitoring
+
 - **Deployment Metrics**: Success rate, duration
 - **State Health**: State consistency validation
 - **Resource Drift**: Configuration drift detection
@@ -227,12 +256,14 @@ Static Analysis (Type checking)
 ## Maintenance and Operations
 
 ### 1. Lifecycle Management
+
 - **Updates**: Rolling updates and blue-green deployments
 - **Backups**: Automated backup scheduling
 - **Disaster Recovery**: Recovery procedures and testing
 - **Capacity Planning**: Resource usage forecasting
 
 ### 2. Operational Procedures
+
 - **Deployment**: Standardized deployment workflows
 - **Rollback**: Automated rollback procedures
 - **Debugging**: Troubleshooting guides and tools
