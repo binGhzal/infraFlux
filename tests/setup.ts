@@ -1,25 +1,29 @@
-/**
- * Jest test setup for InfraFlux v2.0
- */
+// Jest setup file
+import { jest } from '@jest/globals';
 
-import { logger, LogLevel } from '../src/utils/logger';
+// Set test environment
+process.env.NODE_ENV = 'test';
+process.env.LOG_LEVEL = 'error'; // Reduce noise in tests
 
-// Set up test environment
-beforeAll(() => {
-  // Set log level to ERROR to reduce test output noise
-  logger.setLogLevel(LogLevel.ERROR);
+// Mock Pulumi for unit tests
+jest.mock('@pulumi/pulumi', () => ({
+  Output: {
+    create: jest.fn((val: unknown) => ({
+      apply: jest.fn((fn: (value: unknown) => unknown) => fn(val)),
+    })),
+    secret: jest.fn((val: unknown) => ({
+      apply: jest.fn((fn: (value: unknown) => unknown) => fn(val)),
+    })),
+  },
+  ComponentResource: class {},
+  Config: jest.fn(() => ({
+    get: jest.fn(),
+    require: jest.fn(),
+  })),
+  interpolate: jest.fn((strings: unknown[], ..._values: unknown[]) => {
+    return (strings as string[])[0];
+  }),
+}));
 
-  // Set test timeout to 30 seconds
-  jest.setTimeout(30000);
-});
-
-// Global test configuration
-global.console = {
-  ...console,
-  // Suppress console.log in tests unless explicitly needed
-  log: jest.fn(),
-  debug: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: console.error, // Keep errors visible
-};
+// Global test timeout
+jest.setTimeout(30000);

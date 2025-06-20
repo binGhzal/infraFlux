@@ -1,52 +1,35 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "module": "commonjs",
-    "lib": ["ES2020"],
-    "declaration": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "lib": ["ES2022"],
+    "outDir": "./lib",
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@/components/*": ["src/components/*"],
-      "@/config/*": ["src/config/*"],
-      "@/utils/*": ["src/utils/*"],
-      "@/types/*": ["src/types/*"],
-      "@/stacks/*": ["src/stacks/*"]
-    },
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "sourceMap": true,
-    "removeComments": false,
-    "noEmitOnError": true,
-    "incremental": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+      "@components/*": ["src/components/*"],
+      "@config/*": ["src/config/*"],
+      "@types/*": ["src/types/*"],
+      "@utils/*": ["src/utils/*"]
+    }
   },
-  "include": [
-    "src/**/*"
-  ],
+  "include": ["src/**/*"],
   "exclude": [
     "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "tests/**/*"
-  ],
-  "ts-node": {
-    "require": ["tsconfig-paths/register"]
-  }
+    "lib",
+    "tests"
+  ]
 }

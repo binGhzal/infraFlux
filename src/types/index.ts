@@ -1,416 +1,180 @@
 /**
- * Core type definitions for InfraFlux v2.0
+ * Core type definitions for InfraFlux v2.0 - Talos Edition
  */
 
 import * as pulumi from '@pulumi/pulumi';
 
-// Configuration Interfaces
-export interface GlobalConfig {
+// Project Configuration
+export interface InfraFluxConfig {
+  environment: 'dev' | 'staging' | 'prod';
   project: ProjectConfig;
   proxmox: ProxmoxConfig;
-  cluster: ClusterConfig;
   network: NetworkConfig;
-  storage: StorageConfig;
+  vm: VMConfig;
+  kubernetes: KubernetesConfig;
   security: SecurityConfig;
+  monitoring?: MonitoringConfig;
+  backup?: BackupConfig;
 }
 
 export interface ProjectConfig {
   name: string;
-  version: string;
   description: string;
-  environment: 'dev' | 'staging' | 'prod';
-  region: string;
   tags: Record<string, string>;
-  sshKeys?: string[]; // SSH public keys for VM access
-  domain?: string; // DNS domain for the cluster
 }
 
+// Proxmox Configuration
 export interface ProxmoxConfig {
   endpoint: string;
+  username: string;
+  password?: pulumi.Output<string>;
   node: string;
-  datastore: string;
-  networkBridge: string;
-  apiToken: {
-    id: string;
-    secret: string;
-  };
-  ssl: {
-    verify: boolean;
-    caPath?: string;
-  };
-}
-
-export interface ClusterConfig {
-  name: string;
-  version: string;
-  distribution: 'talos' | 'k3s';
-  networking: ClusterNetworking;
-  nodes: NodeConfig[];
-  features: ClusterFeatures;
-}
-
-export interface ClusterNetworking {
-  podSubnet: string;
-  serviceSubnet: string;
-  clusterDomain: string;
-  cni: 'cilium' | 'calico' | 'flannel';
-  networkPolicies: boolean;
-  serviceMesh?: 'istio' | 'linkerd';
-}
-
-export interface ClusterFeatures {
-  monitoring: boolean;
-  logging: boolean;
-  backups: boolean;
-  gitops: boolean;
-  secretManagement: boolean;
-  ingress: boolean;
-  storageClass: boolean;
-}
-
-export interface NodeConfig {
-  name: string;
-  role: 'control-plane' | 'worker';
-  template: string;
-  specs: NodeSpecs;
-  taints?: NodeTaint[];
-  labels?: Record<string, string>;
-}
-
-export interface NodeSpecs {
-  cores: number;
-  memory: number; // MB
-  disk: DiskConfig[];
-  network: NetworkInterface[];
-}
-
-export interface DiskConfig {
-  size: string; // e.g., "100G"
-  format: 'qcow2' | 'raw' | 'vmdk';
-  cache: 'none' | 'writethrough' | 'writeback';
-  backup: boolean;
-  replicate: boolean;
-}
-
-export interface NetworkInterface {
-  bridge: string;
-  vlan?: number;
-  mac?: string;
-  dhcp: boolean;
-  ip?: string;
-  gateway?: string;
-}
-
-export interface NodeTaint {
-  key: string;
-  value: string;
-  effect: 'NoSchedule' | 'PreferNoSchedule' | 'NoExecute';
+  insecure: boolean;
 }
 
 // Network Configuration
 export interface NetworkConfig {
+  bridge: string;
   domain: string;
-  dns: DNSConfig;
-  vlans: VLANConfig[];
-  bridges: BridgeConfig[];
-  firewall: FirewallConfig;
-}
-
-export interface DNSConfig {
-  servers: string[];
-  searchDomains: string[];
-}
-
-export interface VLANConfig {
-  id: number;
-  name: string;
-  description: string;
-  subnet: string;
+  dnsServers: string[];
   gateway: string;
-  dhcp: DHCPConfig;
+  subnet: string;
 }
 
-export interface BridgeConfig {
+// VM Configuration (Talos only)
+export interface VMConfig {
+  templateId: number; // Talos template ID
+  defaults: VMDefaults;
+}
+
+export interface VMDefaults {
+  cores: number;
+  memory: number;
+  diskSize: string;
+  storagePool: string;
+  isoStoragePool: string;
+  diskFormat: 'raw' | 'qcow2';
+}
+
+export interface VMSpec {
   name: string;
-  ports: string[];
-  vlanAware: boolean;
-  stp: boolean;
-  fastForward: boolean;
+  vmId?: number;
+  cores?: number;
+  memory?: number;
+  diskSize?: string;
+  ipAddress: string;
+  userData?: string; // Talos machine configuration
+  startOnBoot?: boolean;
+  tags?: string[];
 }
 
-export interface DHCPConfig {
-  enabled: boolean;
-  range: {
-    start: string;
-    end: string;
-  };
-  reservations: DHCPReservation[];
+// Kubernetes Configuration (Talos only)
+export interface KubernetesConfig {
+  version: string;
+  masterNodes: number;
+  workerNodes: number;
+  masterSpecs?: NodeSpec;
+  workerSpecs?: NodeSpec;
+  networking?: K8sNetworkingConfig;
+  features?: K8sFeatures;
 }
 
-export interface DHCPReservation {
-  mac: string;
-  ip: string;
-  hostname: string;
+export interface NodeSpec {
+  cores: number;
+  memory: number;
+  diskSize: string;
 }
 
-export interface FirewallConfig {
-  enabled: boolean;
-  defaultPolicy: 'ACCEPT' | 'DROP';
-  rules: FirewallRule[];
+export interface K8sNetworkingConfig {
+  podCIDR: string;
+  serviceCIDR: string;
+  clusterDNS: string[];
+  cni: 'cilium'; // Talos uses Cilium
 }
 
-export interface FirewallRule {
-  action: 'ACCEPT' | 'DROP' | 'REJECT';
-  direction: 'IN' | 'OUT';
-  protocol: 'tcp' | 'udp' | 'icmp' | 'all';
-  source?: string;
-  destination?: string;
-  port?: number | string;
-  comment?: string;
-}
-
-// Storage Configuration
-export interface StorageConfig {
-  datastores: DatastoreConfig[];
-  volumes: VolumeConfig[];
-  backups: BackupConfig;
-}
-
-export interface DatastoreConfig {
-  name: string;
-  type: 'dir' | 'lvm' | 'zfs' | 'ceph';
-  path: string;
-  maxFiles?: number;
-  shared: boolean;
-  content: ContentType[];
-}
-
-export type ContentType = 'images' | 'iso' | 'backup' | 'vztmpl' | 'snippets';
-
-export interface VolumeConfig {
-  name: string;
-  size: string;
-  format: 'qcow2' | 'raw' | 'vmdk';
-  cache: 'none' | 'writethrough' | 'writeback';
-  backup: boolean;
-  replicate: boolean;
-}
-
-export interface BackupConfig {
-  enabled: boolean;
-  schedule: string; // Cron expression
-  retention: {
-    daily: number;
-    weekly: number;
-    monthly: number;
-  };
-  storage: string;
-  compression: 'none' | 'lzo' | 'gzip' | 'zstd';
+export interface K8sFeatures {
+  serviceLB: boolean;
+  metricsServer: boolean;
+  localStorage: boolean;
 }
 
 // Security Configuration
 export interface SecurityConfig {
-  rbac: RBACConfig;
-  networkPolicies: NetworkPolicyConfig[];
-  secretEncryption: SecretEncryptionConfig;
-  certificateManagement: CertificateConfig;
+  firewall: FirewallConfig;
+  automaticUpdates: boolean;
+  auditLogging: boolean;
 }
 
-export interface RBACConfig {
+export interface FirewallConfig {
   enabled: boolean;
-  adminUsers: string[];
-  adminGroups: string[];
-  readOnlyUsers: string[];
-  readOnlyGroups: string[];
+  defaultPolicy: 'allow' | 'deny';
+  rules: FirewallRule[];
 }
 
-export interface NetworkPolicyConfig {
+export interface FirewallRule {
   name: string;
-  namespace: string;
-  spec: NetworkPolicySpec;
-}
-
-export interface NetworkPolicySpec {
-  podSelector: LabelSelector;
-  policyTypes: ('Ingress' | 'Egress')[];
-  ingress?: IngressRule[];
-  egress?: EgressRule[];
-}
-
-export interface LabelSelector {
-  matchLabels?: Record<string, string>;
-  matchExpressions?: LabelSelectorRequirement[];
-}
-
-export interface LabelSelectorRequirement {
-  key: string;
-  operator: 'In' | 'NotIn' | 'Exists' | 'DoesNotExist';
-  values?: string[];
-}
-
-export interface IngressRule {
-  from?: NetworkPolicyPeer[];
-  ports?: NetworkPolicyPort[];
-}
-
-export interface EgressRule {
-  to?: NetworkPolicyPeer[];
-  ports?: NetworkPolicyPort[];
-}
-
-export interface NetworkPolicyPeer {
-  podSelector?: LabelSelector;
-  namespaceSelector?: LabelSelector;
-  ipBlock?: IPBlock;
-}
-
-export interface IPBlock {
-  cidr: string;
-  except?: string[];
-}
-
-export interface NetworkPolicyPort {
-  protocol?: 'TCP' | 'UDP' | 'SCTP';
+  direction: 'in' | 'out';
+  action: 'allow' | 'deny';
+  protocol: 'tcp' | 'udp' | 'icmp' | 'all';
   port?: number | string;
-  endPort?: number;
+  source?: string;
+  destination?: string;
 }
 
-export interface SecretEncryptionConfig {
-  provider: 'esc' | 'vault' | 'sealed-secrets';
-  keyRotation: boolean;
-  rotationInterval: string;
+// Monitoring Configuration
+export interface MonitoringConfig {
+  enabled: boolean;
+  prometheus: PrometheusConfig;
+  grafana: GrafanaConfig;
 }
 
-export interface CertificateConfig {
-  issuer: 'cert-manager' | 'manual';
-  ca: {
-    selfSigned: boolean;
-    commonName: string;
-    organization: string;
-    country: string;
-  };
-  wildcardCerts: boolean;
+export interface PrometheusConfig {
+  retention: string;
+  storageSize: string;
+  scrapeInterval: string;
 }
 
-// Resource Outputs
-export interface VMOutput {
-  id: string;
+export interface GrafanaConfig {
+  adminPassword: pulumi.Output<string>;
+  persistence: boolean;
+  storageSize: string;
+}
+
+// Backup Configuration
+export interface BackupConfig {
+  enabled: boolean;
+  schedule: string;
+  retention: number;
+  storage: BackupStorageConfig;
+  targets: BackupTarget[];
+}
+
+export interface BackupStorageConfig {
+  type: 'local' | 'nfs' | 's3';
+  path: string;
+  credentials?: Record<string, pulumi.Output<string>>;
+}
+
+export interface BackupTarget {
   name: string;
-  ipAddress?: string;
-  macAddress: string;
-  status: 'running' | 'stopped' | 'paused' | 'error';
-  node: string;
-  template: string;
-  specs: NodeSpecs;
-  uptime?: number;
-  
-  /** Clone source information */
-  cloneSource?: {
-    templateId: number;
-    templateName: string;
-    cloneType: 'full' | 'linked';
-  };
-  
-  /** Network configuration details */
-  networkDetails?: {
-    interfaces: Array<{
-      name: string;
-      mac: string;
-      bridge: string;
-      vlan?: number;
-      ip?: string;
-      gateway?: string;
-    }>;
-  };
-  
-  /** Cloud-init status */
-  cloudInitStatus?: {
-    ready: boolean;
-    userData: boolean;
-    networkConfig: boolean;
-  };
-  
-  /** Resource utilization */
-  resources?: {
-    cpuUsage?: number;
-    memoryUsage?: number;
-    diskUsage?: number;
-  };
+  type: 'vm' | 'container' | 'volume';
+  id: string | number;
+  compress: boolean;
+}
+
+// Component Output Types
+export interface VMOutput {
+  id: pulumi.Output<number>;
+  name: pulumi.Output<string>;
+  ipAddress: pulumi.Output<string>;
+  macAddress: pulumi.Output<string>;
+  status: pulumi.Output<string>;
 }
 
 export interface ClusterOutput {
-  name: string;
-  endpoint: string;
-  version: string;
-  nodes: NodeOutput[];
-  kubeconfig: string;
-  status: 'ready' | 'pending' | 'error';
-  components: ComponentStatus[];
-}
-
-export interface NodeOutput {
-  name: string;
-  role: string;
-  status: 'ready' | 'notready' | 'unknown';
-  addresses: NodeAddress[];
-  capacity: ResourceList;
-  allocatable: ResourceList;
-  conditions: NodeCondition[];
-}
-
-export interface NodeAddress {
-  type: 'InternalIP' | 'ExternalIP' | 'Hostname';
-  address: string;
-}
-
-export interface ResourceList {
-  cpu: string;
-  memory: string;
-  storage: string;
-}
-
-export interface NodeCondition {
-  type: string;
-  status: 'True' | 'False' | 'Unknown';
-  lastHeartbeatTime: string;
-  lastTransitionTime: string;
-  reason: string;
-  message: string;
-}
-
-export interface ComponentStatus {
-  name: string;
-  status: 'healthy' | 'unhealthy' | 'unknown';
-  message?: string;
-}
-
-// Pulumi Component Props
-export interface ComponentProps {
-  name: string;
-  config: GlobalConfig;
-  dependsOn?: pulumi.Resource[];
-  protect?: boolean;
-  provider?: pulumi.ProviderResource;
-}
-
-export interface VMComponentProps extends ComponentProps {
-  specs: NodeSpecs;
-  template: string;
-  cloudInit?: CloudInitConfig;
-}
-
-export interface CloudInitConfig {
-  userData: string;
-  networkConfig?: string;
-  metaData?: string;
-}
-
-// Removed custom validation types - using Joi directly
-
-// Stack Configuration
-export interface StackConfig {
-  config: GlobalConfig;
-  stack: string;
-  region?: string;
-  tags?: Record<string, string>;
+  name: pulumi.Output<string>;
+  apiEndpoint: pulumi.Output<string>;
+  kubeconfig: pulumi.Output<string>;
+  masterNodes: VMOutput[];
+  workerNodes: VMOutput[];
 }
