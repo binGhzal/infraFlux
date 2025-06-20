@@ -94,6 +94,198 @@ pulumi up
 - **Backward Compatibility**: Extensions must not break existing deployments
 - **Test Coverage**: All new features require tests
 
+## Claude Code Integration & Capabilities
+
+### MCP Server Configuration
+
+InfraFlux v2.0 leverages multiple MCP (Model Context Protocol) servers to enhance development workflows. The configuration is stored in `.claude/.mcp.json`:
+
+#### Available MCP Servers
+
+**Context7** (`@context7/mcp-server`)
+- **Purpose**: Library documentation and API reference lookup
+- **Usage**: Get up-to-date documentation for Pulumi, Proxmox, TypeScript, Jest, etc.
+- **Commands**:
+  - `mcp__context7__resolve-library-id`: Find library ID for documentation
+  - `mcp__context7__get-library-docs`: Fetch comprehensive library docs
+- **When to use**: Before implementing new features, when troubleshooting API issues
+
+**Consult7** (`@consult7/mcp-server`)
+- **Purpose**: Code analysis and consultation across file patterns
+- **Usage**: Analyze code patterns, find implementations, understand codebase structure
+- **Commands**:
+  - `mcp__consult7__consultation`: Analyze files matching regex patterns
+- **When to use**: Refactoring, code reviews, understanding existing implementations
+
+**Vibe Check** (`vibe-check-mcp-server`)
+- **Purpose**: Metacognitive questioning and plan validation
+- **Usage**: Prevent tunnel vision, validate complex plans, learn from mistakes
+- **Commands**:
+  - `mcp__vibe-check-mcp-server__vibe_check`: Validate plans and identify assumptions
+  - `mcp__vibe-check-mcp-server__vibe_distill`: Simplify overly complex plans
+  - `mcp__vibe-check-mcp-server__vibe_learn`: Record patterns and lessons learned
+- **When to use**: Before major decisions, when plans become complex, after encountering issues
+
+**Memory Plus** (`@memory-plus/mcp-server`)
+- **Purpose**: Persistent memory management for conversation context
+- **Usage**: Store project state, retrieve context, maintain conversation continuity
+- **Commands**:
+  - `mcp__memory-plus__record`: Store important information and decisions
+  - `mcp__memory-plus__retrieve`: Get relevant context based on semantic search
+  - `mcp__memory-plus__recent`: Get most recent memories for temporal context
+  - `mcp__memory-plus__update`: Update existing memories with new information
+  - `mcp__memory-plus__export`: Export memories for external analysis
+- **When to use**: Always for major decisions, at start of new conversations, for progress tracking
+
+**DeepWiki** (`@deepwiki/mcp-server`)
+- **Purpose**: GitHub repository documentation and wiki access
+- **Usage**: Research GitHub projects, read documentation, understand implementations
+- **Commands**:
+  - `mcp__deepwiki__read_wiki_structure`: Get documentation structure
+  - `mcp__deepwiki__read_wiki_contents`: Read repository documentation
+  - `mcp__deepwiki__ask_question`: Query specific information about repositories
+- **When to use**: Researching similar projects, understanding dependencies
+
+**Octagon Deep Research** (`@octagon/deep-research-mcp`)
+- **Purpose**: Comprehensive research and analysis across topics
+- **Usage**: Technology research, competitive analysis, architectural decisions
+- **Commands**:
+  - `mcp__octagon-deep-research__octagon-deep-research-agent`: Comprehensive research
+- **When to use**: Major technology decisions, architectural choices, market research
+
+**MCP Mermaid** (`@mcp/mermaid`)
+- **Purpose**: Generate Mermaid diagrams for documentation
+- **Usage**: Create architectural diagrams, flowcharts, sequence diagrams
+- **Commands**:
+  - `mcp__mcp-mermaid__generate_mermaid_diagram`: Generate visual diagrams
+- **When to use**: Creating documentation, explaining architecture, planning workflows
+
+### Claude Code Workflow Commands
+
+The `.claude/settings.json` file defines comprehensive workflow commands:
+
+#### Primary Commands
+
+**project-status**
+```bash
+# Get comprehensive project status
+# - TodoRead for current tasks
+# - memory-plus recent for latest context  
+# - Read CLAUDE.md overview
+# - Summarize current state and next steps
+```
+
+**deep-research**
+```bash
+# Conduct comprehensive research on topics
+# - octagon-deep-research for initial analysis
+# - context7 for technical documentation
+# - deepwiki for GitHub insights
+# - memory-plus to record findings
+```
+
+**validate-plan**
+```bash
+# Validate plans using metacognitive analysis
+# - vibe-check with current plan
+# - vibe-distill if too complex
+# - Update plan based on feedback
+# - Record validated plan
+```
+
+**setup-development**
+```bash
+# Complete development environment setup
+# - Run dev-setup.sh script
+# - Install dependencies and build
+# - Run tests and linting
+# - Record setup completion
+```
+
+**commit-with-memory**
+```bash
+# Commit changes and record progress
+# - Review changes with git status/diff
+# - Stage and commit with detailed message
+# - Record progress to memory
+# - Update todo status
+```
+
+#### Workflow Patterns
+
+**Daily Standup**: project-status → plan-next-phase
+**Feature Development**: validate-plan → test-component → analyze-codebase → commit-with-memory
+**Research & Decide**: deep-research → validate-plan → create-documentation
+**Troubleshooting**: troubleshoot-issue → test-component → commit-with-memory
+
+### Development Workflow Integration
+
+#### Quality Gates
+- **Before Commit**: lint, typecheck, unit tests
+- **Before Major Change**: validate-plan, backup current state
+- **Complex Plans**: Automatic vibe-check validation
+
+#### Auto Actions
+- **New Chat**: Read context-prime.md, get recent memory, read todos
+- **Complex Plan**: Automatic vibe-check triggering
+- **Research Needed**: Automatic deep-research workflow
+
+#### Memory Management Pattern
+```typescript
+// Standard workflow for any major work:
+1. mcp__memory-plus__retrieve("relevant context")
+2. [Do the work]
+3. mcp__memory-plus__record("what was accomplished")
+4. TodoWrite to update task status
+```
+
+### Testing Strategy Integration
+
+The testing strategy leverages Claude Code capabilities for comprehensive validation:
+
+#### Test Development Workflow
+1. **Component Analysis**: Use consult7 to understand existing patterns
+2. **Test Creation**: Write unit, integration, property-based tests
+3. **Validation**: Use vibe-check to validate test coverage
+4. **Documentation**: Record testing patterns in memory-plus
+
+#### Test Categories
+- **Unit Tests**: Component logic validation with Jest
+- **Integration Tests**: Multi-component interaction testing
+- **Property Tests**: Property-based testing with fast-check
+- **E2E Tests**: Full deployment validation
+- **Contract Tests**: Provider API contract validation
+
+### Documentation Standards
+
+#### Auto-Documentation
+- All major decisions recorded in memory-plus
+- Architectural changes documented in ADR format
+- Complex workflows visualized with mcp-mermaid
+- API documentation generated from TypeScript types
+
+#### Documentation Workflow
+1. **Research**: Use context7 for current best practices
+2. **Structure**: Create outline and gather information
+3. **Visual**: Generate diagrams with mcp-mermaid
+4. **Review**: Use vibe-check to validate completeness
+5. **Record**: Store in memory-plus for future reference
+
+### Error Handling and Troubleshooting
+
+#### Systematic Troubleshooting
+1. **Context Retrieval**: memory-plus retrieve similar issues
+2. **Research**: context7 for library documentation
+3. **Analysis**: consult7 to understand code patterns
+4. **Solution**: Test and validate fixes
+5. **Learning**: vibe-learn to record solution patterns
+
+#### Common Issue Patterns
+- **Proxmox API**: Authentication, SSL, network connectivity
+- **Pulumi State**: State consistency, provider issues
+- **TypeScript**: Type errors, dependency conflicts
+- **Testing**: Mock setup, async testing, environment issues
+
 ## Configuration Structure
 
 ### Stack Configuration (`Pulumi.<stack>.yaml`)

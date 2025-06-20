@@ -1,0 +1,180 @@
+{
+  "commands": {
+    "project-status": {
+      "description": "Get comprehensive project status including todos, recent memory, and current phase",
+      "steps": [
+        "TodoRead to get current tasks",
+        "mcp__memory-plus__recent to get latest context",
+        "Read CLAUDE.md project overview",
+        "Summarize current state and next steps"
+      ]
+    },
+    "deep-research": {
+      "description": "Conduct comprehensive research on a topic using all available MCP tools",
+      "steps": [
+        "mcp__octagon-deep-research__octagon-deep-research-agent for initial analysis",
+        "mcp__context7__resolve-library-id and get-library-docs for technical details",
+        "mcp__deepwiki__ask_question for GitHub repository insights",
+        "mcp__memory-plus__record to save findings",
+        "Synthesize comprehensive report"
+      ]
+    },
+    "validate-plan": {
+      "description": "Validate current plan using metacognitive analysis",
+      "steps": [
+        "mcp__vibe-check-mcp-server__vibe_check with current plan and user request",
+        "mcp__vibe-check-mcp-server__vibe_distill if plan is too complex",
+        "Update plan based on feedback",
+        "mcp__memory-plus__record the validated plan"
+      ]
+    },
+    "setup-development": {
+      "description": "Complete development environment setup",
+      "steps": [
+        "Run scripts/dev-setup.sh",
+        "npm install to install dependencies",
+        "npm run build to verify compilation",
+        "npm run test:unit to run tests",
+        "npm run lint to check code quality",
+        "mcp__memory-plus__record setup completion"
+      ]
+    },
+    "commit-with-memory": {
+      "description": "Commit changes and record progress to memory",
+      "steps": [
+        "git status and git diff to review changes",
+        "git add . to stage changes",
+        "git commit with detailed message including 🤖 Generated tag",
+        "mcp__memory-plus__record the progress made",
+        "TodoWrite to update task status"
+      ]
+    },
+    "analyze-codebase": {
+      "description": "Analyze codebase structure and patterns",
+      "steps": [
+        "mcp__consult7__consultation with appropriate file patterns",
+        "Identify architectural patterns and potential issues",
+        "Suggest improvements and refactoring opportunities",
+        "mcp__memory-plus__record findings"
+      ]
+    },
+    "create-documentation": {
+      "description": "Create comprehensive documentation with diagrams",
+      "steps": [
+        "Analyze requirement and structure",
+        "Create text documentation",
+        "mcp__mcp-mermaid__generate_mermaid_diagram for visual elements",
+        "Integrate diagrams into documentation",
+        "Review and commit changes"
+      ]
+    },
+    "test-component": {
+      "description": "Create comprehensive tests for a component",
+      "steps": [
+        "Read the component implementation",
+        "Create unit tests with Jest",
+        "Create integration tests if needed",
+        "Add property-based tests with fast-check",
+        "Run tests and verify coverage",
+        "Document testing approach"
+      ]
+    },
+    "troubleshoot-issue": {
+      "description": "Systematic troubleshooting workflow",
+      "steps": [
+        "mcp__memory-plus__retrieve similar issues",
+        "Analyze logs and error messages",
+        "mcp__context7__get-library-docs for relevant documentation",
+        "Test potential solutions",
+        "mcp__vibe-check-mcp-server__vibe_learn to record the solution pattern"
+      ]
+    },
+    "plan-next-phase": {
+      "description": "Plan the next development phase",
+      "steps": [
+        "TodoRead current tasks",
+        "mcp__memory-plus__recent for context",
+        "mcp__vibe-check-mcp-server__vibe_check current approach",
+        "Create detailed task breakdown",
+        "TodoWrite updated tasks",
+        "mcp__memory-plus__record the plan"
+      ]
+    }
+  },
+  "workflows": {
+    "daily-standup": [
+      "project-status",
+      "plan-next-phase"
+    ],
+    "feature-development": [
+      "validate-plan",
+      "test-component",
+      "analyze-codebase",
+      "commit-with-memory"
+    ],
+    "research-and-decide": [
+      "deep-research",
+      "validate-plan",
+      "create-documentation"
+    ],
+    "troubleshooting": [
+      "troubleshoot-issue",
+      "test-component",
+      "commit-with-memory"
+    ]
+  },
+  "preferences": {
+    "always_use_todos": true,
+    "commit_frequently": true,
+    "record_major_decisions": true,
+    "validate_complex_plans": true,
+    "modular_components": true,
+    "comprehensive_testing": true
+  },
+  "quality_gates": {
+    "before_commit": [
+      "npm run lint",
+      "npm run typecheck",
+      "npm run test:unit"
+    ],
+    "before_major_change": [
+      "validate-plan",
+      "backup_current_state"
+    ]
+  },
+  "auto_actions": {
+    "on_new_chat": [
+      "Read .claude/context-prime.md",
+      "mcp__memory-plus__recent",
+      "TodoRead"
+    ],
+    "on_complex_plan": [
+      "mcp__vibe-check-mcp-server__vibe_check"
+    ],
+    "on_research_needed": [
+      "deep-research"
+    ]
+  },
+  "mcp_usage_guidelines": {
+    "memory-plus": {
+      "when": "Always for major decisions, progress updates, and context preservation",
+      "pattern": "retrieve -> work -> record"
+    },
+    "vibe-check": {
+      "when": "Complex plans, major decisions, or when feeling uncertain",
+      "pattern": "vibe_check -> adjust -> proceed"
+    },
+    "context7": {
+      "when": "Need current documentation for libraries or APIs",
+      "pattern": "resolve-library-id -> get-library-docs"
+    },
+    "consult7": {
+      "when": "Analyzing code patterns or finding specific implementations",
+      "pattern": "define pattern -> analyze -> interpret results"
+    },
+    "octagon-deep-research": {
+      "when": "Comprehensive research on technologies or architectural decisions",
+      "pattern": "broad query -> detailed analysis -> synthesize findings"
+    }
+  }
+}
