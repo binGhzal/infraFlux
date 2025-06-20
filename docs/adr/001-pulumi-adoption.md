@@ -6,7 +6,8 @@ Accepted
 
 ## Context
 
-InfraFlux v2.0 requires a comprehensive rebuild to improve maintainability, developer experience, and operational efficiency. The current architecture uses three separate tools:
+InfraFlux v2.0 requires a comprehensive rebuild to improve maintainability, developer experience,
+and operational efficiency. The current architecture uses three separate tools:
 
 - **Ansible**: Configuration management and orchestration
 - **Terraform**: Infrastructure provisioning
@@ -22,7 +23,8 @@ This multi-tool approach creates several challenges:
 
 ## Decision
 
-We will adopt Pulumi with TypeScript as the unified Infrastructure as Code platform, replacing the Ansible + Terraform + Packer stack.
+We will adopt Pulumi with TypeScript as the unified Infrastructure as Code platform, replacing the
+Ansible + Terraform + Packer stack.
 
 ## Rationale
 

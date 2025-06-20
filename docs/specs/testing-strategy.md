@@ -7,7 +7,7 @@ from unit tests to end-to-end deployment validation.
 
 ## Testing Pyramid
 
-```
+```diagram
                     E2E Tests
                   (Full Deployment)
                       ↑

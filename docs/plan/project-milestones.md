@@ -2,8 +2,7 @@
 
 ## Milestone 1: Planning Foundation Complete
 
-**Target**: Phase 1 completion
-**Success Criteria**:
+**Target**: Phase 1 completion **Success Criteria**:
 
 - ✅ Complete planning documentation
 - ✅ Technical specifications defined
@@ -29,8 +28,7 @@
 
 ## Milestone 2: Development Foundation Ready
 
-**Target**: Phase 2 completion
-**Success Criteria**:
+**Target**: Phase 2 completion **Success Criteria**:
 
 - [ ] CLAUDE.md updated with Pulumi workflow
 - [ ] Complete TypeScript project structure
@@ -57,8 +55,7 @@
 
 ## Milestone 3: Core Infrastructure Components
 
-**Target**: Phase 3 completion
-**Success Criteria**:
+**Target**: Phase 3 completion **Success Criteria**:
 
 - [ ] Pulumi stacks configured for all environments
 - [ ] VM template system functional
@@ -85,8 +82,7 @@
 
 ## Milestone 4: Kubernetes and Secrets Integration
 
-**Target**: Phase 4 completion
-**Success Criteria**:
+**Target**: Phase 4 completion **Success Criteria**:
 
 - [ ] Talos Kubernetes clusters deployable
 - [ ] Pulumi ESC secret management operational
@@ -114,8 +110,7 @@
 
 ## Milestone 5: GitOps and Automation Ready
 
-**Target**: Phase 5 completion
-**Success Criteria**:
+**Target**: Phase 5 completion **Success Criteria**:
 
 - [ ] FluxCD integration operational
 - [ ] Pulumi Automation API configured
@@ -142,8 +137,7 @@
 
 ## Milestone 6: Production Ready
 
-**Target**: Phase 6 completion (Project Complete)
-**Success Criteria**:
+**Target**: Phase 6 completion (Project Complete) **Success Criteria**:
 
 - [ ] Complete user documentation
 - [ ] All examples functional

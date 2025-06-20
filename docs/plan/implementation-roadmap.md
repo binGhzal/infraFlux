@@ -2,7 +2,8 @@
 
 ## Overview
 
-This document outlines the comprehensive roadmap for rebuilding InfraFlux v2.0 using Pulumi as the unified Infrastructure as Code solution.
+This document outlines the comprehensive roadmap for rebuilding InfraFlux v2.0 using Pulumi as the
+unified Infrastructure as Code solution.
 
 ## Architecture Transition
 
@@ -58,9 +59,8 @@ This document outlines the comprehensive roadmap for rebuilding InfraFlux v2.0 u
 
 ## Timeline
 
-**Total Estimated Time**: 7.5 hours
-**Target Completion**: Same day implementation
-**Milestone Commits**: ~15 strategic commits
+**Total Estimated Time**: 7.5 hours **Target Completion**: Same day implementation **Milestone
+Commits**: ~15 strategic commits
 
 ## Risk Mitigation
 

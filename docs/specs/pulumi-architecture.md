@@ -32,7 +32,7 @@ Infrastructure as Code platform.
 
 ### 1. Pulumi Project Structure
 
-```
+```filesystem
 src/
 ├── components/           # Reusable infrastructure components
 │   ├── network/         # Network infrastructure
@@ -116,7 +116,7 @@ interface VMTemplateConfig {
 
 #### Secret Hierarchy
 
-```
+```filesystem
 environments/
 ├── infraflux-base/      # Base secrets and configuration
 ├── infraflux-dev/       # Development-specific secrets
@@ -128,7 +128,7 @@ environments/
 
 ### 1. Deployment Flow
 
-```
+```diagram
 Configuration → Pulumi Program → Provider APIs → Infrastructure
      ↓               ↓              ↓              ↓
 Stack Config → Component Tree → Resource Graph → Proxmox VMs
@@ -145,7 +145,7 @@ ESC Secrets → Template Values → API Calls → Talos Cluster
 
 ### 3. Resource Dependencies
 
-```
+```diagram
 Network → Storage → VM Templates → VM Instances → Kubernetes Cluster
    ↓         ↓          ↓             ↓              ↓
 Bridges → Datastores → Images → Running VMs → Control Plane
@@ -219,7 +219,7 @@ VLANs → Volumes → Cloud-init → Workers → Applications
 
 ### 1. Testing Pyramid
 
-```
+```diagram
 E2E Tests (Integration)
     ↑
 Component Tests (Unit)
