@@ -1,0 +1,73 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# InfraFlux v2.0 - Project Overview and Architecture
+
+## 🎯 **Project Mission**
+InfraFlux v2.0 is a production-ready, enterprise-grade infrastructure automation platform for homelab and cloud deployments using **pure Pulumi approaches** and **Talos Linux exclusively**.
+
+## 🏗️ **Core Architecture Principles**
+
+### **Talos-Exclusive Approach**
+- **Only Talos Linux**: No Ubuntu, K3s, or other distributions
+- **Custom Image Factory**: Uses factory.talos.dev with custom schematics
+- **Immutable Infrastructure**: SSH-free, API-driven management
+- **Cloud-Ready**: Perfect integration with AKS, EKS, GKE
+
+### **Pure Pulumi Philosophy**
+- **No Shell Commands**: Use native Pulumi providers exclusively
+- **Component-Based**: Small, reusable infrastructure components
+- **Declarative**: Everything defined in TypeScript code
+- **Resource Dependencies**: Leverage Pulumi's dependency management
+
+### **Template-First Strategy**
+- **Custom Factory Images**: Download from Talos Image Factory
+- **Template Inheritance**: VMs clone from optimized templates
+- **Fast Provisioning**: Clone vs full installation
+- **Extension Ready**: QEMU Guest Agent + CloudFlare Tunnel pre-installed
+
+## 📁 **Key Files and Components**
+
+### **Entry Point**
+- [src/index.ts](mdc:src/index.ts) - Main infrastructure deployment orchestration
+
+### **Core Components**
+- [src/components/cloud-image-template.ts](mdc:src/components/cloud-image-template.ts) - TalosTemplateManager, TalosISO, TalosTemplate
+- [src/components/talos-cluster.ts](mdc:src/components/talos-cluster.ts) - Kubernetes cluster deployment
+- [src/components/vm.ts](mdc:src/components/vm.ts) - VM provisioning from templates
+- [src/components/network-discovery.ts](mdc:src/components/network-discovery.ts) - Native QEMU Guest Agent network discovery
+- [src/components/gitops.ts](mdc:src/components/gitops.ts) - FluxCD GitOps integration
+
+### **Configuration System**
+- [src/config/index.ts](mdc:src/config/index.ts) - Environment-based configuration with auto-discovery
+- [src/utils/config-validator.ts](mdc:src/utils/config-validator.ts) - Joi-based validation with helpful error messages
+- [env.example](mdc:env.example) - Configuration template with sensible defaults
+
+### **Development Tools**
+- [src/cli/validate-config.ts](mdc:src/cli/validate-config.ts) - CLI for configuration validation
+- [ROADMAP.md](mdc:ROADMAP.md) - Comprehensive implementation roadmap with subtasks
+
+## 🔄 **Deployment Flow**
+1. **Network Auto-Discovery**: Automatically detect gateway/subnet from Proxmox bridge
+2. **ISO Management**: Download/check custom Talos factory images
+3. **Template Creation**: Create master and worker templates with ISO attached
+4. **VM Provisioning**: Clone VMs from templates (faster than installation)
+5. **Cluster Bootstrap**: Apply Talos configurations and bootstrap cluster
+6. **GitOps Setup**: Configure FluxCD for continuous deployment
+
+## 🎯 **Key Design Decisions**
+- **Separate Storage Pools**: ISOs on `local`, VMs on `local-lvm`
+- **Safe VM ID Ranges**: 8000+ (cluster), 9010+ (templates)
+- **Network Auto-Discovery**: Zero manual network configuration
+- **GitOps Separation**: Infrastructure (Pulumi) vs Applications (FluxCD)
+- **Template Optimization**: Separate master/worker templates for different workload profiles
+
+## 🛡️ **Security and Best Practices**
+- **Immutable OS**: Talos Linux with no SSH access
+- **Secret Management**: Pulumi ESC integration
+- **Network Policies**: Managed via GitOps
+- **Resource Tagging**: All resources tagged as 'infraflux-managed'
+
+This architecture ensures **scalable**, **maintainable**, and **production-ready** infrastructure automation.

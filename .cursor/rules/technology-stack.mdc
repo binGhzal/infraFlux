@@ -1,0 +1,335 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# InfraFlux v2.0 - Technology Stack and Provider Patterns
+
+## 🏭 **Core Technology Stack**
+
+### **Infrastructure Platform**
+- **Proxmox VE** - Virtualization platform (v7.0+)
+- **Talos Linux** - Immutable Kubernetes OS (v1.10.4+)
+- **Pulumi** - Infrastructure as Code engine
+- **TypeScript** - Primary programming language
+
+### **Pulumi Providers**
+- **@muhlba91/pulumi-proxmoxve** (v6.2.0+) - Proxmox VE management
+- **@pulumiverse/talos** (v0.5.2+) - Talos cluster management
+- **@pulumi/kubernetes** (v4.8.0+) - Kubernetes resource management
+- **@worawat/flux** (v1.0.1+) - FluxCD GitOps integration
+
+## 🔧 **Proxmox VE Integration Patterns**
+
+### **Provider Configuration**
+```typescript
+const proxmoxProvider = new proxmox.Provider('proxmox', {
+  endpoint: config.proxmox.endpoint,
+  username: config.proxmox.username, // format: 'user@realm'
+  password: config.proxmox.password,
+  insecure: config.proxmox.insecure, // true for self-signed certs
+});
+```
+
+### **ISO File Management**
+Reference [src/components/cloud-image-template.ts](mdc:src/components/cloud-image-template.ts):
+```typescript
+// Download ISO with integrity checking
+const talosISO = new proxmox.download.File('talos-iso', {
+  contentType: 'iso',
+  datastoreId: 'local', // ISO storage pool
+  nodeName: config.proxmox.node,
+  url: 'https://factory.talos.dev/image/...',
+  fileName: 'talos-v1.10.4-custom.iso',
+});
+```
+
+### **VM Template Creation**
+```typescript
+// Create template with ISO attached
+const template = new proxmox.vm.VirtualMachine('template', {
+  nodeName: config.proxmox.node,
+  vmId: 9010, // Safe template ID range
+  template: true, // Mark as template
+
+  // Attach Talos ISO to CD-ROM
+  cdrom: {
+    enabled: true,
+    fileId: talosISO.id,
+    interface: 'ide2',
+  },
+
+  // Enable QEMU Guest Agent
+  agent: {
+    enabled: true,
+    trim: true,
+    type: 'virtio',
+  },
+});
+```
+
+### **VM Cloning Pattern**
+```typescript
+// Clone from template (faster than installation)
+const vm = new proxmox.vm.VirtualMachine('vm', {
+  clone: {
+    nodeName: config.proxmox.node,
+    vmId: template.vmId, // Source template
+    full: true, // Full clone
+  },
+
+  // Hardware specs
+  cpu: { cores: 2, type: 'host' },
+  memory: { dedicated: 4096 },
+
+  // Storage configuration
+  disks: [{
+    interface: 'scsi0',
+    datastoreId: 'local-lvm', // VM storage pool
+    size: 30, // GB
+    fileFormat: 'raw',
+  }],
+});
+```
+
+## 🐧 **Talos Linux Integration**
+
+### **Image Factory Configuration**
+```typescript
+// Custom schematic with extensions
+const schematic = 'ec83aa8b78f86413fceed33b6f16f598df0e3c4b1cbd514c5790364b49d4f8f6';
+const extensions = ['qemu-guest-agent', 'cloudflared'];
+const installerImage = `factory.talos.dev/nocloud-installer/${schematic}:v1.10.4`;
+```
+
+### **Machine Configuration Pattern**
+Reference [src/components/talos-cluster.ts](mdc:src/components/talos-cluster.ts):
+```typescript
+// Generate machine configuration
+const machineConfig = talos.machine.getConfigurationOutput({
+  clusterName: 'homelab',
+  machineType: 'controlplane', // or 'worker'
+  clusterEndpoint: 'https://192.168.1.200:6443',
+  machineSecrets: secrets.machineSecrets,
+});
+
+// Apply with custom patches
+const configApply = new talos.machine.ConfigurationApply('config', {
+  clientConfiguration: secrets.clientConfiguration,
+  machineConfigurationInput: machineConfig.machineConfiguration,
+  node: '192.168.1.200',
+  configPatches: [
+    pulumi.jsonStringify({
+      machine: {
+        install: {
+          disk: '/dev/vda',
+          image: installerImage, // Custom factory image
+        },
+        network: {
+          hostname: 'master-0',
+          interfaces: [{
+            interface: 'eth0',
+            addresses: ['192.168.1.200/24'],
+            routes: [{ network: '0.0.0.0/0', gateway: '192.168.1.1' }],
+          }],
+        },
+      },
+    }),
+  ],
+});
+```
+
+### **Cluster Bootstrap**
+```typescript
+// Bootstrap first control plane
+const bootstrap = new talos.machine.Bootstrap('bootstrap', {
+  node: masterIP,
+  clientConfiguration: secrets.clientConfiguration,
+});
+
+// Generate kubeconfig
+const kubeconfig = new talos.cluster.Kubeconfig('kubeconfig', {
+  node: masterIP,
+  clientConfiguration: secrets.clientConfiguration,
+});
+```
+
+## 🌐 **Network Discovery Patterns**
+
+### **QEMU Guest Agent Integration**
+Reference [src/components/network-discovery.ts](mdc:src/components/network-discovery.ts):
+```typescript
+// Use native VM outputs for network info
+const vmNetworkInfo = vm.apply(vm => ({
+  vmId: vm.vmId,
+  macAddresses: vm.macAddresses,
+  ipv4Addresses: vm.ipv4Addresses, // Real-time from guest agent
+  ipv6Addresses: vm.ipv6Addresses,
+  networkInterfaceNames: vm.networkInterfaceNames,
+}));
+```
+
+### **Proxmox Bridge Auto-Discovery**
+```typescript
+// Discover network config from Proxmox
+const networkInfo = proxmox.network.getHostsOutput({
+  nodeName: config.proxmox.node,
+});
+
+const bridgeConfig = networkInfo.apply(info => ({
+  gateway: info.gateway, // Auto-discovered
+  subnet: info.subnet,   // Auto-discovered
+  bridge: 'vmbr0',
+}));
+```
+
+## 🔄 **GitOps Integration (FluxCD)**
+
+### **FluxCD Bootstrap Pattern**
+Reference [src/components/gitops.ts](mdc:src/components/gitops.ts):
+```typescript
+// Generate SSH key for Git access
+const sshKey = new tls.PrivateKey('flux-ssh', {
+  algorithm: 'ECDSA',
+  ecdsaCurve: 'P256',
+});
+
+// Create Flux provider
+const fluxProvider = new flux.Provider('flux', {
+  git: {
+    url: gitOpsConfig.repoUrl,
+    branch: 'main',
+    ssh: {
+      username: 'git',
+      privateKey: sshKey.privateKeyPem,
+    },
+  },
+});
+
+// Bootstrap Flux
+const fluxBootstrap = new flux.FluxBootstrapGit('bootstrap', {
+  path: 'clusters/homelab',
+  interval: '5m',
+  components: [
+    'source-controller',
+    'kustomize-controller',
+    'helm-controller',
+    'notification-controller',
+  ],
+});
+```
+
+## 💾 **Storage Management Patterns**
+
+### **Dual Storage Strategy**
+```typescript
+// Storage configuration
+const storageConfig = {
+  // Fast storage for VMs (SSDs, NVMe, LVM)
+  vmStorage: 'local-lvm',
+
+  // Slower/cheaper storage for ISOs (HDDs, directory)
+  isoStorage: 'local',
+
+  // Disk format optimization
+  diskFormat: 'raw', // Better performance than qcow2
+};
+```
+
+### **Resource Organization**
+```typescript
+// VM ID ranges for organization
+const idRanges = {
+  masters: 8000,     // 8000-8099
+  workers: 8100,     // 8100-8199
+  templates: 9010,   // 9010+ for templates
+};
+
+// Template specialization
+const templateTypes = {
+  master: {
+    cores: 2,
+    memory: 4096,
+    diskSize: 30, // GB
+    optimizedFor: 'control-plane',
+  },
+  worker: {
+    cores: 2,
+    memory: 4096,
+    diskSize: 50, // GB - more space for workloads
+    optimizedFor: 'workloads',
+  },
+};
+```
+
+## 🔐 **Security Integration Patterns**
+
+### **Secret Management**
+```typescript
+// Use Pulumi secrets for sensitive data
+const proxmoxPassword = pulumi.secret(process.env.PROXMOX_PASSWORD);
+
+// Tag resources for governance
+const resourceTags = [
+  'infraflux-managed',
+  'talos',
+  'production', // or environment name
+  'auto-generated',
+];
+```
+
+### **Network Security**
+```typescript
+// Network isolation via VLAN tagging
+const networkConfig = {
+  bridge: 'vmbr0',
+  vlan: 100, // Optional VLAN isolation
+  firewall: true, // Enable Proxmox firewall
+};
+```
+
+## 📊 **Monitoring and Observability**
+
+### **Resource Tagging Strategy**
+```typescript
+// Standard tagging for all resources
+const standardTags = [
+  'infraflux-managed',  // Identifies InfraFlux resources
+  'environment:' + config.environment,
+  'component:' + componentName,
+  'version:' + config.kubernetes.version,
+];
+```
+
+### **Health Checking Pattern**
+```typescript
+// Check resource health
+const healthCheck = vm.apply(vm => ({
+  status: vm.status,
+  agentReady: vm.networkInterfaceNames.length > 0,
+  ipAssigned: vm.ipv4Addresses.length > 0,
+  ready: vm.status === 'running' && vm.networkInterfaceNames.length > 0,
+}));
+```
+
+## 🎯 **Performance Optimization**
+
+### **Template-Based Deployment**
+- **Clone Speed** - VM cloning is 10x faster than fresh installs
+- **Consistency** - Templates ensure identical base configurations
+- **Caching** - ISO downloads cached to avoid re-downloading
+- **Parallel Creation** - Independent VMs created in parallel
+
+### **Network Optimization**
+- **Bridge Selection** - Use fastest available bridge (10Gb when available)
+- **Guest Agent** - Enable for real-time monitoring
+- **Interface Type** - VirtIO for best performance
+- **MTU Optimization** - Match network MTU settings
+
+### **Storage Optimization**
+- **Storage Pool Selection** - Fast storage for VMs, slower for ISOs
+- **Disk Format** - RAW format for better performance
+- **Thin Provisioning** - Use LVM thin for space efficiency
+- **SSD Optimization** - Enable SSD flag for SSD storage
+
+These patterns ensure **optimal performance**, **security**, and **maintainability** when working with the InfraFlux technology stack.

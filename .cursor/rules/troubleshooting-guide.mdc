@@ -1,0 +1,1120 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# InfraFlux v2.0 - Troubleshooting and Debugging Guide
+
+## 🔬 **Research-First Troubleshooting Approach**
+
+### **Before Debugging - Consult Documentation**
+Always start with research:
+
+1. **Primary Research Sources**:
+   - [Proxmox VE API Documentation](mdc:https:/pve.proxmox.com/pve-docs/api-viewer)
+   - [Pulumi Proxmox Provider Docs](mdc:https:/pulumi.com/registry/packages/proxmoxve)
+   - [Talos Linux Documentation](mdc:https:/talos.dev/docs)
+   - [GitHub Issues and Discussions](mdc:https:/github.com/search?q=)
+
+2. **Community Research**:
+   - Stack Overflow with provider-specific tags
+   - Reddit communities (r/homelab, r/proxmox)
+   - Discord/Slack communities
+   - Vendor-specific forums
+
+3. **Document Research Process**:
+   ```bash
+   # Create research log for each issue
+   echo "## Troubleshooting Research - $(date)" >> troubleshooting-log.md
+   echo "Issue: [Brief description]" >> troubleshooting-log.md
+   echo "Research Sources:" >> troubleshooting-log.md
+   echo "- [ ] Official documentation" >> troubleshooting-log.md
+   echo "- [ ] Community discussions" >> troubleshooting-log.md
+   echo "- [ ] GitHub issues" >> troubleshooting-log.md
+   ```
+
+## 🚨 **Common Issues with Research-Driven Solutions**
+
+### **Authentication Problems**
+
+#### Proxmox Authentication Failure
+```bash
+# Error: authentication failure, 401, unauthorized
+```
+
+**Research Phase**:
+- **Proxmox API Documentation**: [Authentication Methods](mdc:https:/pve.proxmox.com/pve-docs/api-viewer/index.html#/access)
+- **Pulumi Provider**: [Authentication Configuration](mdc:https:/pulumi.com/registry/packages/proxmoxve/installation-configuration)
+- **Community Solutions**: Search for "proxmox pulumi authentication" on GitHub
+
+**Auto-Recovery Solutions**:
+```typescript
+// Automated credential validation with retry
+const validateCredentials = async () => {
+  try {
+    const testConnection = await proxmox.Provider.test({
+      endpoint: config.proxmox.endpoint,
+      username: config.proxmox.username,
+      password: config.proxmox.password,
+    });
+    return { valid: true, connection: testConnection };
+  } catch (error) {
+    return {
+      valid: false,
+      error,
+      recoveryActions: [
+        'Check credential format (must be user@realm)',
+        'Verify permissions in Proxmox',
+        'Test manual login to Proxmox web UI'
+      ]
+    };
+  }
+};
+```
+
+**Diagnosis Steps**:
+1. Test credentials manually: Browse to Proxmox web UI
+2. Check username format: Must be `user@realm` (e.g., `root@pam`)
+3. Verify endpoint URL: Must include protocol (`https://`)
+4. Check certificate issues: Set `PROXMOX_INSECURE=true` for self-signed
+
+**Solution Pattern with GitOps**:
+```yaml
+# .env configuration (validated automatically)
+PROXMOX_ENDPOINT=https://192.168.1.100:8006  # Include https://
+PROXMOX_USERNAME=root@pam                     # Include @realm
+PROXMOX_PASSWORD=your-actual-password         # Check for special chars
+PROXMOX_INSECURE=true                        # For self-signed certs
+```
+
+**Git Workflow for Credential Issues**:
+```bash
+# Document and fix credential issues
+git add .env.example
+git commit -m "fix: update credential format documentation
+
+- Research: https://pve.proxmox.com/pve-docs/api-viewer/
+- Issue: Username must include @realm suffix
+- Auto-recovery: Added credential validation component"
+
+# Update memory with findings
+# Memory: "Proxmox authentication requires user@realm format"
+```
+
+### **Network Connectivity Issues**
+
+#### Network Unreachable with Auto-Discovery
+```bash
+# Error: ENETUNREACH, Network is unreachable, no route to host
+```
+
+**Research Sources**:
+- [Proxmox Networking Guide](mdc:https:/pve.proxmox.com/pve-docs/chapter-sysadmin.html#sysadmin_network_configuration)
+- [Pulumi Network Discovery Patterns](mdc:https:/pulumi.com/docs/guides/testing)
+
+**Auto-Recovery Implementation**:
+```typescript
+// Self-healing network discovery with fallback
+export class AutoHealingNetworkDiscovery extends pulumi.ComponentResource {
+  constructor(name: string, args: NetworkDiscoveryArgs) {
+    super('infraflux:network:AutoHealingNetworkDiscovery', name, {});
+
+    // Primary auto-discovery with fallback
+    const networkConfig = this.discoverWithFallback(args);
+
+    // Register self-healing monitor
+    this.enableSelfHealing(networkConfig);
+  }
+
+  private async discoverWithFallback(args: NetworkDiscoveryArgs) {
+    try {
+      // Try auto-discovery first
+      return await this.autoDiscoverNetwork(args);
+    } catch (error) {
+      logger.warn('Auto-discovery failed, using fallback', { error });
+      return this.useFallbackConfiguration(args);
+    }
+  }
+}
+```
+
+**Debugging Commands with Automation**:
+```bash
+# Automated network diagnostics
+#!/bin/bash
+# File: scripts/network-diagnostics.sh
+
+echo "## Network Connectivity Diagnostics - $(date)" >> diagnostics.log
+
+# Test connectivity
+ping -c 3 "$PROXMOX_HOST" && echo "✅ Host reachable" || echo "❌ Host unreachable"
+telnet "$PROXMOX_HOST" 8006 && echo "✅ HTTPS port open" || echo "❌ HTTPS port closed"
+telnet "$PROXMOX_HOST" 22 && echo "✅ SSH port open" || echo "❌ SSH port closed"
+
+# Check local network
+ip route show | grep default
+ip addr show | grep inet
+
+# Git commit diagnostics
+git add diagnostics.log
+git commit -m "diag: network connectivity diagnostics
+
+- Host: $PROXMOX_HOST
+- Auto-discovery: $([ -z "$NETWORK_GATEWAY" ] && echo "enabled" || echo "disabled")
+- Next: Implement fallback network configuration"
+```
+
+**Auto-Discovery Issues Resolution**:
+- Check if `NETWORK_GATEWAY` and `NETWORK_SUBNET` are empty (required for auto-discovery)
+- Verify bridge exists: `pvesh get /nodes/<node>/network`
+- Use fallback manual configuration if auto-discovery fails
+
+### **Resource Conflicts with Self-Healing**
+
+#### Template/VM ID Conflicts
+```bash
+# Error: VM 9010 already exists, template 9010 already exists
+```
+
+**Research Documentation**:
+- [Proxmox VM Management](mdc:https:/pve.proxmox.com/pve-docs/chapter-qm.html)
+- [Pulumi Resource State Management](mdc:https:/pulumi.com/docs/concepts/state)
+
+**Automated Resolution Strategies**:
+```typescript
+// Self-resolving resource conflicts
+export class ConflictResolver extends pulumi.ComponentResource {
+  async resolveVMIDConflict(vmId: number): Promise<number> {
+    const exists = await this.checkVMExists(vmId);
+
+    if (!exists) {
+      return vmId; // No conflict
+    }
+
+    // Check if it's managed by InfraFlux
+    const tags = await this.getVMTags(vmId);
+    if (tags.includes('infraflux-managed')) {
+      logger.info('VM is InfraFlux managed, reusing', { vmId });
+      return vmId;
+    }
+
+    // Find next available ID
+    const nextId = await this.findNextAvailableId(vmId);
+    logger.warn('VM ID conflict resolved', {
+      conflictedId: vmId,
+      resolvedId: nextId
+    });
+
+    return nextId;
+  }
+}
+```
+
+1. **Change ID:** Update `TALOS_TEMPLATE_ID` in .env
+2. **Remove Existing:** `qm destroy <vm-id> --purge` in Proxmox
+3. **Force Recreation:** Set `TALOS_FORCE_DOWNLOAD=true`
+
+**Safe ID Ranges (Auto-Managed)**:
+- Templates: 9010-9099 (avoid conflicts)
+- Masters: 8000-8099
+- Workers: 8100-8199
+
+**Git Workflow for Conflict Resolution**:
+```bash
+# Document and resolve conflicts
+git add src/utils/conflict-resolver.ts
+git commit -m "feat: implement automated VM ID conflict resolution
+
+- Research: https://pve.proxmox.com/pve-docs/chapter-qm.html
+- Auto-resolution: Find next available ID in safe ranges
+- Self-healing: Check InfraFlux tags before conflict resolution"
+```
+
+### **Storage Issues with Auto-Management**
+
+#### Storage Full with Predictive Monitoring
+```bash
+# Error: No space left, storage full, insufficient space
+```
+
+**Research Sources**:
+- [Proxmox Storage Management](mdc:https:/pve.proxmox.com/pve-docs/chapter-pvesm.html)
+- [Storage Best Practices](mdc:https:/pve.proxmox.com/pve-docs/chapter-sysadmin.html#sysadmin_storage)
+
+**Automated Monitoring and Cleanup**:
+```typescript
+// Self-monitoring storage with auto-cleanup
+export class StorageManager extends pulumi.ComponentResource {
+  constructor(name: string, args: StorageManagerArgs) {
+    super('infraflux:storage:StorageManager', name, {});
+
+    // Enable predictive monitoring
+    this.enableStorageMonitoring();
+
+    // Configure auto-cleanup policies
+    this.configureAutoCleanup();
+  }
+
+  private enableStorageMonitoring() {
+    // Monitor storage usage with alerts
+    const storageAlert = new prometheus.PrometheusRule('storage-alerts', {
+      groups: [{
+        name: 'storage',
+        rules: [{
+          alert: 'StorageSpaceLow',
+          expr: '(node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1',
+          annotations: {
+            summary: 'Storage space below 10%',
+            description: 'Automatic cleanup will be triggered'
+          }
+        }]
+      }]
+    });
+  }
+}
+```
+
+**Diagnosis Commands with Automation**:
+```bash
+#!/bin/bash
+# File: scripts/storage-diagnostics.sh
+
+# Check storage usage with automated reporting
+pvesh get /storage 2>/dev/null || echo "❌ Cannot query storage"
+df -h | grep -E "(vz|images)"
+lvs 2>/dev/null | grep -E "(local|lvm)"
+
+# Find large files automatically
+echo "## Large ISO files:" >> storage-report.md
+du -sh /var/lib/vz/template/iso/* 2>/dev/null | sort -hr | head -10 >> storage-report.md
+
+echo "## Large VM disks:" >> storage-report.md
+du -sh /var/lib/vz/images/* 2>/dev/null | sort -hr | head -10 >> storage-report.md
+
+# Git commit storage analysis
+git add storage-report.md scripts/storage-diagnostics.sh
+git commit -m "diag: automated storage analysis and cleanup recommendations
+
+- Current usage analyzed and documented
+- Auto-cleanup policies identified
+- Next: Implement automated ISO cleanup"
+```
+
+**Cleanup Strategies with Automation**:
+```bash
+# Automated cleanup (with safety checks)
+#!/bin/bash
+# File: scripts/auto-cleanup.sh
+
+# Remove old ISOs (keep last 2 versions)
+ls -t /var/lib/vz/template/iso/talos-*.iso | tail -n +3 | xargs rm -f
+
+# Remove stopped VMs older than 30 days (InfraFlux managed only)
+qm list | grep stopped | while read line; do
+  vmid=$(echo $line | awk '{print $1}')
+  tags=$(qm config $vmid | grep "^tags:" | cut -d: -f2-)
+  if [[ $tags == *"infraflux-managed"* ]]; then
+    echo "Would clean up old VM: $vmid" # Add actual cleanup logic
+  fi
+done
+```
+
+## 🔍 **Debugging Techniques with Research Integration**
+
+### **Pulumi Debugging with Documentation**
+
+#### Research-Enhanced Verbose Logging
+```bash
+# Enhanced debugging with research context
+export LOG_LEVEL=debug
+export PULUMI_DEBUG=true
+
+# Include research context in debug sessions
+echo "## Debug Session - $(date)" >> debug-log.md
+echo "Issue: [Current problem]" >> debug-log.md
+echo "Research conducted:" >> debug-log.md
+echo "- Provider docs: [link]" >> debug-log.md
+echo "- Community solutions: [link]" >> debug-log.md
+
+# Run with enhanced logging
+pulumi up --logtostderr --logflow -v=9 2>&1 | tee debug-output.log
+
+# Commit debug findings
+git add debug-log.md debug-output.log
+git commit -m "debug: enhanced logging for [issue] with research context"
+```
+
+#### Component-Level Debugging with Auto-Recovery
+Reference [src/utils/logger.ts](mdc:src/utils/logger.ts):
+```typescript
+import { logResource, logger } from '@/utils/logger';
+
+// Enhanced debugging with research context and auto-recovery
+logResource('TalosTemplate', 'Creating', {
+  templateId: args.templateVmId,
+  isoReady: args.talosISO.ready,
+  templateType: args.templateType,
+  researchRefs: [
+    'https://pulumi.com/registry/packages/proxmoxve/api-docs/vm/virtualmachine/',
+    'https://factory.talos.dev/docs/'
+  ],
+  autoRecovery: 'Enabled with exponential backoff',
+  gitCommit: process.env.GIT_COMMIT || 'unknown'
+});
+
+// Debug complex operations with recovery strategies
+logger.debug('Template creation flow with auto-recovery', {
+  step: 'ISO attachment with validation',
+  isoId: args.talosISO.isoId,
+  templateSpecs: this.getTemplateSpecs(args.templateType),
+  recoveryStrategies: [
+    'Retry with force download if ISO missing',
+    'Fallback to alternative template if creation fails',
+    'Auto-cleanup partial resources on failure'
+  ]
+});
+```
+
+### **Configuration Debugging with Auto-Correction**
+
+#### Validate Configuration with Research
+```bash
+#!/bin/bash
+# Enhanced config validation with research integration
+
+# Check configuration validity with auto-correction
+npm run validate-config
+
+# Generate corrected config template with research
+npm run config-template > .env.corrected
+
+# Compare and document differences
+diff .env .env.corrected > config-diff.txt
+
+# Research configuration patterns
+echo "## Configuration Research" >> config-analysis.md
+echo "Sources consulted:" >> config-analysis.md
+echo "- https://pulumi.com/docs/concepts/config/" >> config-analysis.md
+echo "- https://joi.dev/api/?v=17.7.0" >> config-analysis.md
+
+# Commit configuration analysis
+git add config-diff.txt config-analysis.md .env.corrected
+git commit -m "config: validate and document configuration with auto-correction
+
+- Auto-corrected invalid values to safe defaults
+- Research: Pulumi config patterns and Joi validation
+- Next: Implement automated config migration"
+```
+
+#### Network Discovery Debugging with Self-Healing
+Reference [src/components/network-discovery.ts](mdc:src/components/network-discovery.ts):
+```typescript
+// Check auto-discovery results with fallback
+const discovery = new ProxmoxNetworkDiscovery('debug-discovery', {
+  provider: proxmoxProvider,
+  nodeName: config.proxmox.node,
+  bridgeName: config.network.bridge,
+  enableSelfHealing: true, // Auto-recovery on failures
+  researchSources: [
+    'https://pve.proxmox.com/pve-docs/chapter-sysadmin.html#sysadmin_network_configuration'
+  ]
+});
+
+// Log discovered values with validation
+discovery.networkConfig.apply(config => {
+  logger.info('Auto-discovered network with validation', {
+    ...config,
+    validationStatus: 'passed',
+    fallbackAvailable: true,
+    researchValidated: true
+  });
+});
+```
+
+### **Template System Debugging with Automation**
+
+#### ISO Download Issues with Auto-Retry
+```typescript
+// Enhanced ISO management with auto-recovery
+const iso = new TalosISO('debug-iso', {
+  provider: proxmoxProvider,
+  forceDownload: true, // Force re-download for debugging
+  enableAutoRetry: true, // Auto-retry on failures
+  researchValidated: true, // Based on factory.talos.dev docs
+});
+
+// Monitor ISO status with auto-healing
+iso.ready.apply(ready => {
+  if (!ready) {
+    logger.error('ISO not ready, triggering auto-recovery', {
+      fileName: iso.fileName,
+      schematic: iso.schematic,
+      recoveryActions: [
+        'Retry download with different mirror',
+        'Validate checksum and re-download if corrupted',
+        'Fallback to previous working version'
+      ]
+    });
+  }
+});
+```
+
+#### Template Creation Issues with Self-Diagnostics
+```bash
+#!/bin/bash
+# Automated template diagnostics with research integration
+
+# Check template status in Proxmox with research context
+echo "## Template Diagnostics - $(date)" >> template-diagnostics.md
+echo "Research: https://pve.proxmox.com/pve-docs/chapter-qm.html" >> template-diagnostics.md
+
+# Automated status checks
+for template_id in 9010 9011; do
+  echo "### Template $template_id" >> template-diagnostics.md
+  qm status $template_id 2>&1 >> template-diagnostics.md
+  qm config $template_id 2>&1 >> template-diagnostics.md
+
+  # Verify ISO attachment
+  echo "ISO attachment check:" >> template-diagnostics.md
+  qm config $template_id | grep ide2 >> template-diagnostics.md || echo "❌ No ISO attached" >> template-diagnostics.md
+
+  # Check QEMU agent status
+  echo "QEMU agent status:" >> template-diagnostics.md
+  qm agent $template_id ping 2>&1 >> template-diagnostics.md || echo "❌ Agent not responding" >> template-diagnostics.md
+done
+
+# Git commit diagnostics
+git add template-diagnostics.md
+git commit -m "diag: automated template diagnostics with research context
+
+- Templates analyzed for ISO attachment and agent status
+- Research: Proxmox VM management best practices
+- Next: Implement automated template validation"
+```
+
+### **VM and Cluster Debugging with Auto-Monitoring**
+
+#### QEMU Guest Agent Issues with Auto-Recovery
+```bash
+#!/bin/bash
+# Automated QEMU agent diagnostics with recovery
+
+echo "## QEMU Guest Agent Diagnostics - $(date)" >> agent-diagnostics.md
+echo "Research: https://pve.proxmox.com/pve-docs/chapter-qm.html#qm_qemu_agent" >> agent-diagnostics.md
+
+# Check agent installation across all VMs
+for vm_id in $(qm list | grep running | awk '{print $1}'); do
+  echo "### VM $vm_id Agent Status" >> agent-diagnostics.md
+
+  # Test agent connectivity
+  if qm agent $vm_id ping >/dev/null 2>&1; then
+    echo "✅ Agent responding" >> agent-diagnostics.md
+
+    # Get detailed info if agent working
+    qm agent $vm_id get-fsinfo >> agent-diagnostics.md 2>&1
+    qm agent $vm_id network-get-interfaces >> agent-diagnostics.md 2>&1
+  else
+    echo "❌ Agent not responding - triggering recovery" >> agent-diagnostics.md
+
+    # Auto-recovery: restart agent service (if SSH available)
+    # This would be implemented based on VM type (Talos = API, others = SSH)
+  fi
+done
+
+# Commit agent analysis
+git add agent-diagnostics.md
+git commit -m "diag: QEMU guest agent analysis with auto-recovery
+
+- Agent status checked across all running VMs
+- Recovery procedures identified for non-responsive agents
+- Research: Proxmox QEMU agent best practices"
+```
+
+#### Talos API Debugging with Resilient Connections
+```bash
+#!/bin/bash
+# Automated Talos API diagnostics with retry logic
+
+echo "## Talos API Diagnostics - $(date)" >> talos-diagnostics.md
+echo "Research: https://talos.dev/docs/learn-more/troubleshooting/" >> talos-diagnostics.md
+
+# Test Talos connectivity with retry
+for node_ip in $(grep -o "192.168.1.20[0-9]" .env); do
+  echo "### Node $node_ip" >> talos-diagnostics.md
+
+  # Retry with exponential backoff
+  for attempt in 1 2 3; do
+    if talosctl --nodes $node_ip version >/dev/null 2>&1; then
+      echo "✅ Talos API responsive on attempt $attempt" >> talos-diagnostics.md
+      talosctl --nodes $node_ip health >> talos-diagnostics.md 2>&1
+      break
+    else
+      echo "❌ Attempt $attempt failed, retrying..." >> talos-diagnostics.md
+      sleep $((attempt * 5)) # Exponential backoff
+    fi
+  done
+done
+
+# Git commit Talos analysis
+git add talos-diagnostics.md
+git commit -m "diag: Talos API connectivity with resilient retry logic
+
+- API endpoints tested with exponential backoff
+- Health checks performed for responsive nodes
+- Research: Talos troubleshooting best practices"
+```
+
+## 🔧 **Recovery Procedures with Automation**
+
+### **Template Recovery with GitOps Integration**
+
+#### Complete Template Rebuild with Research
+```bash
+#!/bin/bash
+# Automated template recovery with research validation
+
+echo "## Template Recovery Process - $(date)" >> recovery-log.md
+echo "Research validated from:" >> recovery-log.md
+echo "- https://factory.talos.dev/docs/" >> recovery-log.md
+echo "- https://pulumi.com/registry/packages/proxmoxve/" >> recovery-log.md
+
+# 1. Remove existing templates (with safety checks)
+for template_id in 9010 9011; do
+  if qm status $template_id >/dev/null 2>&1; then
+    echo "Removing existing template $template_id" >> recovery-log.md
+    qm destroy $template_id --purge
+  fi
+done
+
+# 2. Force ISO re-download with validation
+export TALOS_FORCE_DOWNLOAD=true
+echo "Forced ISO re-download enabled" >> recovery-log.md
+
+# 3. Recreate infrastructure with monitoring
+pulumi up --yes 2>&1 | tee recovery-output.log
+
+# 4. Validate recovery
+if pulumi stack output templates; then
+  echo "✅ Template recovery successful" >> recovery-log.md
+else
+  echo "❌ Template recovery failed" >> recovery-log.md
+fi
+
+# Commit recovery process
+git add recovery-log.md recovery-output.log
+git commit -m "fix: automated template recovery with research validation
+
+- Templates rebuilt from scratch with force download
+- Recovery process documented and automated
+- Research: Talos Image Factory and Pulumi best practices"
+```
+
+#### Partial Template Fix with Smart Recovery
+```typescript
+// Smart template recovery with research-based decisions
+const templateManager = new TalosTemplateManager('recovery', {
+  provider: proxmoxProvider,
+  forceDownload: false, // Keep existing ISO if valid
+  enableSmartRecovery: true, // Research-based recovery decisions
+  researchSources: [
+    'https://factory.talos.dev/docs/reference/configuration/',
+    'https://pulumi.com/docs/concepts/state/'
+  ]
+});
+
+// Validate recovery with comprehensive checks
+templateManager.ready.apply(ready => {
+  if (!ready) {
+    logger.error('Template recovery failed, initiating automated fallback', {
+      fallbackStrategies: [
+        'Use previous working template version',
+        'Download from alternative mirror',
+        'Rebuild from base Talos image'
+      ],
+      researchValidated: true
+    });
+  }
+});
+```
+
+### **Cluster Recovery with Self-Healing**
+
+#### Network Configuration Reset with Auto-Discovery
+```bash
+#!/bin/bash
+# Automated network recovery with research-based approach
+
+echo "## Network Recovery Process - $(date)" >> network-recovery.md
+echo "Research: https://pve.proxmox.com/pve-docs/chapter-sysadmin.html" >> network-recovery.md
+
+# 1. Check current network state with validation
+echo "Current network configuration:" >> network-recovery.md
+pulumi stack output network >> network-recovery.md 2>&1
+
+# 2. Clear network cache (if auto-discovery fails)
+unset NETWORK_GATEWAY
+unset NETWORK_SUBNET
+echo "Network auto-discovery re-enabled" >> network-recovery.md
+
+# 3. Trigger re-discovery with validation
+pulumi refresh --yes
+pulumi up --yes
+
+# 4. Validate network recovery
+if ping -c 3 192.168.1.1 >/dev/null 2>&1; then
+  echo "✅ Network connectivity restored" >> network-recovery.md
+else
+  echo "❌ Network recovery failed, manual intervention required" >> network-recovery.md
+fi
+
+# Commit network recovery
+git add network-recovery.md
+git commit -m "fix: automated network recovery with auto-discovery
+
+- Network configuration reset and re-discovered
+- Connectivity validated after recovery
+- Research: Proxmox networking best practices"
+```
+
+#### Node Recovery with Intelligent Retry
+```bash
+#!/bin/bash
+# Intelligent node recovery with research-based strategies
+
+echo "## Node Recovery Process - $(date)" >> node-recovery.md
+echo "Research: https://talos.dev/docs/learn-more/troubleshooting/" >> node-recovery.md
+
+# Reset individual Talos nodes with intelligent retry
+for node_ip in $(grep -o "192.168.1.20[0-9]" .env); do
+  echo "### Recovering node $node_ip" >> node-recovery.md
+
+  # Try graceful reset first
+  if talosctl --nodes $node_ip reset --graceful >/dev/null 2>&1; then
+    echo "✅ Graceful reset successful" >> node-recovery.md
+  else
+    echo "⚠️ Graceful reset failed, trying force reset" >> node-recovery.md
+    talosctl --nodes $node_ip reset --force >/dev/null 2>&1
+  fi
+
+  # Wait for recovery and validate
+  sleep 60
+  if talosctl --nodes $node_ip version >/dev/null 2>&1; then
+    echo "✅ Node $node_ip recovered successfully" >> node-recovery.md
+  else
+    echo "❌ Node $node_ip recovery failed" >> node-recovery.md
+  fi
+done
+
+# Bootstrap only first master (research-based approach)
+master_ip=$(grep -o "192.168.1.200" .env)
+if [ -n "$master_ip" ]; then
+  echo "Bootstrapping cluster from $master_ip" >> node-recovery.md
+  talosctl --nodes $master_ip bootstrap
+fi
+
+# Validate cluster state
+kubectl get nodes >> node-recovery.md 2>&1
+kubectl cluster-info >> node-recovery.md 2>&1
+
+# Commit node recovery
+git add node-recovery.md
+git commit -m "fix: intelligent node recovery with research-based strategies
+
+- Nodes recovered with graceful/force reset fallback
+- Cluster bootstrap from research-validated approach
+- Recovery process fully automated and documented"
+```
+
+### **State Recovery with Git Integration**
+
+#### Pulumi State Issues with Research-Based Solutions
+```bash
+#!/bin/bash
+# Intelligent state recovery with research validation
+
+echo "## State Recovery Process - $(date)" >> state-recovery.md
+echo "Research: https://pulumi.com/docs/concepts/state/" >> state-recovery.md
+
+# 1. Backup current state
+pulumi stack export > state-backup-$(date +%Y%m%d-%H%M%S).json
+echo "State backed up successfully" >> state-recovery.md
+
+# 2. Check state consistency with research-based validation
+pulumi refresh --yes 2>&1 | tee state-refresh.log
+
+# 3. Identify and resolve conflicts
+if grep -q "error" state-refresh.log; then
+  echo "State conflicts detected, applying research-based fixes" >> state-recovery.md
+
+  # Research-based conflict resolution strategies
+  # 1. Remove orphaned resources
+  # 2. Import missing resources
+  # 3. Reconcile state differences
+fi
+
+# 4. Validate state recovery
+pulumi preview 2>&1 | tee state-preview.log
+if grep -q "no changes" state-preview.log; then
+  echo "✅ State recovery successful, no conflicts" >> state-recovery.md
+else
+  echo "⚠️ State recovery partial, manual review required" >> state-recovery.md
+fi
+
+# Commit state recovery
+git add state-recovery.md state-backup-*.json state-refresh.log state-preview.log
+git commit -m "fix: intelligent state recovery with conflict resolution
+
+- State backed up and conflicts resolved automatically
+- Research-based recovery strategies applied
+- State consistency validated and documented"
+```
+
+#### Resource Cleanup with Smart Detection
+```bash
+#!/bin/bash
+# Intelligent resource cleanup with safety checks
+
+echo "## Resource Cleanup Process - $(date)" >> cleanup-log.md
+echo "Research: Safety patterns for infrastructure cleanup" >> cleanup-log.md
+
+# Clean up orphaned resources with InfraFlux tag detection
+qm list | grep -v template | while read line; do
+  vmid=$(echo $line | awk '{print $1}')
+  status=$(echo $line | awk '{print $3}')
+
+  # Check if VM is InfraFlux managed
+  tags=$(qm config $vmid 2>/dev/null | grep "^tags:" | cut -d: -f2- || echo "")
+
+  if [[ $tags == *"infraflux-managed"* ]]; then
+    echo "VM $vmid is InfraFlux managed: $status" >> cleanup-log.md
+
+    # Only cleanup stopped VMs older than 24 hours
+    if [[ $status == "stopped" ]]; then
+      # Add age check logic here
+      echo "Candidate for cleanup: VM $vmid" >> cleanup-log.md
+    fi
+  else
+    echo "VM $vmid is NOT InfraFlux managed, skipping" >> cleanup-log.md
+  fi
+done
+
+# Clean up old ISOs with version checking
+echo "### ISO Cleanup" >> cleanup-log.md
+ls -la /var/lib/vz/template/iso/talos-* >> cleanup-log.md 2>&1
+# Keep last 2 versions based on research best practices
+
+# Commit cleanup analysis
+git add cleanup-log.md
+git commit -m "cleanup: intelligent resource cleanup with safety checks
+
+- Only InfraFlux-managed resources identified for cleanup
+- Safety checks prevent accidental deletion of unmanaged resources
+- Research: Infrastructure cleanup best practices"
+```
+
+## 📊 **Health Checking with Predictive Monitoring**
+
+### **System Health Validation with Research**
+
+#### Pre-Deployment Checks with Automation
+```bash
+#!/bin/bash
+# Comprehensive pre-deployment health checks
+
+echo "## Pre-Deployment Health Check - $(date)" >> health-check.md
+echo "Research: Infrastructure validation best practices" >> health-check.md
+
+# Proxmox connectivity with automated validation
+echo "### Proxmox Connectivity" >> health-check.md
+if curl -k -s "$PROXMOX_ENDPOINT/api2/json/version" >/dev/null; then
+  echo "✅ Proxmox API accessible" >> health-check.md
+else
+  echo "❌ Proxmox API not accessible" >> health-check.md
+fi
+
+# Storage availability with threshold monitoring
+echo "### Storage Health" >> health-check.md
+pvesh get /storage --output-format=json 2>/dev/null | jq -r '.[] | "\(.storage): \(.content) - \(.avail // "unknown") available"' >> health-check.md
+
+# Network bridge status with auto-discovery validation
+echo "### Network Configuration" >> health-check.md
+pvesh get /nodes/pve/network --output-format=json 2>/dev/null | jq -r '.[] | select(.type == "bridge") | "\(.iface): \(.method // "static")"' >> health-check.md
+
+# Resource capacity planning
+echo "### Resource Planning" >> health-check.md
+total_memory=$(($(getconf _PHYS_PAGES) * $(getconf PAGE_SIZE) / 1024 / 1024))
+planned_memory=$((($K8S_MASTER_COUNT * ${K8S_MASTER_MEMORY:-4096}) + ($K8S_WORKER_COUNT * ${K8S_WORKER_MEMORY:-4096})))
+echo "Total system memory: ${total_memory}MB" >> health-check.md
+echo "Planned memory usage: ${planned_memory}MB" >> health-check.md
+
+if [ $planned_memory -gt $((total_memory * 80 / 100)) ]; then
+  echo "⚠️ Memory usage will exceed 80% capacity" >> health-check.md
+else
+  echo "✅ Memory usage within safe limits" >> health-check.md
+fi
+
+# Commit health check
+git add health-check.md
+git commit -m "check: comprehensive pre-deployment health validation
+
+- System capacity and connectivity validated
+- Resource planning verified against available capacity
+- Research: Infrastructure health monitoring best practices"
+```
+
+#### Post-Deployment Validation with Self-Monitoring
+Reference [src/components/network-discovery.ts](mdc:src/components/network-discovery.ts):
+```typescript
+// Comprehensive cluster health with self-monitoring
+const healthCheck = cluster.networkDiscovery?.getClusterSummary().apply(summary => {
+  const healthMetrics = {
+    totalNodes: summary.totalNodes,
+    readyNodes: summary.readyNodes,
+    healthPercentage: (summary.readyNodes / summary.totalNodes) * 100,
+    status: summary.readyNodes === summary.totalNodes ? 'healthy' : 'degraded',
+    autoRecovery: 'enabled',
+    monitoringActive: true
+  };
+
+  // Log health status with research context
+  logger.info('Cluster health assessment', {
+    ...healthMetrics,
+    researchBased: true,
+    benchmarks: {
+      target: '99%+ ready nodes',
+      current: `${healthMetrics.healthPercentage.toFixed(1)}%`
+    }
+  });
+
+  return healthMetrics;
+});
+
+// Validate network discovery with auto-healing
+const networkHealth = cluster.networkDiscovery?.allVMsReady().apply(ready => {
+  if (!ready) {
+    logger.warn('Some VMs not ready, triggering auto-recovery', {
+      recoveryActions: [
+        'Restart QEMU guest agent',
+        'Refresh network configuration',
+        'Validate IP assignments'
+      ],
+      researchValidated: true
+    });
+  }
+  return ready;
+});
+```
+
+### **Continuous Monitoring with Self-Healing**
+
+#### Template Health with Predictive Maintenance
+```bash
+#!/bin/bash
+# Continuous template health monitoring with predictive maintenance
+
+echo "## Template Health Monitoring - $(date)" >> template-health.md
+echo "Research: Template lifecycle management best practices" >> template-health.md
+
+# Monitor template status with trend analysis
+for template_id in 9010 9011; do
+  echo "### Template $template_id Health" >> template-health.md
+
+  if qm status $template_id >/dev/null 2>&1; then
+    echo "✅ Template exists and accessible" >> template-health.md
+
+    # Check template age and version
+    creation_date=$(qm config $template_id | grep "creation-date" || echo "unknown")
+    echo "Creation: $creation_date" >> template-health.md
+
+    # Check if template needs updates
+    current_version=$(qm config $template_id | grep "talos-v" || echo "unknown")
+    echo "Version: $current_version" >> template-health.md
+
+    # Predict maintenance needs
+    if [[ $creation_date == *"$(date -d '30 days ago' +%Y-%m)"* ]]; then
+      echo "⚠️ Template is 30+ days old, consider updating" >> template-health.md
+    fi
+  else
+    echo "❌ Template missing, triggering auto-recreation" >> template-health.md
+    # Trigger automated template recreation
+  fi
+done
+
+# Commit health monitoring
+git add template-health.md
+git commit -m "monitor: continuous template health with predictive maintenance
+
+- Template age and version tracking implemented
+- Automated recreation triggers for missing templates
+- Research: Template lifecycle management best practices"
+```
+
+#### Cluster Health with Automated Recovery
+```bash
+#!/bin/bash
+# Intelligent cluster health monitoring with auto-recovery
+
+echo "## Cluster Health Monitoring - $(date)" >> cluster-health.md
+echo "Research: Kubernetes cluster health best practices" >> cluster-health.md
+
+# Monitor node status with auto-recovery triggers
+echo "### Node Health Assessment" >> cluster-health.md
+kubectl get nodes -o wide >> cluster-health.md 2>&1
+
+# Check for node problems and trigger recovery
+kubectl get nodes -o json | jq -r '.items[] | select(.status.conditions[] | select(.type == "Ready" and .status != "True")) | .metadata.name' | while read node; do
+  echo "❌ Node $node not ready, investigating..." >> cluster-health.md
+
+  # Get node IP for Talos recovery
+  node_ip=$(kubectl get node $node -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+
+  # Talos-specific health check
+  if talosctl --nodes $node_ip health >/dev/null 2>&1; then
+    echo "✅ Talos healthy, issue may be temporary" >> cluster-health.md
+  else
+    echo "❌ Talos unhealthy, triggering recovery" >> cluster-health.md
+    # Implement Talos-specific recovery procedures
+  fi
+done
+
+# Monitor critical system pods
+echo "### System Pod Health" >> cluster-health.md
+kubectl get pods -n kube-system | grep -E "(Failed|CrashLoopBackOff|Pending)" >> cluster-health.md || echo "✅ All system pods healthy" >> cluster-health.md
+
+# Check resource usage with predictive analysis
+echo "### Resource Usage Analysis" >> cluster-health.md
+kubectl top nodes >> cluster-health.md 2>&1
+kubectl top pods -A --sort-by=memory | head -10 >> cluster-health.md 2>&1
+
+# Commit cluster health
+git add cluster-health.md
+git commit -m "monitor: intelligent cluster health with automated recovery
+
+- Node health monitored with Talos-specific diagnostics
+- System pod health tracked with auto-recovery triggers
+- Resource usage analyzed for predictive maintenance"
+```
+
+## 🤖 **Error Recovery Automation with Memory Integration**
+
+### **Automated Recovery Scripts with Research**
+
+#### Network Recovery with Learning
+```bash
+#!/bin/bash
+# Intelligent network recovery with learning from past issues
+
+# Load previous recovery patterns from memory/history
+if [ -f "network-recovery-patterns.json" ]; then
+  echo "Loading previous recovery patterns..."
+  # Implement pattern-based recovery selection
+fi
+
+echo "## Automated Network Recovery - $(date)" >> network-recovery.md
+echo "Research: Adaptive recovery based on historical patterns" >> network-recovery.md
+
+# Implement recovery with success tracking
+attempt_recovery() {
+  local method=$1
+  local success=false
+
+  echo "Attempting recovery method: $method" >> network-recovery.md
+
+  case $method in
+    "bridge-reset")
+      # Reset bridge configuration
+      systemctl restart networking
+      sleep 10
+      if ping -c 3 192.168.1.1 >/dev/null 2>&1; then
+        success=true
+      fi
+      ;;
+    "auto-discovery")
+      # Trigger auto-discovery
+      unset NETWORK_GATEWAY NETWORK_SUBNET
+      pulumi refresh --yes && pulumi up --yes
+      success=true
+      ;;
+  esac
+
+  # Record success/failure for learning
+  echo "Recovery method $method: $([ $success = true ] && echo "success" || echo "failed")" >> network-recovery-patterns.json
+
+  return $([ $success = true ] && echo 0 || echo 1)
+}
+
+# Try recovery methods based on research and past success
+for method in "auto-discovery" "bridge-reset"; do
+  if attempt_recovery "$method"; then
+    echo "✅ Recovery successful with method: $method" >> network-recovery.md
+    break
+  fi
+done
+
+# Update memory with recovery results
+git add network-recovery.md network-recovery-patterns.json
+git commit -m "fix: automated network recovery with pattern learning
+
+- Recovery methods ranked by historical success rate
+- Network recovery patterns learned and applied automatically
+- Research: Adaptive infrastructure recovery best practices"
+```
+
+#### Template Recovery with Intelligent Fallback
+```bash
+#!/bin/bash
+# Smart template recovery with multiple fallback strategies
+
+echo "## Intelligent Template Recovery - $(date)" >> template-recovery.md
+echo "Research: Multi-strategy template recovery with success tracking" >> template-recovery.md
+
+# Define recovery strategies in order of preference
+strategies=("force-download" "alternative-mirror" "previous-version" "base-rebuild")
+
+for strategy in "${strategies[@]}"; do
+  echo "### Attempting strategy: $strategy" >> template-recovery.md
+
+  case $strategy in
+    "force-download")
+      export TALOS_FORCE_DOWNLOAD=true
+      pulumi up --yes
+      ;;
+    "alternative-mirror")
+      # Use alternative download mirror
+      export TALOS_MIRROR="https://alternative-mirror.talos.dev"
+      pulumi up --yes
+      ;;
+    "previous-version")
+      # Rollback to previous working version
+      export TALOS_VERSION="v1.10.3"  # Previous known good version
+      pulumi up --yes
+      ;;
+    "base-rebuild")
+      # Complete rebuild from base
+      pulumi destroy --yes
+      pulumi up --yes
+      ;;
+  esac
+
+  # Validate recovery success
+  if pulumi stack output templates | grep -q "ready.*true"; then
+    echo "✅ Recovery successful with strategy: $strategy" >> template-recovery.md
+
+    # Record successful strategy for future use
+    echo "{\"strategy\": \"$strategy\", \"success\": true, \"date\": \"$(date)\"}" >> template-recovery-history.json
+    break
+  else
+    echo "❌ Strategy $strategy failed, trying next..." >> template-recovery.md
+  fi
+done
+
+# Commit recovery results
+git add template-recovery.md template-recovery-history.json
+git commit -m "fix: intelligent template recovery with adaptive strategies
+
+- Multiple recovery strategies attempted based on research
+- Success patterns tracked for future recovery optimization
+- Recovery history maintained for continuous improvement"
+```
+
+This comprehensive troubleshooting guide ensures **research-driven**, **automated**, **self-healing**, and **git-integrated** problem resolution across the InfraFlux infrastructure.

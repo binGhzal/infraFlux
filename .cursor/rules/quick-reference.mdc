@@ -1,0 +1,231 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# InfraFlux v2.0 - Quick Reference Guide
+
+## 📚 **Rule Navigation**
+
+### **Start Here - Core Understanding**
+- [infraflux-overview.mdc](mdc:.cursor/rules/infraflux-overview.mdc) - Project architecture and principles
+- [development-guidelines.mdc](mdc:.cursor/rules/development-guidelines.mdc) - Coding standards and patterns
+- [technology-stack.mdc](mdc:.cursor/rules/technology-stack.mdc) - Provider patterns and integrations
+
+### **Implementation Guidance**
+- [implementation-roadmap.mdc](mdc:.cursor/rules/implementation-roadmap.mdc) - Task prioritization and project management
+- [troubleshooting-guide.mdc](mdc:.cursor/rules/troubleshooting-guide.mdc) - Debugging and recovery procedures
+
+## 🚀 **Quick Start Checklist**
+
+### **Setting Up Development Environment**
+```bash
+# 1. Clone and install
+git clone <repo-url>
+cd infraFlux
+npm install
+
+# 2. Configure environment
+cp env.example .env
+# Edit .env with your Proxmox credentials
+
+# 3. Validate configuration
+npm run validate-config
+
+# 4. Build and deploy
+npm run build
+pulumi stack init <stack-name>
+pulumi up
+```
+
+### **Key File Locations**
+- **Main Entry**: [src/index.ts](mdc:src/index.ts)
+- **Configuration**: [src/config/index.ts](mdc:src/config/index.ts) + [env.example](mdc:env.example)
+- **Components**: [src/components/](mdc:src/components)
+- **Utilities**: [src/utils/](mdc:src/utils)
+- **Types**: [src/types/index.ts](mdc:src/types/index.ts)
+
+## 🎯 **Common Development Tasks**
+
+### **Adding a New Component**
+1. **Create Component File**: `src/components/my-component.ts`
+2. **Follow Pattern**: Reference [development-guidelines.mdc](mdc:.cursor/rules/development-guidelines.mdc)
+3. **Add to Index**: Export from [src/components/index.ts](mdc:src/components/index.ts)
+4. **Write Tests**: Create `tests/unit/components/my-component.test.ts`
+5. **Update Types**: Add interfaces to [src/types/index.ts](mdc:src/types/index.ts)
+
+### **Debugging Issues**
+1. **Check Logs**: Set `LOG_LEVEL=debug` in environment
+2. **Validate Config**: Run `npm run validate-config`
+3. **Use Error Handler**: Reference [src/utils/error-handler.ts](mdc:src/utils/error-handler.ts)
+4. **Follow Guide**: See [troubleshooting-guide.mdc](mdc:.cursor/rules/troubleshooting-guide.mdc)
+
+### **Adding Configuration Options**
+1. **Update Types**: Add to interfaces in [src/types/index.ts](mdc:src/types/index.ts)
+2. **Update Config**: Modify [src/config/index.ts](mdc:src/config/index.ts)
+3. **Add Validation**: Extend schemas in [src/utils/config-validator.ts](mdc:src/utils/config-validator.ts)
+4. **Update Example**: Add to [env.example](mdc:env.example)
+
+## 🔧 **Essential Patterns**
+
+### **Component Creation Template**
+```typescript
+import * as pulumi from '@pulumi/pulumi';
+import * as proxmox from '@muhlba91/pulumi-proxmoxve';
+import { logResource } from '@/utils/logger';
+
+export interface MyComponentArgs {
+  provider: proxmox.Provider;
+  // ... other args
+}
+
+export class MyComponent extends pulumi.ComponentResource {
+  public readonly output: MyOutput;
+
+  constructor(name: string, args: MyComponentArgs, opts?: pulumi.ComponentResourceOptions) {
+    super('infraflux:category:MyComponent', name, {}, opts);
+
+    logResource('MyComponent', 'Creating', { name });
+
+    // Implementation here...
+
+    this.registerOutputs({ output: this.output });
+  }
+}
+```
+
+### **Error Handling Pattern**
+```typescript
+import { retryOperation, ErrorContext } from '@/utils/error-handler';
+
+const context: ErrorContext = {
+  component: 'MyComponent',
+  operation: 'creating resource',
+  resourceId: args.resourceId,
+};
+
+const resource = await retryOperation(async () => {
+  return new proxmox.vm.VirtualMachine(/* ... */);
+}, context);
+```
+
+### **Configuration Validation Pattern**
+```typescript
+import * as Joi from 'joi';
+
+const mySchema = Joi.object({
+  enabled: Joi.boolean().default(true),
+  timeout: Joi.number().min(1000).default(30000),
+});
+
+const { error, value } = mySchema.validate(config);
+if (error) {
+  throw new Error(`Configuration error: ${error.message}`);
+}
+```
+
+## 🚨 **Critical Don'ts**
+- **NEVER use shell commands** - Use Pulumi providers exclusively
+- **NO hardcoded credentials** - Use environment variables only
+- **NO command.local.Command** - Pure Pulumi approach mandatory
+- **NO shell scripts in components** - Native provider APIs only
+
+## ✅ **Critical Do's**
+- **Always use templates** - Clone VMs from templates, never install from scratch
+- **Enable QEMU Guest Agent** - Required for network discovery
+- **Tag all resources** - Use 'infraflux-managed' and component tags
+- **Validate configurations** - Use Joi schemas for all config
+- **Handle errors gracefully** - Use error handler with recovery strategies
+
+## 🏗️ **Architecture Principles**
+
+### **Template-First Strategy**
+1. **ISO Download** → 2. **Template Creation** → 3. **VM Cloning** → 4. **Cluster Bootstrap**
+
+### **Storage Separation**
+- **ISOs**: `local` storage (cheaper/slower)
+- **VMs**: `local-lvm` storage (faster/SSD)
+
+### **ID Ranges**
+- **Masters**: 8000-8099
+- **Workers**: 8100-8199
+- **Templates**: 9010+
+
+### **Network Auto-Discovery**
+- Empty `NETWORK_GATEWAY` and `NETWORK_SUBNET` = auto-discover from Proxmox bridge
+- Manual configuration as fallback option
+
+## 📊 **Quality Standards**
+
+### **Before Committing**
+```bash
+# Lint and format
+npm run lint:fix
+
+# Test
+npm test
+
+# Validate config
+npm run validate-config
+
+# Build
+npm run build
+```
+
+### **Performance Targets**
+- **Template Creation**: < 5 minutes
+- **VM Cloning**: < 2 minutes per VM
+- **Cluster Bootstrap**: < 10 minutes total
+- **Network Discovery**: < 30 seconds
+
+### **Reliability Targets**
+- **Success Rate**: 99%+ deployments
+- **Error Recovery**: Automated for transient failures
+- **Resource Cleanup**: No orphaned resources
+
+## 🎯 **Current Development Phase**
+
+**Active Phase**: Phase 1 - Critical Stability (per [implementation-roadmap.mdc](mdc:.cursor/rules/implementation-roadmap.mdc))
+
+**Priority Tasks**:
+1. Template existence validation
+2. Enhanced error handling
+3. Configuration migration tools
+
+**Focus Areas**:
+- Zero tolerance for resource conflicts
+- Automated recovery mechanisms
+- Comprehensive error messaging
+
+## 📖 **Documentation Standards**
+
+### **Code Comments**
+```typescript
+/**
+ * Creates a Talos template with custom factory image
+ *
+ * This component downloads custom Talos ISOs from the Image Factory
+ * and creates VM templates with the ISO attached to ide2 interface.
+ * VMs cloned from these templates will automatically install Talos.
+ */
+export class TalosTemplate extends pulumi.ComponentResource {
+  // ...
+}
+```
+
+### **User Documentation**
+- Update [README.md](mdc:README.md) for user-facing changes
+- Update [ROADMAP.md](mdc:ROADMAP.md) task completion status
+- Add examples to demonstrate new features
+
+## 🔄 **Development Workflow**
+
+1. **Check Current Phase**: Reference [implementation-roadmap.mdc](mdc:.cursor/rules/implementation-roadmap.mdc)
+2. **Pick Priority Task**: Focus on Phase 1 critical tasks first
+3. **Follow Guidelines**: Use [development-guidelines.mdc](mdc:.cursor/rules/development-guidelines.mdc)
+4. **Use Patterns**: Reference [technology-stack.mdc](mdc:.cursor/rules/technology-stack.mdc)
+5. **Debug Issues**: Follow [troubleshooting-guide.mdc](mdc:.cursor/rules/troubleshooting-guide.mdc)
+6. **Test Thoroughly**: Unit tests + integration tests + config validation
+7. **Document Changes**: Code comments + user docs + roadmap updates
+
+This quick reference provides **immediate access** to all essential information for **effective InfraFlux development**.

@@ -1,0 +1,495 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# InfraFlux v2.0 - Development Guidelines
+
+## 🎯 **Core Development Principles**
+
+### **Research-First Approach - MANDATORY**
+- **ALWAYS consult documentation before implementation** - Research Pulumi providers, official docs, and examples
+- **Internet research required** - Use web search to find latest patterns, best practices, and solutions
+- **Document your research** - Include links and references in code comments
+- **Validate approaches** - Ensure chosen solutions align with declarative IaC principles
+
+### **Pure Pulumi Approach - MANDATORY**
+- **NEVER use shell commands** - Use native Pulumi providers exclusively
+- **NO command.local.Command** - All operations via provider APIs
+- **Declarative Resources** - Everything defined as Pulumi resources
+- **Resource Dependencies** - Use `dependsOn` and Output dependencies
+
+### **TypeScript Excellence**
+- **Strict Type Safety** - Enable all strict TypeScript options
+- **Interface-First Design** - Define interfaces before implementations
+- **Generic Components** - Use generics for reusable components
+- **Path Mapping** - Use `@/` imports as defined in [tsconfig.json](mdc:tsconfig.json)
+
+## 🔄 **Git Workflow - MANDATORY**
+
+### **Commit After Every Change**
+```bash
+# Required after each significant change
+git add .
+git commit -m "feat: descriptive commit message with context"
+git push origin main
+```
+
+### **Commit Message Standards**
+- **feat:** New features or components
+- **fix:** Bug fixes or corrections
+- **docs:** Documentation updates
+- **refactor:** Code restructuring without functionality changes
+- **config:** Configuration or environment changes
+- **test:** Test additions or modifications
+
+### **Change Documentation**
+Each commit should include:
+- **What was changed** - Brief description in commit message
+- **Why it was changed** - Context in commit body
+- **Research references** - Links to docs consulted
+- **Next steps** - What should be worked on next
+
+### **Sync Strategy**
+```bash
+# Before starting work
+git pull origin main
+
+# After completing task
+git add .
+git commit -m "type: detailed description"
+git push origin main
+
+# Update memory about next task
+# (Use memory management tools to track progress)
+```
+
+## 🧠 **Memory Management for Task Progress**
+
+### **After Each Change - Store Memory**
+After every significant change, update memory with:
+```markdown
+**Task Completed**: [Brief description of what was done]
+**Research Used**: [Links to documentation consulted]
+**Files Modified**: [List of changed files]
+**Next Priority**: [What should be worked on next]
+**Blockers**: [Any issues or dependencies identified]
+**Auto-Maintenance**: [How this change supports automated operations]
+```
+
+### **Progress Tracking Pattern**
+1. **Complete current task** with research and implementation
+2. **Commit and push changes** with descriptive messages
+3. **Update memory** with completion status and next steps
+4. **Reference memory** before starting next task
+5. **Maintain continuity** across development sessions
+
+### **Memory Categories**
+- **Active Tasks**: Currently being worked on
+- **Completed Tasks**: Finished with outcomes documented
+- **Blocked Tasks**: Waiting for dependencies or decisions
+- **Research Findings**: Key documentation and patterns discovered
+- **Next Priorities**: Ordered list of upcoming work
+
+## 🏗️ **Declarative Infrastructure Preferences**
+
+### **Auto-Maintaining Solutions - PRIORITY**
+- **Self-Managing**: Systems that update and maintain themselves
+- **Declarative Configuration**: Define desired state, let tools achieve it
+- **GitOps Integration**: Changes via Git commits, not manual intervention
+- **Automated Updates**: Components that self-update safely
+- **Zero-Touch Operations**: No manual intervention required
+
+### **Technology Selection Criteria**
+When choosing technologies, prioritize:
+1. **Declarative configuration** (YAML, JSON, code-based)
+2. **GitOps compatibility** (FluxCD, ArgoCD friendly)
+3. **Auto-update capabilities** (self-managing versions)
+4. **Pulumi provider availability** (native resource management)
+5. **Community maintenance** (active development, stable APIs)
+
+### **Preferred Stack Examples**
+```typescript
+// ✅ GOOD: Declarative, auto-updating via GitOps
+const fluxApp = new flux.HelmRelease('app', {
+  chart: 'app-chart',
+  version: 'latest', // Auto-updates via renovate/dependabot
+  values: declarativeConfig,
+});
+
+// ❌ AVOID: Manual intervention required
+const manualApp = new command.local.Command('deploy', {
+  create: 'kubectl apply -f manual-manifest.yaml',
+});
+```
+
+## 🔧 **Component Architecture Patterns**
+
+### **Component Structure Template**
+```typescript
+/**
+ * Component: MyComponent
+ * Research: [Links to consulted documentation]
+ * Auto-Maintenance: [How this component self-maintains]
+ * GitOps Integration: [How changes are deployed via Git]
+ */
+export class MyComponent extends pulumi.ComponentResource {
+  public readonly output: MyOutput;
+
+  constructor(name: string, args: MyArgs, opts?: pulumi.ComponentResourceOptions) {
+    super('infraflux:category:MyComponent', name, {}, opts);
+
+    // 1. Validate inputs using researched patterns
+    // 2. Create resources with auto-update capabilities
+    // 3. Configure GitOps integration
+    // 4. Register outputs
+
+    this.registerOutputs({ output: this.output });
+  }
+}
+```
+
+### **Research Documentation Pattern**
+```typescript
+/**
+ * Resource Creation Pattern - RESEARCH REQUIRED
+ *
+ * Before implementing, consult:
+ * - Pulumi provider docs: https://pulumi.com/registry/packages/...
+ * - Official project docs: https://...
+ * - Community patterns: https://...
+ *
+ * Declarative Requirements:
+ * - Must be configurable via GitOps
+ * - Should auto-update when possible
+ * - No manual intervention required
+ */
+```
+
+### **Resource Creation Pattern**
+- **Research First** - Always consult latest provider documentation
+- **Check Existence First** - Use data sources to check for existing resources
+- **Handle Conflicts** - Provide clear error messages for resource conflicts
+- **Dependency Management** - Explicit `dependsOn` for complex dependencies
+- **Error Context** - Wrap operations with error context from [src/utils/error-handler.ts](mdc:src/utils/error-handler.ts)
+- **Auto-Update Support** - Configure resources for automatic updates where possible
+
+## 📝 **Configuration Management**
+
+### **Declarative Configuration Requirements**
+All configuration must support:
+- **GitOps workflows** - Changes via Git commits
+- **Auto-discovery** - Minimize manual configuration
+- **Validation** - Comprehensive input validation
+- **Self-healing** - Automatic correction of drift
+- **Version management** - Automated updates when safe
+
+### **Configuration Loading**
+Reference [src/config/index.ts](mdc:src/config/index.ts) for the pattern:
+- **Environment First** - `process.env` takes precedence
+- **Pulumi Config Fallback** - Use `pulumi.Config` as secondary
+- **Sensible Defaults** - Always provide production-ready defaults
+- **Auto-Discovery** - Empty values trigger auto-discovery when possible
+- **GitOps Integration** - Support configuration via Git repositories
+
+### **Validation Requirements**
+Follow [src/utils/config-validator.ts](mdc:src/utils/config-validator.ts):
+- **Joi Schemas** - Comprehensive validation with custom messages
+- **Network Validation** - Check CIDR conflicts and IP ranges
+- **Resource Validation** - Warn about resource allocation issues
+- **CLI Integration** - Support `npm run validate-config`
+- **Auto-Correction** - Suggest fixes for common configuration issues
+
+## 🔧 **Resource Patterns**
+
+### **Auto-Maintaining Resource Pattern**
+```typescript
+// Example: Self-updating application via GitOps
+const autoApp = new k8s.helm.v3.Release('auto-app', {
+  chart: 'application',
+  repositoryOpts: {
+    repo: 'https://charts.example.com',
+  },
+  version: 'latest', // Managed by renovate bot
+  values: {
+    image: {
+      tag: 'latest', // Auto-updated via image policies
+    },
+    replicaCount: 3, // Declaratively defined
+    autoscaling: {
+      enabled: true, // Self-scaling based on metrics
+    },
+  },
+});
+```
+
+### **Template Management Pattern**
+Follow [src/components/cloud-image-template.ts](mdc:src/components/cloud-image-template.ts):
+1. **ISO Component** - Handle downloads with existence checking
+2. **Template Component** - Create VM templates with ISO attached
+3. **Manager Component** - Orchestrate the complete flow
+4. **Force Options** - Support force download/recreation
+5. **Auto-Updates** - Check for newer versions automatically
+
+### **VM Provisioning Pattern**
+Follow [src/components/vm.ts](mdc:src/components/vm.ts):
+- **Template Cloning** - Always clone from templates, never install from scratch
+- **Resource Specs** - Merge provided specs with defaults
+- **QEMU Agent** - Always enable for network discovery
+- **Tagging** - Tag all resources as 'infraflux-managed'
+- **Auto-Healing** - Support automatic recovery from failures
+
+### **Network Discovery Pattern**
+Follow [src/components/network-discovery.ts](mdc:src/components/network-discovery.ts):
+- **Native Outputs** - Use VM resource outputs directly
+- **QEMU Integration** - Leverage guest agent data
+- **Auto-Discovery** - Query Proxmox bridge configuration
+- **Type Safety** - Classify nodes by VM ID ranges
+- **Self-Monitoring** - Automatic network health checking
+
+## 🚨 **Error Handling Standards**
+
+### **Research-Based Error Resolution**
+Before implementing error handling:
+1. **Research common patterns** - Check provider docs for known issues
+2. **Find community solutions** - Search for similar problems and fixes
+3. **Document error patterns** - Create reusable error handlers
+4. **Test recovery strategies** - Ensure automated recovery works
+
+### **Error Context Pattern**
+Use [src/utils/error-handler.ts](mdc:src/utils/error-handler.ts):
+```typescript
+import { retryOperation, ErrorContext } from '@/utils/error-handler';
+
+const context: ErrorContext = {
+  component: 'ComponentName',
+  operation: 'operation description',
+  resourceId: 'optional-resource-id',
+  researchRefs: ['https://docs.example.com/...'], // Add research references
+};
+
+await retryOperation(async () => {
+  // Your operation here
+}, context);
+```
+
+### **Recovery Strategies**
+- **Categorize Errors** - Match patterns to provide specific recovery
+- **Automated Recovery** - Implement where safe and possible (preferred)
+- **User Guidance** - Provide actionable steps for manual recovery
+- **Resource Cleanup** - Clean up partial resources on failure
+- **Self-Healing** - Automatic retry with exponential backoff
+
+## 📊 **Logging and Monitoring**
+
+### **Structured Logging with Research Context**
+Use [src/utils/logger.ts](mdc:src/utils/logger.ts):
+```typescript
+import { logResource, logger } from '@/utils/logger';
+
+// For resource operations
+logResource('ComponentName', 'Creating', {
+  name,
+  details: 'specific info',
+  researchUsed: ['https://docs.provider.com/...'],
+  autoMaintenance: true,
+});
+
+// For detailed logging
+logger.info('Operation description', {
+  context: 'additional data',
+  gitCommit: 'abc123', // Track which commit introduced changes
+  nextTask: 'what should be worked on next',
+});
+```
+
+### **Progress Tracking**
+- **Resource Status** - Log creation, update, deletion phases
+- **Template Progress** - Track ISO → Template → VM flow
+- **Network Discovery** - Log auto-discovery results
+- **Error Context** - Include component and operation context
+- **Research References** - Log which documentation was consulted
+- **Auto-Maintenance Status** - Track automated operations
+
+## 🧪 **Testing Requirements**
+
+### **Research-Driven Testing**
+Before writing tests:
+1. **Research testing patterns** - Check provider testing documentation
+2. **Find community examples** - Look for similar test implementations
+3. **Validate test approaches** - Ensure tests match declarative principles
+4. **Document test strategy** - Explain why specific testing patterns were chosen
+
+### **Unit Testing**
+Follow [tests/setup.ts](mdc:tests/setup.ts):
+- **Mock Pulumi** - Use provided mocks for Pulumi APIs
+- **Component Testing** - Test component logic separately
+- **Configuration Testing** - Test config validation thoroughly
+- **Error Testing** - Test error scenarios and recovery
+- **Auto-Maintenance Testing** - Test automated update mechanisms
+
+### **Integration Testing**
+- **Sandbox Environment** - Use test Proxmox environment
+- **Resource Cleanup** - Clean up test resources automatically
+- **End-to-End Flow** - Test complete deployment scenarios
+- **Network Testing** - Test auto-discovery mechanisms
+- **GitOps Testing** - Test configuration changes via Git
+
+## 📦 **Package Management**
+
+### **Auto-Updating Dependencies**
+Reference [package.json](mdc:package.json):
+- **Pin Major Versions** - Use exact or ~versions for stability
+- **Pulumi Providers** - Keep provider versions in sync
+- **Development Tools** - Maintain comprehensive dev tooling
+- **Script Management** - Provide npm scripts for common operations
+- **Automated Updates** - Use renovate/dependabot for dependency updates
+
+### **Build and Validation**
+- **Pre-commit Hooks** - Run linting and validation
+- **TypeScript Compilation** - Zero tolerance for TS errors
+- **Configuration Validation** - Validate before deployment
+- **Documentation Updates** - Keep README and ROADMAP current
+- **Git Integration** - Ensure all changes are committed and synced
+
+## 🎯 **Performance Guidelines**
+
+### **Auto-Optimizing Resources**
+- **Parallel Operations** - Create independent resources in parallel
+- **Template Reuse** - Clone from templates instead of fresh installs
+- **Caching Strategy** - Cache ISO downloads and template builds
+- **Dependency Optimization** - Minimize dependency chains
+- **Self-Monitoring** - Automatic performance monitoring and alerts
+
+### **Network Operations**
+- **Auto-Discovery Caching** - Cache network discovery results
+- **Batch Operations** - Group similar operations when possible
+- **Connection Pooling** - Reuse provider connections
+- **Timeout Management** - Set appropriate timeouts for operations
+- **Self-Healing** - Automatic recovery from network issues
+
+## 🔒 **Security Guidelines**
+
+### **Declarative Security**
+- **Policy as Code** - Define security policies declaratively
+- **GitOps Security** - Security changes via Git workflows
+- **Automated Compliance** - Continuous compliance checking
+- **Secret Rotation** - Automated secret management
+- **Zero-Trust** - Assume breach, verify everything
+
+### **Secret Management**
+- **Environment Variables** - Sensitive data in env vars only
+- **Pulumi Secrets** - Use `pulumi.secret()` for sensitive outputs
+- **No Hardcoding** - Never hardcode credentials in code
+- **ESC Integration** - Use Pulumi ESC for production secrets
+- **Auto-Rotation** - Implement automated secret rotation where possible
+
+### **Resource Security**
+- **Minimal Permissions** - Use least privilege principle
+- **Network Isolation** - Configure proper network boundaries
+- **Resource Tagging** - Tag resources for governance
+- **Audit Logging** - Log all resource operations
+- **Compliance Automation** - Automated compliance checking
+
+## 🚀 **Deployment Patterns**
+
+### **GitOps-First Deployment**
+- **Git as Source of Truth** - All changes via Git commits
+- **Automated Reconciliation** - Continuous sync from Git to infrastructure
+- **Rollback Capability** - Easy rollback via Git revert
+- **Progressive Deployment** - Automated canary and blue-green deployments
+- **Self-Healing** - Automatic correction of configuration drift
+
+### **Progressive Deployment**
+- **Template First** - Always ensure templates exist before VMs
+- **Health Checks** - Verify resource health before proceeding
+- **Rollback Support** - Support safe rollback operations
+- **State Validation** - Validate state consistency
+- **Automated Testing** - Run tests before promoting changes
+
+### **Environment Management**
+- **Environment-Specific Config** - Support dev/staging/prod
+- **Resource Isolation** - Isolate resources by environment
+- **Configuration Inheritance** - Inherit base configs with overrides
+- **Promotion Workflows** - Support config promotion between environments
+- **Auto-Scaling** - Automatic scaling based on demand
+
+## 🔄 **Memory and Task Management Integration**
+
+### **Task Completion Workflow**
+```typescript
+// After completing each task:
+// 1. Research and implement solution
+// 2. Test thoroughly
+// 3. Commit with descriptive message
+// 4. Update memory with:
+const taskMemory = {
+  completed: 'Implemented auto-updating Prometheus monitoring',
+  research: [
+    'https://prometheus.io/docs/prometheus/latest/configuration/',
+    'https://pulumi.com/registry/packages/kubernetes/api-docs/helm/v3/release/'
+  ],
+  filesChanged: ['src/components/monitoring.ts', 'src/config/monitoring.ts'],
+  nextPriority: 'Implement Grafana dashboards with auto-import',
+  autoMaintenance: 'Prometheus updates automatically via Helm chart updates',
+  gitCommit: 'abc123def'
+};
+```
+
+### **Next Task Preparation**
+Before starting new tasks:
+1. **Review memory** - Check what was completed and what's next
+2. **Research requirements** - Consult documentation before coding
+3. **Plan declarative approach** - Ensure solution supports auto-maintenance
+4. **Identify dependencies** - Check what needs to be completed first
+5. **Update memory** - Document task start and research plan
+
+## 💡 **Innovation and Automation Guidelines**
+
+### **Automation-First Mindset**
+- **Question manual processes** - Can this be automated?
+- **Prefer self-managing solutions** - Choose tools that maintain themselves
+- **GitOps everything** - Route all changes through Git
+- **Monitor and alert** - Automatic problem detection and resolution
+- **Document automation** - Explain how automation works
+
+### **Technology Evaluation Criteria**
+When evaluating new technologies, prioritize:
+1. **Declarative configuration** (10/10 weight)
+2. **Auto-update capabilities** (9/10 weight)
+3. **GitOps integration** (9/10 weight)
+4. **Pulumi provider support** (8/10 weight)
+5. **Community maintenance** (7/10 weight)
+6. **Documentation quality** (7/10 weight)
+7. **Performance** (6/10 weight)
+8. **Learning curve** (5/10 weight)
+
+These guidelines ensure **research-driven**, **declarative**, **auto-maintaining**, and **git-integrated** development across the InfraFlux codebase.
+
+## 🎯 **User Preference Summary**
+
+### **Declarative Infrastructure as Code**
+- Everything must be configurable through code/configuration files
+- Prefer YAML/JSON/code-based configuration over UI/manual setup
+- All infrastructure changes should be version-controlled
+- Support for automated configuration validation
+
+### **Auto-Maintaining Systems**
+- Components should update themselves safely
+- Minimal human intervention required for day-to-day operations
+- Self-healing capabilities for common failure scenarios
+- Automated monitoring and alerting
+
+### **GitOps Integration**
+- All changes flow through Git repositories
+- Continuous deployment based on Git commits
+- Easy rollback through Git history
+- Configuration drift detection and correction
+
+### **Research and Documentation**
+- Always consult official documentation before implementation
+- Include research references in code and memory updates
+- Document decisions and trade-offs
+- Share knowledge through comprehensive comments
+
+These guidelines ensure **consistent**, **maintainable**, and **production-ready** code across the InfraFlux codebase.

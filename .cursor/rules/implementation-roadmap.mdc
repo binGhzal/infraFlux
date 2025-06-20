@@ -1,0 +1,644 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# InfraFlux v2.0 - Implementation Roadmap and Task Management
+
+## 🎯 **Development Priorities with Research-First Approach**
+
+### **Phase 1: Critical Stability (Next 2 weeks)**
+Reference [ROADMAP.md](mdc:ROADMAP.md) sections 2 & 3:
+
+**Priority 🔴 Critical Tasks - Research-Driven Implementation:**
+
+1. **Template Existence Validation** (18-26 hours)
+   - **Research Phase** (4-6 hours): Study Pulumi provider data sources and state management patterns
+   - **Documentation**: Consult https://pulumi.com/registry/packages/proxmoxve/api-docs/
+   - **Implementation**: ISO existence checking with SHA256 validation
+   - **Auto-Maintenance**: Template version management with automated rollback
+   - **GitOps**: Resource state reconciliation via declarative configuration
+   - **Memory Update**: Document validation patterns and next optimization steps
+
+2. **Error Handling & Recovery** (30-40 hours)
+   - **Research Phase** (8-10 hours): Study error patterns in Pulumi community and provider docs
+   - **Documentation**: Review error handling best practices from Pulumi blog and examples
+   - **Implementation**: Component-level error boundaries with self-healing capabilities
+   - **Auto-Maintenance**: Retry mechanisms with exponential backoff and circuit breakers
+   - **GitOps**: Health check system with automated recovery workflows
+   - **Memory Update**: Catalog common error patterns and recovery strategies
+
+3. **Configuration Migration Tools** (6-8 hours)
+   - **Research Phase** (2 hours): Study configuration versioning patterns in GitOps tools
+   - **Documentation**: Review Joi schema migration patterns and semantic versioning
+   - **Implementation**: Schema version tracking with automated migration
+   - **Auto-Maintenance**: Backward compatibility validation with auto-correction
+   - **GitOps**: Configuration changes flow through Git with validation
+   - **Memory Update**: Document migration patterns for future schema changes
+
+**Acceptance Criteria:**
+- Zero tolerance for resource conflicts
+- Automated recovery for transient failures (no manual intervention)
+- Comprehensive error messaging with recovery steps
+- All changes committed and synced to Git
+- Memory updated with research findings and next priorities
+
+### **Phase 2: Testing & Observability (Next 4-6 weeks)**
+Reference [ROADMAP.md](mdc:ROADMAP.md) sections 5, 6 & 7:
+
+**Priority 🟠 High Tasks - Auto-Monitoring Focus:**
+
+1. **Testing Framework** (48-60 hours)
+   - **Research Phase** (10-12 hours): Study Pulumi testing patterns and Jest integration
+   - **Documentation**: Review property-based testing frameworks and component testing
+   - **Implementation**: Unit testing with 80%+ coverage using declarative test patterns
+   - **Auto-Maintenance**: Integration testing with sandbox auto-provisioning
+   - **GitOps**: Property-based testing for configuration validation
+   - **Memory Update**: Document testing strategies and coverage targets
+
+2. **Monitoring & Observability** (32-40 hours)
+   - **Research Phase** (8-10 hours): Study Prometheus/Grafana auto-provisioning patterns
+   - **Documentation**: Review OpenTelemetry integration and metrics best practices
+   - **Implementation**: Pulumi resource metrics export with declarative dashboards
+   - **Auto-Maintenance**: Structured logging with correlation IDs and auto-aggregation
+   - **GitOps**: Deployment tracing and visualization via Git-driven configuration
+   - **Memory Update**: Catalog monitoring patterns and alert configurations
+
+3. **Security Enhancements** (38-50 hours)
+   - **Research Phase** (8-12 hours): Study Pulumi ESC patterns and automated compliance
+   - **Documentation**: Review secret rotation patterns and policy-as-code frameworks
+   - **Implementation**: Pulumi ESC secret management with auto-rotation
+   - **Auto-Maintenance**: RBAC implementation with declarative policies
+   - **GitOps**: Network security policies managed via Git workflows
+   - **Memory Update**: Document security patterns and compliance requirements
+
+### **Phase 3: Multi-Cloud & Advanced Features (3-4 months)**
+Reference [ROADMAP.md](mdc:ROADMAP.md) sections 8, 9 & 10:
+
+**Priority 🟡 Medium Tasks - Declarative Multi-Cloud:**
+- Multi-cloud provider abstraction with unified declarative configuration
+- Advanced networking with auto-configuring VLAN and load balancer management
+- Backup & disaster recovery automation with GitOps-driven schedules
+
+## 🔬 **Research-Driven Development Workflow**
+
+### **Pre-Implementation Research Checklist**
+Before starting any task:
+
+1. **Documentation Research** (20% of estimated time):
+   ```bash
+   # Document research process
+   echo "## Research Phase - [Task Name]" >> research-log.md
+   echo "Date: $(date)" >> research-log.md
+   echo "Estimated Time: X hours" >> research-log.md
+   echo "" >> research-log.md
+   ```
+
+2. **Primary Sources to Consult**:
+   - Official Pulumi provider documentation
+   - Upstream project documentation (Proxmox, Talos, etc.)
+   - Community examples and patterns
+   - GitHub issues and discussions
+   - Best practices guides
+
+3. **Research Documentation Pattern**:
+   ```typescript
+   /**
+    * Component Research Summary
+    *
+    * Primary Documentation:
+    * - Pulumi Provider: https://pulumi.com/registry/packages/...
+    * - Official Docs: https://...
+    * - Community Examples: https://github.com/...
+    *
+    * Key Patterns Discovered:
+    * - Declarative pattern: [description]
+    * - Auto-maintenance approach: [description]
+    * - GitOps integration: [description]
+    *
+    * Implementation Decision:
+    * - Chosen approach: [rationale]
+    * - Auto-update strategy: [description]
+    * - Maintenance requirements: [description]
+    */
+   ```
+
+### **Git-Integrated Development Workflow**
+
+#### **Task Start Workflow**
+```bash
+# 1. Start with clean state
+git pull origin main
+git status  # Ensure clean working directory
+
+# 2. Review memory for context
+# Check previous memory entries for context and next priorities
+
+# 3. Create research branch (optional for complex tasks)
+git checkout -b feature/task-name
+
+# 4. Document research findings
+echo "Research findings..." > docs/research/task-name.md
+git add docs/research/task-name.md
+git commit -m "docs: research findings for [task-name]"
+```
+
+#### **Implementation Workflow**
+```bash
+# 5. Implement with frequent commits
+# Make small, logical changes
+git add .
+git commit -m "feat: implement [specific functionality]
+
+- Research refs: https://docs.example.com/...
+- Auto-maintenance: [how this supports automation]
+- Next step: [what to work on next]"
+
+# 6. Test and validate
+npm test
+npm run validate-config
+npm run lint
+
+# 7. Commit test updates
+git add tests/
+git commit -m "test: add tests for [functionality]"
+```
+
+#### **Completion Workflow**
+```bash
+# 8. Final integration and documentation
+git add .
+git commit -m "docs: update documentation for [task]
+
+- Completed: [brief description]
+- Research used: [key documentation links]
+- Auto-maintenance features: [description]"
+
+# 9. Merge and sync
+git checkout main
+git merge feature/task-name
+git push origin main
+
+# 10. Update memory immediately after push
+# Use memory management tools to record:
+# - Task completion
+# - Research findings
+# - Next priorities
+# - Files changed
+```
+
+## 🧠 **Memory-Driven Task Management**
+
+### **Memory Update Template**
+After each significant change, update memory with this template:
+
+```typescript
+const taskUpdate = {
+  // Task Information
+  taskCompleted: "Implemented auto-updating Prometheus monitoring",
+  dateCompleted: "2024-01-15T10:30:00Z",
+  timeSpent: "12 hours",
+
+  // Research Documentation
+  researchPhase: {
+    timeSpent: "3 hours",
+    primarySources: [
+      "https://prometheus.io/docs/prometheus/latest/configuration/",
+      "https://pulumi.com/registry/packages/kubernetes/api-docs/helm/v3/release/",
+      "https://github.com/prometheus-community/helm-charts"
+    ],
+    keyFindings: [
+      "Helm charts support auto-updates via renovate bot",
+      "Prometheus can be configured declaratively with ServiceMonitor CRDs",
+      "GitOps integration requires proper RBAC configuration"
+    ],
+    decisions: [
+      "Use Helm charts for easier updates",
+      "Configure via values.yaml in Git repository",
+      "Enable auto-discovery of targets"
+    ]
+  },
+
+  // Implementation Details
+  implementation: {
+    approach: "Declarative Helm deployment with GitOps integration",
+    autoMaintenance: [
+      "Chart updates via renovate bot",
+      "Configuration changes via Git commits",
+      "Automatic target discovery"
+    ],
+    filesChanged: [
+      "src/components/monitoring.ts",
+      "src/config/monitoring.ts",
+      "gitops/monitoring/prometheus.yaml"
+    ],
+    gitCommits: ["abc123", "def456", "ghi789"]
+  },
+
+  // Next Steps
+  nextPriorities: [
+    {
+      task: "Implement Grafana dashboards with auto-import",
+      priority: "HIGH",
+      estimatedTime: "8-10 hours",
+      dependencies: ["Prometheus metrics collection"],
+      research: [
+        "https://grafana.com/docs/grafana/latest/administration/provisioning/",
+        "https://github.com/grafana/helm-charts"
+      ]
+    },
+    {
+      task: "Configure alert manager with GitOps",
+      priority: "MEDIUM",
+      estimatedTime: "6-8 hours",
+      dependencies: ["Grafana dashboards"],
+      research: [
+        "https://prometheus.io/docs/alerting/latest/alertmanager/"
+      ]
+    }
+  ],
+
+  // Blockers and Issues
+  blockers: [],
+  issues: [
+    "Need to research Grafana dashboard auto-provisioning patterns"
+  ],
+
+  // Lessons Learned
+  lessonsLearned: [
+    "Helm values.yaml should be stored in Git for GitOps integration",
+    "ServiceMonitor CRDs require proper RBAC permissions",
+    "Auto-discovery works better than static configuration"
+  ]
+};
+```
+
+### **Memory Categories and Management**
+
+1. **Active Tasks** - Currently being worked on
+   - Include research progress and implementation status
+   - Track blockers and dependencies
+   - Update with each git commit
+
+2. **Research Knowledge Base** - Reusable research findings
+   - Catalog patterns discovered
+   - Document technology evaluations
+   - Share configuration templates
+
+3. **Next Priorities** - Ordered task backlog
+   - Include time estimates and dependencies
+   - Reference research requirements
+   - Track auto-maintenance opportunities
+
+4. **Completed Tasks** - Historical record
+   - Document what was built and why
+   - Include performance and maintenance outcomes
+   - Reference for future similar tasks
+
+## 🏗️ **Component Development Guidelines**
+
+### **Task Breakdown Pattern with Declarative Focus**
+Each major feature should be broken into 4-8 hour subtasks with emphasis on automation:
+
+**Example: Template Existence Validation**
+
+1. **Research & Design** (4-6 hours)
+   - Study Pulumi data source patterns
+   - Research Proxmox API for resource querying
+   - Design declarative validation approach
+   - Plan auto-maintenance features
+   - **Git**: `git commit -m "docs: research template validation patterns"`
+
+2. **ISO Checker Component** (4-6 hours)
+   - Query existing ISOs using Pulumi data sources
+   - Implement SHA256 checksum validation with auto-verification
+   - Add force-download option logic with GitOps integration
+   - **Git**: `git commit -m "feat: implement declarative ISO existence checking"`
+
+3. **Template Registry** (8-12 hours)
+   - Version tracking with metadata tags and auto-cataloging
+   - Template selection by version with semantic versioning
+   - Migration utilities for version updates via GitOps
+   - **Git**: `git commit -m "feat: add auto-updating template registry"`
+
+4. **State Reconciler** (6-8 hours)
+   - Drift detection between Pulumi and Proxmox with auto-correction
+   - Conflict resolution strategies with automated choices
+   - State export/import utilities with Git integration
+   - **Git**: `git commit -m "feat: implement self-healing state reconciliation"`
+
+5. **Integration & Testing** (4-6 hours)
+   - End-to-end testing with automated validation
+   - Performance optimization with auto-monitoring
+   - Documentation and examples with GitOps workflows
+   - **Git**: `git commit -m "feat: complete template validation with auto-maintenance"`
+
+### **Development Workflow with Memory Integration**
+For each subtask follow this pattern:
+
+1. **Research Phase** (20% of time)
+   - Review memory for related past work
+   - Consult Pulumi provider documentation
+   - Study existing patterns in codebase
+   - Design component interfaces with auto-maintenance
+   - **Memory Update**: Document research findings and design decisions
+
+2. **Implementation Phase** (60% of time)
+   - Follow [development-guidelines.mdc](mdc:.cursor/rules/development-guidelines.mdc)
+   - Use patterns from [technology-stack.mdc](mdc:.cursor/rules/technology-stack.mdc)
+   - Apply error handling from [src/utils/error-handler.ts](mdc:src/utils/error-handler.ts)
+   - Focus on declarative, auto-maintaining solutions
+   - **Git**: Commit frequently with descriptive messages
+
+3. **Testing Phase** (15% of time)
+   - Unit tests with component mocking and auto-validation
+   - Integration tests where applicable with automated cleanup
+   - Configuration validation tests with GitOps scenarios
+   - **Git**: `git commit -m "test: comprehensive testing for [component]"`
+
+4. **Documentation Phase** (5% of time)
+   - Update component documentation with research references
+   - Add usage examples with GitOps integration
+   - Update [README.md](mdc:README.md) if needed
+   - **Memory Update**: Document completion and next priorities
+   - **Git**: `git commit -m "docs: complete documentation for [component]"`
+
+## 📊 **Success Metrics and Validation**
+
+### **Quality Gates**
+Before marking any task complete:
+
+**Code Quality:**
+- TypeScript compilation with zero errors
+- ESLint passing with zero warnings
+- Test coverage > 80% for new components
+- All tests passing in CI
+
+**Functionality:**
+- Component works in isolation
+- Integration tests pass with real Proxmox
+- Error scenarios handled gracefully with auto-recovery
+- Recovery mechanisms tested and documented
+
+**Auto-Maintenance:**
+- Component supports GitOps workflows
+- Updates can be applied declaratively
+- Monitoring and alerting configured
+- Self-healing capabilities tested
+
+**Documentation:**
+- Code comments include research references
+- Component usage examples with GitOps integration
+- [ROADMAP.md](mdc:ROADMAP.md) status updated
+- User-facing documentation updated with automation features
+
+**Git Integration:**
+- All changes committed with descriptive messages
+- Research findings documented in commits
+- Memory updated with task completion
+- Next priorities identified and documented
+
+### **Performance Benchmarks**
+Reference [ROADMAP.md](mdc:ROADMAP.md) success metrics:
+
+- **Deployment Speed**: Sub-10 minute cluster deployments (auto-optimized)
+- **Reliability**: 99%+ successful deployments (self-healing)
+- **Template Creation**: Sub-5 minute template building (cached and optimized)
+- **Network Discovery**: Sub-30 second auto-discovery (automated)
+- **Update Speed**: Sub-5 minute configuration updates via GitOps
+- **Recovery Time**: Sub-2 minute automated recovery from failures
+
+## 🔧 **Implementation Best Practices**
+
+### **Component Architecture with Auto-Maintenance**
+Follow the established patterns with focus on automation:
+
+**Research-Driven Resource Management:**
+```typescript
+/**
+ * Research-Based Component Implementation
+ *
+ * Research Sources:
+ * - Pulumi Provider: https://pulumi.com/registry/packages/proxmoxve/
+ * - Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
+ * - Community Patterns: https://github.com/...
+ *
+ * Auto-Maintenance Features:
+ * - Automatic version checking
+ * - Self-healing configuration drift
+ * - GitOps-driven updates
+ * - Automated rollback on failures
+ */
+
+// Pattern: Research → Check existence → Create if needed → Auto-maintain
+export class AutoMaintainedComponent extends pulumi.ComponentResource {
+  constructor(name: string, args: ComponentArgs, opts?: pulumi.ComponentResourceOptions) {
+    super('infraflux:category:AutoMaintainedComponent', name, {}, opts);
+
+    // 1. Validate inputs with researched Joi schema patterns
+    const validation = this.validateWithResearchedPatterns(args);
+    if (!validation.valid) {
+      throw new Error(`Invalid arguments: ${validation.errors.join(', ')}`);
+    }
+
+    // 2. Check for existing resources using researched data source patterns
+    const existing = this.checkExistingWithAutoDiscovery(args);
+
+    // 3. Create resources with auto-update capabilities
+    const resources = existing.apply(exists => {
+      if (exists && !args.forceRecreate) {
+        return this.useExistingWithAutoMaintenance(exists);
+      }
+      return this.createNewWithAutoMaintenance(args);
+    });
+
+    // 4. Configure GitOps integration
+    this.configureGitOpsIntegration(resources);
+
+    // 5. Register outputs with monitoring
+    this.registerOutputs({ resources });
+  }
+}
+```
+
+### **Error Handling Integration with Research**
+Use [src/utils/error-handler.ts](mdc:src/utils/error-handler.ts) for all operations:
+
+```typescript
+import { retryOperation, ErrorContext } from '@/utils/error-handler';
+
+const context: ErrorContext = {
+  component: 'AutoMaintainedComponent',
+  operation: 'resource creation with auto-maintenance',
+  resourceId: args.resourceId,
+  researchRefs: [
+    'https://pulumi.com/docs/guides/testing/',
+    'https://proxmox.com/en/training/video-tutorials'
+  ],
+  autoMaintenanceFeatures: [
+    'automatic retry with exponential backoff',
+    'circuit breaker for repeated failures',
+    'self-healing configuration drift'
+  ]
+};
+
+const resource = await retryOperation(async () => {
+  return new proxmox.vm.VirtualMachine(/* ... with auto-maintenance config */);
+}, context, 3, 1000);
+```
+
+### **Configuration Validation with Auto-Correction**
+Extend [src/utils/config-validator.ts](mdc:src/utils/config-validator.ts):
+
+```typescript
+// Add new schema with auto-correction capabilities
+const autoMaintainedComponentSchema = Joi.object({
+  enabled: Joi.boolean().default(true),
+  autoUpdate: Joi.boolean().default(true), // Enable automatic updates
+  gitOpsIntegration: Joi.boolean().default(true), // Enable GitOps workflows
+  monitoring: Joi.object({
+    enabled: Joi.boolean().default(true),
+    alerting: Joi.boolean().default(true),
+    autoHealing: Joi.boolean().default(true)
+  }),
+  options: Joi.object({
+    timeout: Joi.number().min(1000).default(30000),
+    retries: Joi.number().min(1).max(10).default(3),
+    backoffMultiplier: Joi.number().min(1).max(5).default(2)
+  }),
+}).meta({
+  description: 'Configuration for auto-maintained component',
+  research: [
+    'https://joi.dev/api/?v=17.7.0',
+    'https://github.com/sideway/joi/blob/master/API.md'
+  ],
+  autoMaintenance: [
+    'Configuration validates automatically on load',
+    'Invalid values auto-corrected to safe defaults',
+    'Schema migrations handled automatically'
+  ]
+});
+```
+
+## 🚀 **Release Management with Automation**
+
+### **Version Planning with Auto-Updates**
+Based on [ROADMAP.md](mdc:ROADMAP.md) phases:
+
+**v2.1.0 - Stability Release** (2 weeks)
+- Template existence validation with auto-verification
+- Enhanced error handling with self-healing
+- Configuration migration tools with auto-correction
+- **Git**: All changes flow through GitOps workflows
+- **Memory**: Track stability improvements and automation gains
+
+**v2.2.0 - Testing & Observability** (6 weeks)
+- Comprehensive testing framework with auto-validation
+- Monitoring and metrics with auto-generated dashboards
+- Security enhancements with policy-as-code
+- **Git**: Testing infrastructure managed declaratively
+- **Memory**: Document testing patterns and monitoring baselines
+
+**v2.3.0 - Multi-Cloud Support** (3 months)
+- AWS and Azure provider support with unified configuration
+- Advanced networking features with auto-configuration
+- Backup and disaster recovery with automated schedules
+- **Git**: Multi-cloud configurations managed via GitOps
+- **Memory**: Catalog multi-cloud patterns and automation strategies
+
+### **Feature Flags with GitOps Integration**
+Use environment variables and Git-driven configuration for gradual rollout:
+
+```typescript
+// Feature flag pattern with GitOps integration
+const FEATURE_AUTO_HEALING = process.env.FEATURE_AUTO_HEALING === 'true';
+const FEATURE_ADVANCED_MONITORING = process.env.FEATURE_ADVANCED_MONITORING === 'true';
+
+// GitOps-driven feature configuration
+const featureConfig = await readGitOpsConfig('features/enabled-features.yaml');
+
+if (FEATURE_AUTO_HEALING || featureConfig.autoHealing) {
+  // Enable auto-healing components
+  enableAutoHealingComponents();
+}
+```
+
+### **Backward Compatibility with Auto-Migration**
+- Maintain configuration schema compatibility with automated migrations
+- Support deprecated options with warnings and auto-correction
+- Provide migration paths for breaking changes via GitOps workflows
+- Document all compatibility changes with research references
+
+## 📋 **Task Management Guidelines**
+
+### **Issue Tracking with Research Integration**
+Structure GitHub issues using this enhanced template:
+
+```markdown
+## Task: [Component] - [Feature]
+
+**Phase**: Phase 1 (Critical) / Phase 2 (High) / Phase 3 (Medium)
+**Estimated Time**: X-Y hours (including research)
+**Dependencies**: List any prerequisite tasks
+**Auto-Maintenance**: How this supports automated operations
+
+### Research Requirements
+- [ ] Study Pulumi provider documentation
+- [ ] Review community patterns and examples
+- [ ] Evaluate declarative configuration options
+- [ ] Plan GitOps integration approach
+
+### Acceptance Criteria
+- [ ] Criterion 1 (with auto-maintenance features)
+- [ ] Criterion 2 (with GitOps integration)
+- [ ] Tests written and passing (including automation tests)
+- [ ] Documentation updated (including research references)
+- [ ] Memory updated with findings and next steps
+
+### Implementation Notes
+Reference: ROADMAP.md section X.Y
+Research Sources:
+- https://pulumi.com/registry/packages/...
+- https://docs.upstream-project.com/...
+- https://github.com/community-example/...
+
+Related files:
+- src/components/...
+- src/utils/...
+- gitops/config/...
+
+### Auto-Maintenance Features
+- [ ] Supports GitOps workflows
+- [ ] Enables automatic updates
+- [ ] Includes self-healing capabilities
+- [ ] Provides monitoring and alerting
+
+### Definition of Done
+- [ ] Code review completed with research validation
+- [ ] Tests passing in CI (including integration tests)
+- [ ] Performance benchmarks met
+- [ ] Documentation updated with automation guides
+- [ ] All changes committed and synced to Git
+- [ ] Memory updated with task completion and next priorities
+```
+
+### **Pull Request Standards**
+- Reference roadmap section and task breakdown
+- Include research references in description
+- Document auto-maintenance features added
+- Include test coverage report
+- Add performance impact assessment
+- Update relevant documentation with automation guides
+- Tag with appropriate phase label
+- Link to memory updates
+
+### **Progress Tracking with Memory Integration**
+- Update [ROADMAP.md](mdc:ROADMAP.md) task completion status
+- Maintain project board with phase-based columns
+- Track actual vs estimated time for future planning (including research time)
+- Document lessons learned for process improvement
+- Update memory with each significant milestone
+- Catalog research findings for reuse
+- Track automation and self-maintenance improvements
+
+This roadmap ensures **research-driven**, **systematic**, **prioritized**, **git-integrated**, and **auto-maintaining** progress toward InfraFlux v2.0 production readiness.
