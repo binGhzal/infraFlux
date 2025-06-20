@@ -20,7 +20,8 @@ export class VMComponent extends pulumi.ComponentResource {
   constructor(name: string, props: VMComponentProps, opts?: pulumi.ComponentResourceOptions) {
     super('infraflux:compute:VM', name, {}, opts);
 
-    const { nodeConfig, proxmoxNode, networkBridge, template } = props;
+    const { nodeConfig, proxmoxNode, template } = props;
+    // networkBridge will be used when implementing network configuration
     
     logger.info(`Creating VM: ${nodeConfig.name}`, {
       role: nodeConfig.role,

@@ -299,7 +299,7 @@ export interface VMOutput {
   status: 'running' | 'stopped' | 'paused';
   node: string;
   template: string;
-  specs: VMSpecs;
+  specs: NodeSpecs;
   uptime?: number;
 }
 

@@ -41,8 +41,8 @@ export const devDefaults: Partial<GlobalConfig> = {
           memory: 4096,
           disk: [{
             size: '30G',
-            format: 'qcow2',
-            cache: 'none',
+            format: 'qcow2' as const,
+            cache: 'none' as const,
             backup: true,
             replicate: false,
           }],
@@ -61,8 +61,8 @@ export const devDefaults: Partial<GlobalConfig> = {
           memory: 8192,
           disk: [{
             size: '50G',
-            format: 'qcow2',
-            cache: 'none',
+            format: 'qcow2' as const,
+            cache: 'none' as const,
             backup: true,
             replicate: false,
           }],
@@ -137,8 +137,8 @@ export const prodDefaults: Partial<GlobalConfig> = {
           memory: 8192,
           disk: [{
             size: '100G',
-            format: 'qcow2',
-            cache: 'none',
+            format: 'qcow2' as const,
+            cache: 'none' as const,
             backup: true,
             replicate: true,
           }],
@@ -158,8 +158,8 @@ export const prodDefaults: Partial<GlobalConfig> = {
           memory: 16384,
           disk: [{
             size: '200G',
-            format: 'qcow2',
-            cache: 'none',
+            format: 'qcow2' as const,
+            cache: 'none' as const,
             backup: true,
             replicate: true,
           }],

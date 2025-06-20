@@ -3,7 +3,7 @@
  */
 
 import * as pulumi from '@pulumi/pulumi';
-import { StackConfig, GlobalConfig, VMOutput, ClusterOutput } from '../types';
+import { GlobalConfig, VMOutput, ClusterOutput } from '../types';
 import { logger } from '../utils/logger';
 
 export interface HomeLabStackProps {

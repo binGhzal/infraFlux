@@ -101,9 +101,8 @@ export class ProxmoxProviderComponent extends pulumi.ComponentResource {
       password: this.config.password,
       apiToken: this.config.apiToken,
       insecure: this.config.insecure,
-      timeout: this.config.timeout,
-      parallelism: this.config.parallelism,
-      minTls: this.config.minTls,
+      // Note: timeout, parallelism, minTls may not be supported by provider
+      // Keep them in config for future use or custom implementation
     }, { parent: this });
     
     // Register outputs
@@ -133,11 +132,13 @@ export class ProxmoxProviderComponent extends pulumi.ComponentResource {
         
       password: config.password 
         || process.env[PROXMOX_ENV_VARS.PASSWORD] 
-        || pulumiConfig.getSecret("password"),
+        || pulumiConfig.getSecret("password")
+        || undefined,
         
       apiToken: config.apiToken 
         || process.env[PROXMOX_ENV_VARS.API_TOKEN] 
-        || pulumiConfig.getSecret("apiToken"),
+        || pulumiConfig.getSecret("apiToken")
+        || undefined,
         
       insecure: config.insecure 
         || (process.env[PROXMOX_ENV_VARS.INSECURE]?.toLowerCase() === 'true') 
@@ -235,13 +236,13 @@ export function createProxmoxProvider(
  */
 export function getConfigFromEnvironment(): Partial<ProxmoxProviderConfig> {
   return {
-    endpoint: process.env[PROXMOX_ENV_VARS.ENDPOINT],
-    username: process.env[PROXMOX_ENV_VARS.USERNAME],
-    password: process.env[PROXMOX_ENV_VARS.PASSWORD],
-    apiToken: process.env[PROXMOX_ENV_VARS.API_TOKEN],
-    insecure: process.env[PROXMOX_ENV_VARS.INSECURE]?.toLowerCase() === 'true',
+    endpoint: process.env[PROXMOX_ENV_VARS.ENDPOINT] || undefined,
+    username: process.env[PROXMOX_ENV_VARS.USERNAME] || undefined,
+    password: process.env[PROXMOX_ENV_VARS.PASSWORD] || undefined,
+    apiToken: process.env[PROXMOX_ENV_VARS.API_TOKEN] || undefined,
+    insecure: process.env[PROXMOX_ENV_VARS.INSECURE]?.toLowerCase() === 'true' || undefined,
     timeout: process.env[PROXMOX_ENV_VARS.TIMEOUT] ? parseInt(process.env[PROXMOX_ENV_VARS.TIMEOUT]) : undefined,
     parallelism: process.env[PROXMOX_ENV_VARS.PARALLELISM] ? parseInt(process.env[PROXMOX_ENV_VARS.PARALLELISM]) : undefined,
-    minTls: process.env[PROXMOX_ENV_VARS.MIN_TLS],
+    minTls: process.env[PROXMOX_ENV_VARS.MIN_TLS] || undefined,
   };
 }

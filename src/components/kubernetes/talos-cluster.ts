@@ -3,7 +3,7 @@
  */
 
 import * as pulumi from '@pulumi/pulumi';
-import { ClusterConfig, ClusterOutput, NodeOutput } from '../../types';
+import { ClusterConfig, ClusterOutput } from '../../types';
 import { logger } from '../../utils/logger';
 
 export interface TalosClusterProps {

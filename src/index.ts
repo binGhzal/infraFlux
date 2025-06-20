@@ -27,7 +27,7 @@ async function main(): Promise<void> {
     });
 
     // Export important outputs
-    return {
+    const outputs = {
       clusterName: homelab.cluster.name,
       clusterEndpoint: homelab.cluster.endpoint,
       clusterKubeconfig: homelab.cluster.kubeconfig,
@@ -35,6 +35,8 @@ async function main(): Promise<void> {
       proxmoxNode: homelab.proxmoxNode,
       deploymentTime: new Date().toISOString(),
     };
+    
+    return outputs;
 
   } catch (error) {
     logger.error('Failed to deploy infrastructure:', error);

@@ -4,7 +4,7 @@
  * Provides utilities for validating Proxmox VE API connectivity and health.
  */
 
-import * as pulumi from "@pulumi/pulumi";
+// Proxmox Health Check Utility - no Pulumi dependency needed
 
 /**
  * Result of a Proxmox health check
@@ -192,10 +192,10 @@ export class ProxmoxHealthChecker {
    * Actual implementation of health check (to be implemented with HTTP client)
    */
   private async doHealthCheck(
-    endpoint: string,
-    username: string,
-    password?: string,
-    apiToken?: string
+    _endpoint: string,
+    _username: string,
+    _password?: string,
+    _apiToken?: string
   ): Promise<Omit<ProxmoxHealthCheckResult, 'responseTimeMs'>> {
     // TODO: Implement actual HTTP client for Proxmox API calls
     // For now, this is a placeholder that validates the structure
