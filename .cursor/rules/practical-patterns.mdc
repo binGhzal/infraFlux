@@ -365,6 +365,345 @@ describe('ComponentName', () => {
 });
 ```
 
+## 🏠 **HOSTS CONFIGURATION PATTERNS**
+
+### **Hosts Config Parser Implementation**
+```typescript
+import * as pulumi from '@pulumi/pulumi';
+import * as yaml from 'js-yaml';
+import * as fs from 'fs';
+import * as Joi from 'joi';
+import { HostsConfig, HostDefinition } from '@/types/hosts';
+import { logResource } from '@/utils/logger';
+
+/**
+ * HostsConfigLoader - Loads and validates hosts configuration
+ * 
+ * Research:
+ * - https://github.com/nodeca/js-yaml#load-string--options-
+ * - https://joi.dev/api/?v=17.9.0#object
+ */
+export class HostsConfigLoader extends pulumi.ComponentResource {
+  public readonly config: HostsConfig;
+  private readonly schema: Joi.ObjectSchema;
+
+  constructor(name: string, args: { configPath: string }) {
+    super('infraflux:config:HostsLoader', name, {});
+
+    this.schema = this.createSchema();
+    this.config = this.loadAndValidate(args.configPath);
+
+    logResource('HostsConfigLoader', 'Loaded', {
+      clusters: Object.keys(this.config.clusters).length,
+      totalHosts: this.countTotalHosts(),
+      validated: true,
+    });
+
+    this.registerOutputs({ config: this.config });
+  }
+
+  private createSchema(): Joi.ObjectSchema {
+    const hostSchema = Joi.object({
+      name: Joi.string().required().pattern(/^[a-z0-9-]+$/),
+      vmId: Joi.number().required().min(100).max(999999),
+      ip: Joi.string().required().ip({ version: ['ipv4'] }),
+      cores: Joi.number().min(1).max(128).default(2),
+      memory: Joi.number().min(512).max(524288).default(4096),
+      disk: Joi.string().pattern(/^\d+[GM]$/).default('20G'),
+      tags: Joi.array().items(Joi.string()).default([]),
+      storagePool: Joi.string(),
+    });
+
+    return Joi.object({
+      version: Joi.string().default('1.0'),
+      clusters: Joi.object().pattern(
+        Joi.string(),
+        Joi.object({
+          masters: Joi.array().items(hostSchema).min(1).required(),
+          workers: Joi.array().items(hostSchema).default([]),
+        })
+      ).min(1).required(),
+    });
+  }
+
+  private loadAndValidate(path: string): HostsConfig {
+    const content = fs.readFileSync(path, 'utf8');
+    const raw = yaml.load(content);
+    
+    const { error, value } = this.schema.validate(raw, {
+      abortEarly: false,
+      allowUnknown: false,
+    });
+
+    if (error) {
+      const details = error.details.map(d => 
+        `  - ${d.path.join('.')}: ${d.message}`
+      ).join('\n');
+      throw new Error(`Invalid hosts configuration:\n${details}`);
+    }
+
+    return value as HostsConfig;
+  }
+
+  private countTotalHosts(): number {
+    let total = 0;
+    for (const cluster of Object.values(this.config.clusters)) {
+      total += cluster.masters.length;
+      total += cluster.workers?.length || 0;
+    }
+    return total;
+  }
+}
+```
+
+### **VM Creation from Hosts Pattern**
+```typescript
+/**
+ * Creates VMs based on host definitions
+ */
+export class HostBasedCluster extends pulumi.ComponentResource {
+  public readonly vms: Map<string, VM>;
+
+  constructor(name: string, args: {
+    hostsConfig: HostsConfig;
+    clusterName: string;
+    provider: proxmox.Provider;
+    templateManager: TalosTemplateManager;
+  }, opts?: pulumi.ComponentResourceOptions) {
+    super('infraflux:cluster:HostBased', name, {}, opts);
+
+    this.vms = new Map();
+
+    const cluster = args.hostsConfig.clusters[args.clusterName];
+    if (!cluster) {
+      throw new Error(`Cluster '${args.clusterName}' not found in hosts config`);
+    }
+
+    // Create master VMs from host definitions
+    for (const master of cluster.masters) {
+      const vm = new VM(`${name}-${master.name}`, {
+        provider: args.provider,
+        template: args.templateManager.masterTemplate,
+        spec: {
+          name: master.name,
+          vmId: master.vmId,
+          ipAddress: master.ip,
+          cores: master.cores,
+          memory: master.memory,
+          diskSize: master.disk,
+          tags: [...master.tags, 'master', 'infraflux-managed'],
+          storagePool: master.storagePool,
+        },
+      }, { parent: this });
+      
+      this.vms.set(master.name, vm);
+    }
+
+    // Create worker VMs from host definitions
+    for (const worker of cluster.workers || []) {
+      const vm = new VM(`${name}-${worker.name}`, {
+        provider: args.provider,
+        template: args.templateManager.workerTemplate,
+        spec: {
+          name: worker.name,
+          vmId: worker.vmId,
+          ipAddress: worker.ip,
+          cores: worker.cores,
+          memory: worker.memory,
+          diskSize: worker.disk,
+          tags: [...worker.tags, 'worker', 'infraflux-managed'],
+          storagePool: worker.storagePool,
+        },
+      }, { parent: this });
+      
+      this.vms.set(worker.name, vm);
+    }
+
+    logResource('HostBasedCluster', 'Created', {
+      cluster: args.clusterName,
+      masters: cluster.masters.length,
+      workers: cluster.workers?.length || 0,
+      totalVMs: this.vms.size,
+    });
+
+    this.registerOutputs({ vms: Array.from(this.vms.values()) });
+  }
+}
+```
+
+### **Talos Bootstrap with Hosts Config**
+```typescript
+/**
+ * Bootstrap Talos cluster using explicit host IPs
+ */
+export class HostBasedTalosBootstrap extends pulumi.ComponentResource {
+  public readonly kubeconfig: pulumi.Output<string>;
+
+  constructor(name: string, args: {
+    hostsConfig: HostsConfig;
+    clusterName: string;
+    vms: Map<string, VM>;
+  }, opts?: pulumi.ComponentResourceOptions) {
+    super('infraflux:talos:HostBootstrap', name, {}, opts);
+
+    const cluster = args.hostsConfig.clusters[args.clusterName];
+    const masterIPs = cluster.masters.map(m => m.ip);
+    const workerIPs = (cluster.workers || []).map(w => w.ip);
+
+    // Generate Talos machine secrets
+    const secrets = new talos.machine.Secrets(
+      `${name}-secrets`,
+      {},
+      { parent: this }
+    );
+
+    // Apply Talos config to each host
+    const configs: talos.machine.ConfigurationApply[] = [];
+
+    // Configure masters
+    for (const master of cluster.masters) {
+      const config = new talos.machine.ConfigurationApply(
+        `${name}-${master.name}-config`,
+        {
+          clientConfiguration: secrets.clientConfiguration,
+          machineConfigurationInput: talos.machine.getConfigurationOutput({
+            clusterName: args.clusterName,
+            machineType: 'controlplane',
+            clusterEndpoint: `https://${masterIPs[0]}:6443`,
+            machineSecrets: secrets.machineSecrets,
+          }).machineConfiguration,
+          node: master.ip,
+          configPatches: [
+            pulumi.jsonStringify({
+              machine: {
+                network: {
+                  hostname: master.name,
+                  interfaces: [{
+                    interface: 'eth0',
+                    addresses: [`${master.ip}/24`],
+                    routes: [{
+                      network: '0.0.0.0/0',
+                      gateway: cluster.network?.gateway || '192.168.1.1',
+                    }],
+                  }],
+                  nameservers: cluster.network?.dns || ['1.1.1.1', '1.0.0.1'],
+                },
+              },
+            }),
+          ],
+        },
+        { parent: this, dependsOn: Array.from(args.vms.values()) }
+      );
+      configs.push(config);
+    }
+
+    // Configure workers
+    for (const worker of cluster.workers || []) {
+      const config = new talos.machine.ConfigurationApply(
+        `${name}-${worker.name}-config`,
+        {
+          clientConfiguration: secrets.clientConfiguration,
+          machineConfigurationInput: talos.machine.getConfigurationOutput({
+            clusterName: args.clusterName,
+            machineType: 'worker',
+            clusterEndpoint: `https://${masterIPs[0]}:6443`,
+            machineSecrets: secrets.machineSecrets,
+          }).machineConfiguration,
+          node: worker.ip,
+          configPatches: [
+            pulumi.jsonStringify({
+              machine: {
+                network: {
+                  hostname: worker.name,
+                  interfaces: [{
+                    interface: 'eth0',
+                    addresses: [`${worker.ip}/24`],
+                    routes: [{
+                      network: '0.0.0.0/0',
+                      gateway: cluster.network?.gateway || '192.168.1.1',
+                    }],
+                  }],
+                  nameservers: cluster.network?.dns || ['1.1.1.1', '1.0.0.1'],
+                },
+              },
+            }),
+          ],
+        },
+        { parent: this, dependsOn: Array.from(args.vms.values()) }
+      );
+      configs.push(config);
+    }
+
+    // Bootstrap the cluster
+    const bootstrap = new talos.machine.Bootstrap(
+      `${name}-bootstrap`,
+      {
+        clientConfiguration: secrets.clientConfiguration,
+        node: masterIPs[0],
+      },
+      { parent: this, dependsOn: configs }
+    );
+
+    this.kubeconfig = secrets.clientConfiguration.apply(
+      config => talos.cluster.getKubeconfigOutput({
+        clientConfiguration: config,
+        node: masterIPs[0],
+      }).kubeconfigRaw
+    );
+
+    this.registerOutputs({ kubeconfig: this.kubeconfig });
+  }
+}
+```
+
+### **Hosts Config Migration Helper**
+```typescript
+/**
+ * Helper to migrate from env-based to hosts-based config
+ */
+export function generateHostsFromEnv(): HostsConfig {
+  const masterCount = parseInt(process.env.K8S_MASTER_COUNT || '1');
+  const workerCount = parseInt(process.env.K8S_WORKER_COUNT || '3');
+  const baseIP = process.env.NETWORK_GATEWAY?.split('.').slice(0, 3).join('.') || '192.168.1';
+
+  return {
+    version: '1.0',
+    clusters: {
+      homelab: {
+        network: {
+          gateway: process.env.NETWORK_GATEWAY || `${baseIP}.1`,
+          subnet: process.env.NETWORK_SUBNET || `${baseIP}.0/24`,
+          bridge: process.env.NETWORK_BRIDGE || 'vmbr0',
+        },
+        masters: Array.from({ length: masterCount }, (_, i) => ({
+          name: `k8s-master-${String(i + 1).padStart(2, '0')}`,
+          vmId: 8000 + i,
+          ip: `${baseIP}.${200 + i}`,
+          cores: parseInt(process.env.K8S_MASTER_CORES || '2'),
+          memory: parseInt(process.env.K8S_MASTER_MEMORY || '4096'),
+          disk: process.env.K8S_MASTER_DISK || '30G',
+          tags: ['master', 'control-plane'],
+        })),
+        workers: Array.from({ length: workerCount }, (_, i) => ({
+          name: `k8s-worker-${String(i + 1).padStart(2, '0')}`,
+          vmId: 8100 + i,
+          ip: `${baseIP}.${210 + i}`,
+          cores: parseInt(process.env.K8S_WORKER_CORES || '2'),
+          memory: parseInt(process.env.K8S_WORKER_MEMORY || '4096'),
+          disk: process.env.K8S_WORKER_DISK || '50G',
+          tags: ['worker'],
+        })),
+      },
+    },
+  };
+}
+
+// Usage in main index.ts
+const hostsConfig = fs.existsSync('./hosts.yaml')
+  ? new HostsConfigLoader('hosts-config', { configPath: './hosts.yaml' }).config
+  : generateHostsFromEnv();
+```
+
 ## 📋 **MEMORY UPDATE PATTERNS**
 
 ### **Task Completion Memory Template**

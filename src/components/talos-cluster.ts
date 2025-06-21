@@ -5,20 +5,17 @@ import { ClusterOutput } from '@/types';
 import { config } from '@/config';
 import { VM } from './vm';
 import { TalosTemplateManager } from './cloud-image-template';
-import { NativeNetworkDiscovery } from './network-discovery';
 import { logResource } from '@/utils/logger';
 
 export interface TalosClusterArgs {
   provider: proxmox.Provider;
   templateManager: TalosTemplateManager;
   startingIP: number; // Starting IP in the last octet (e.g., 200 for 192.168.1.200)
-  enableNetworkDiscovery?: boolean; // Enable native QEMU Guest Agent network discovery
 }
 
 export class TalosCluster extends pulumi.ComponentResource {
   public readonly output: ClusterOutput;
   public readonly talosConfig: pulumi.Output<string>;
-  public readonly networkDiscovery?: NativeNetworkDiscovery;
 
   constructor(
     name: string,
@@ -27,7 +24,11 @@ export class TalosCluster extends pulumi.ComponentResource {
   ) {
     super('infraflux:k8s:TalosCluster', name, {}, opts);
 
-    logResource('TalosCluster', 'Creating', { name });
+    logResource('TalosCluster', 'Creating', {
+      name,
+      approach: 'Static IP assignment',
+      networkDiscovery: 'disabled',
+    });
 
     // Calculate base IP and endpoint
     const baseIP = config.network.gateway.split('.').slice(0, 3).join('.');
@@ -216,21 +217,6 @@ export class TalosCluster extends pulumi.ComponentResource {
       );
 
       workerConfigs.push(configApply);
-    }
-
-    // Collect all VMs for network discovery
-    const allVMs = [...masters, ...workers];
-
-    // Optional: Native network discovery using QEMU Guest Agent
-    if (args.enableNetworkDiscovery) {
-      this.networkDiscovery = new NativeNetworkDiscovery(
-        `${name}-network-discovery`,
-        {
-          clusterName: name,
-          vms: allVMs,
-        },
-        { parent: this }
-      );
     }
 
     // Wait for all configurations to be applied

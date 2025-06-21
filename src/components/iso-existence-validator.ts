@@ -7,10 +7,9 @@
  * - https://github.com/muhlba91/pulumi-proxmoxve (Provider patterns)
  *
  * Auto-Maintenance Features:
- * - SHA256 checksum validation with automatic verification
- * - Smart overwrite detection and collision handling
  * - Force download options with automated fallback
  * - Self-healing download retry with exponential backoff
+ * - Declarative download management
  *
  * GitOps Integration:
  * - Configuration-driven validation policies
@@ -38,9 +37,6 @@ export interface ISOValidationResult {
   exists: boolean;
   isValid: boolean;
   needsDownload: boolean;
-  actualChecksum?: string;
-  fileSize?: number;
-  lastModified?: string;
   validationMessage: string;
   requiresAction: boolean;
 }
@@ -56,8 +52,8 @@ export interface ISOExistenceValidatorOutput {
 /**
  * ISO Existence Validator Component
  *
- * Validates ISO existence with checksum verification and auto-recovery
- * Research-validated patterns for robust template management
+ * Simplified validator that works with actual Proxmox provider capabilities
+ * Focuses on providing guidance for download decisions
  */
 export class ISOExistenceValidator extends pulumi.ComponentResource {
   public readonly output: ISOExistenceValidatorOutput;
@@ -74,22 +70,21 @@ export class ISOExistenceValidator extends pulumi.ComponentResource {
       datastore: args.datastoreId,
       checksumValidation: !!args.expectedChecksum,
       forceDownload: args.forceDownload || false,
-      researchValidated: true,
     });
 
-    // 1. Validate inputs with research-based patterns
+    // 1. Validate inputs
     this.validateInputs(args);
 
-    // 2. Check for existing ISO with comprehensive validation
-    const validationResult = this.performExistenceValidation(args);
+    // 2. Create validation result based on configuration
+    const validationResult = this.createValidationResult(args);
 
-    // 3. Determine required actions with auto-recovery logic
+    // 3. Determine required actions
     const actionRecommendation = this.determineRequiredActions(
       validationResult,
       args
     );
 
-    // 4. Register outputs with monitoring integration
+    // 4. Register outputs
     this.output = {
       validationResult,
       shouldProceedWithDownload: actionRecommendation.shouldDownload,
@@ -127,185 +122,42 @@ export class ISOExistenceValidator extends pulumi.ComponentResource {
     });
   }
 
-  private performExistenceValidation(
+  private createValidationResult(
     args: ISOExistenceValidatorArgs
   ): pulumi.Output<ISOValidationResult> {
     const context: ErrorContext = {
       component: 'ISOExistenceValidator',
-      operation: 'existence validation',
+      operation: 'validation result creation',
       resourceId: args.isoFileName,
-      researchRefs: [
-        'https://pulumi.com/registry/packages/proxmoxve/api-docs/storage/file/',
-      ],
     };
 
-    return retryOperation(async () => {
-      // Research finding: Use File.get() for checking existing resources
-      return this.checkFileExistence(args);
-    }, context).apply((result) => {
-      logResource('ISOExistenceValidator', 'ValidationComplete', {
-        fileName: args.isoFileName,
-        exists: result.exists,
-        isValid: result.isValid,
-        needsDownload: result.needsDownload,
-        autoRecovery: result.requiresAction,
-      });
+    return pulumi.output(
+      retryOperation(async () => {
+        // Since the provider doesn't support querying existing files,
+        // we make decisions based on forceDownload flag and conservative assumptions
 
-      return result;
-    });
-  }
-
-  private async checkFileExistence(
-    args: ISOExistenceValidatorArgs
-  ): Promise<ISOValidationResult> {
-    try {
-      // Research pattern: Query storage for existing files
-      // Note: This uses a hypothetical data source pattern - may need adjustment based on actual provider capabilities
-      const fileQuery = this.queryExistingFile(args);
-
-      return fileQuery.apply(async (fileInfo) => {
-        if (!fileInfo) {
-          return {
-            exists: false,
-            isValid: false,
-            needsDownload: true,
-            validationMessage: 'ISO file does not exist in storage',
-            requiresAction: true,
-          };
-        }
-
-        // Validate checksum if provided
-        if (args.expectedChecksum && fileInfo.checksum) {
-          const checksumValid = await this.validateChecksum(
-            fileInfo.checksum,
-            args.expectedChecksum,
-            args.checksumAlgorithm || 'sha256'
-          );
-
-          if (!checksumValid) {
-            return {
-              exists: true,
-              isValid: false,
-              needsDownload: args.forceDownload || true,
-              actualChecksum: fileInfo.checksum,
-              fileSize: fileInfo.size,
-              lastModified: fileInfo.lastModified,
-              validationMessage: 'ISO exists but checksum validation failed',
-              requiresAction: true,
-            };
-          }
-        }
-
-        // Force download override
         if (args.forceDownload) {
           return {
-            exists: true,
-            isValid: true,
+            exists: false, // Assume doesn't exist to force download
+            isValid: false,
             needsDownload: true,
-            actualChecksum: fileInfo.checksum,
-            fileSize: fileInfo.size,
-            lastModified: fileInfo.lastModified,
             validationMessage:
-              'ISO exists and valid, but force download requested',
+              'Force download requested - will download regardless of existence',
             requiresAction: true,
           };
         }
 
-        // All validation passed
+        // Conservative approach: assume file might exist but recommend download for reliability
         return {
-          exists: true,
-          isValid: true,
-          needsDownload: false,
-          actualChecksum: fileInfo.checksum,
-          fileSize: fileInfo.size,
-          lastModified: fileInfo.lastModified,
-          validationMessage: 'ISO exists and is valid',
-          requiresAction: false,
+          exists: false, // Cannot verify existence with current provider
+          isValid: false,
+          needsDownload: true,
+          validationMessage:
+            'Cannot verify ISO existence - will attempt download',
+          requiresAction: true,
         };
-      });
-    } catch (error) {
-      logger.error('ISO existence check failed', {
-        fileName: args.isoFileName,
-        error: error instanceof Error ? error.message : String(error),
-        fallbackAction: 'Assume file does not exist',
-      });
-
-      // Graceful fallback: assume file doesn't exist
-      return {
-        exists: false,
-        isValid: false,
-        needsDownload: true,
-        validationMessage: `Existence check failed: ${error instanceof Error ? error.message : String(error)}`,
-        requiresAction: true,
-      };
-    }
-  }
-
-  private queryExistingFile(
-    args: ISOExistenceValidatorArgs
-  ): pulumi.Output<any> {
-    // Research-based pattern: Attempt to get existing file information
-    // This pattern may need adjustment based on actual provider data source availability
-
-    try {
-      // Construct file ID based on Proxmox conventions
-      const fileId = `${args.datastoreId}:iso/${args.isoFileName}`;
-
-      // Use provider data query (this might need to be adapted based on actual provider capabilities)
-      return pulumi
-        .output(
-          proxmox.storage.getFileOutput({
-            datastoreId: args.datastoreId,
-            nodeName: args.nodeName,
-            fileName: args.isoFileName,
-            contentType: 'iso',
-          })
-        )
-        .apply((data) => {
-          if (data) {
-            return {
-              exists: true,
-              checksum: data.checksum || undefined,
-              size: data.size || 0,
-              lastModified: data.lastModified || new Date().toISOString(),
-              fileId: fileId,
-            };
-          }
-          return null;
-        })
-        .catch(() => {
-          // If data source query fails, assume file doesn't exist
-          return null;
-        });
-    } catch (error) {
-      logger.warn('File query failed, assuming file does not exist', {
-        fileName: args.isoFileName,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return pulumi.output(null);
-    }
-  }
-
-  private async validateChecksum(
-    actualChecksum: string,
-    expectedChecksum: string,
-    algorithm: string
-  ): Promise<boolean> {
-    // Normalize checksums for comparison
-    const actual = actualChecksum.toLowerCase().trim();
-    const expected = expectedChecksum.toLowerCase().trim();
-
-    const isValid = actual === expected;
-
-    logResource('ISOExistenceValidator', 'ChecksumValidation', {
-      algorithm,
-      matches: isValid,
-      actualLength: actual.length,
-      expectedLength: expected.length,
-      researchValidated: true,
-    });
-
-    return isValid;
+      }, context)
+    );
   }
 
   private determineRequiredActions(
@@ -313,31 +165,22 @@ export class ISOExistenceValidator extends pulumi.ComponentResource {
     args: ISOExistenceValidatorArgs
   ) {
     return validationResult.apply((result) => {
-      let action = 'no-action';
-      let shouldDownload = false;
+      let action = 'download-recommended';
+      let shouldDownload = true;
       let existingFileId: string | undefined = undefined;
 
-      if (!result.exists || result.needsDownload) {
-        action = result.exists ? 'redownload-invalid' : 'download-missing';
+      if (args.forceDownload) {
+        action = 'force-download';
         shouldDownload = true;
-      } else if (result.exists && result.isValid) {
-        action = 'use-existing';
-        shouldDownload = false;
+      } else {
+        action = 'download-recommended';
+        shouldDownload = true;
+
+        // Provide potential file ID for reference
         existingFileId = `${args.datastoreId}:iso/${args.isoFileName}`;
       }
 
-      // Auto-conflict resolution
-      if (args.autoCorrectConflicts && result.exists && !result.isValid) {
-        action = 'auto-correct-conflict';
-        shouldDownload = true;
-        logger.info('Auto-correcting ISO conflict', {
-          fileName: args.isoFileName,
-          reason: result.validationMessage,
-          autoAction: 'force-redownload',
-        });
-      }
-
-      const ready = !shouldDownload || result.exists;
+      const ready = true; // Always ready to proceed
 
       logResource('ISOExistenceValidator', 'ActionDetermined', {
         fileName: args.isoFileName,
@@ -357,46 +200,21 @@ export class ISOExistenceValidator extends pulumi.ComponentResource {
   }
 
   /**
-   * Static helper method for simple existence checks
+   * Static helper method for simple recommendations
    */
-  public static async quickExistenceCheck(
+  public static shouldDownloadISO(
     fileName: string,
-    datastoreId: string,
-    nodeName: string,
-    provider: proxmox.Provider
-  ): Promise<boolean> {
-    try {
-      // Simple existence check without full validation
-      const result = await proxmox.storage.getFileOutput({
-        datastoreId,
-        nodeName,
-        fileName,
-        contentType: 'iso',
-      });
-      return !!result;
-    } catch {
-      return false;
-    }
+    forceDownload: boolean = false
+  ): boolean {
+    // Since we can't query existing files reliably,
+    // use conservative approach
+    return forceDownload || true; // Always recommend download for reliability
   }
 
   /**
-   * Validate multiple ISOs in parallel for performance
+   * Generate file ID for ISO reference
    */
-  public static validateMultipleISOs(
-    isoList: Array<{ fileName: string; expectedChecksum?: string }>,
-    args: Omit<ISOExistenceValidatorArgs, 'isoFileName' | 'expectedChecksum'>,
-    opts?: pulumi.ComponentResourceOptions
-  ): ISOExistenceValidator[] {
-    return isoList.map((iso, index) => {
-      return new ISOExistenceValidator(
-        `iso-validator-${index}`,
-        {
-          ...args,
-          isoFileName: iso.fileName,
-          expectedChecksum: iso.expectedChecksum,
-        },
-        opts
-      );
-    });
+  public static generateFileId(datastoreId: string, fileName: string): string {
+    return `${datastoreId}:iso/${fileName}`;
   }
 }

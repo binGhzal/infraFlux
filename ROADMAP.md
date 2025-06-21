@@ -30,7 +30,68 @@ homelab and cloud deployments using pure Pulumi approaches.
 **Files Enhanced**: `src/components/network-discovery.ts`, `src/config/index.ts`,
 `src/types/index.ts`, `env.example`, `README.md`
 
-## 🔥 **Critical Issues (Fix Immediately)**
+## 🔥 **Immediate Priority (Implement This Week)**
+
+### 0. Hosts Configuration System ⚡ **NEW PRIORITY**
+
+**Problem**: Current count-based configuration lacks flexibility and individual VM control.
+
+**Solution**: Implement declarative hosts configuration file system.
+
+#### 0.1 Hosts Configuration Implementation
+
+**Complexity**: Medium | **Estimated Time**: 24-32 hours
+
+**Acceptance Criteria**:
+- Replace count-based configuration with explicit host definitions
+- Support individual VM customization (name, IP, specs, tags)
+- Maintain backward compatibility during transition
+- Enable heterogeneous hardware configurations
+- Support future non-Kubernetes VMs
+
+**Implementation Steps**:
+
+1. **Schema Design and Types** (6-8 hours)
+   - Create TypeScript interfaces for hosts configuration
+   - Design YAML schema with validation rules
+   - Plan migration path from env variables
+   - Document configuration specification
+
+2. **Parser and Validator** (8-10 hours)
+   - Implement YAML/JSON parser using js-yaml
+   - Add Joi schema validation with helpful errors
+   - Create configuration loader component
+   - Add backward compatibility helper
+
+3. **VM Creation Refactor** (6-8 hours)
+   - Refactor VM creation to use host definitions
+   - Update Talos cluster creation for explicit IPs
+   - Modify template manager for host-based approach
+   - Ensure all VM resources use host specs
+
+4. **Testing and Documentation** (4-6 hours)
+   - Add validation command and scripts
+   - Create migration guide and examples
+   - Update README with hosts configuration
+   - Add comprehensive error messaging
+
+**Files to Create/Modify**:
+- `src/types/hosts.ts` - TypeScript interfaces
+- `src/components/hosts-config-loader.ts` - Configuration parser
+- `src/utils/hosts-validator.ts` - Validation utilities
+- `docs/HOSTS_CONFIG_SPEC.md` - Complete specification
+- `docs/MIGRATION_GUIDE.md` - Migration documentation
+- Update `src/index.ts` - Use hosts config
+- Update `src/components/talos-cluster.ts` - Host-based creation
+
+**Benefits**:
+- ✅ **Individual VM Control**: Custom specs, IPs, names per VM
+- ✅ **Heterogeneous Hardware**: Mix different VM configurations
+- ✅ **Better Documentation**: Infrastructure as code is self-documenting
+- ✅ **Future Extensibility**: Support for non-Kubernetes VMs
+- ✅ **Simplified Logic**: No IP calculation or sequential assignment
+
+## 🔥 **Critical Issues (Fix After Hosts Config)**
 
 ### 1. Network Configuration Flow ✅ **COMPLETED**
 

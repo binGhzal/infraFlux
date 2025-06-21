@@ -1,7 +1,7 @@
 import * as pulumi from '@pulumi/pulumi';
 import * as proxmox from '@muhlba91/pulumi-proxmoxve';
 import { config } from '@/config';
-import { logResource } from '@/utils/logger';
+import { logResource, logger } from '@/utils/logger';
 
 export interface TalosISOArgs {
   provider: proxmox.Provider;
@@ -54,18 +54,17 @@ export class TalosISO extends pulumi.ComponentResource {
       schematic: this.schematic,
       fileName: this.fileName,
       isoStorage,
+      forceDownload: args.forceDownload ?? false,
     });
 
-    // If forceDownload is explicitly false or the ISO already exists, skip download
-    const shouldDownload = args.forceDownload ?? false; // Default to false to prevent overwrites
-
-    if (shouldDownload) {
+    // Only download if explicitly requested via forceDownload
+    if (args.forceDownload === true) {
       const talosImageUrl = `https://factory.talos.dev/image/${this.schematic}/${talosVersion}/nocloud-amd64.iso`;
 
-      logResource('TalosISO', 'Downloading', {
+      logResource('TalosISO', 'Force Downloading', {
         url: talosImageUrl,
         fileName: this.fileName,
-        reason: 'Force download requested or ISO not found',
+        reason: 'Force download explicitly requested',
       });
 
       this.isoFile = new proxmox.download.File(
@@ -76,6 +75,7 @@ export class TalosISO extends pulumi.ComponentResource {
           nodeName: config.proxmox.node,
           url: talosImageUrl,
           fileName: this.fileName,
+          overwrite: true, // Force overwrite when forceDownload is true
         },
         {
           provider: args.provider,
@@ -89,11 +89,19 @@ export class TalosISO extends pulumi.ComponentResource {
       // ISO should already exist, reference it directly
       logResource('TalosISO', 'Using Existing', {
         fileName: this.fileName,
-        reason: 'ISO already exists or forceDownload=false',
+        reason: 'Assuming ISO exists (use forceDownload=true to re-download)',
       });
 
+      // Reference the existing ISO file
       this.isoId = pulumi.Output.create(`${isoStorage}:iso/${this.fileName}`);
       this.ready = pulumi.Output.create(true);
+
+      // Log warning if ISO might not exist
+      logger.warn('Using existing ISO reference', {
+        fileName: this.fileName,
+        storage: isoStorage,
+        hint: 'If ISO does not exist, set TALOS_FORCE_DOWNLOAD=true',
+      });
     }
 
     this.registerOutputs({

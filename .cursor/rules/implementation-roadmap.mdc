@@ -7,6 +7,32 @@ alwaysApply: true
 
 ## 🎯 **Development Priorities with Research-First Approach**
 
+### **Phase 0: Hosts Configuration Implementation (Immediate - 1 week)**
+**Priority 🔥 Immediate - Foundation for All Future Work:**
+
+1. **Hosts Configuration System** (24-32 hours)
+   - **Research Phase** (6-8 hours): Study YAML/JSON parsing, Joi validation patterns
+   - **Documentation**: 
+     - https://github.com/nodeca/js-yaml
+     - https://joi.dev/api/?v=17.9.0
+     - Pulumi configuration patterns
+   - **Implementation Steps**:
+     - Create hosts configuration schema and types
+     - Implement YAML parser with validation
+     - Add backward compatibility for env variables
+     - Refactor VM creation to use host definitions
+     - Update cluster bootstrapping for explicit IPs
+   - **Auto-Maintenance**: Configuration validation with helpful errors
+   - **GitOps**: Hosts config stored in Git, changes via commits
+   - **Memory Update**: Document schema decisions and migration patterns
+
+**Acceptance Criteria:**
+- Hosts YAML file fully replaces count-based configuration
+- Each VM individually configurable (name, IP, specs, tags)
+- Backward compatibility maintained during transition
+- Comprehensive validation with clear error messages
+- Documentation updated with examples
+
 ### **Phase 1: Critical Stability (Next 2 weeks)**
 Reference [ROADMAP.md](mdc:ROADMAP.md) sections 2 & 3:
 

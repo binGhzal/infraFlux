@@ -1,0 +1,563 @@
+---
+description: Comprehensive guide for implementing and using hosts-based configuration
+globs:
+alwaysApply: true
+---
+# InfraFlux v2.0 - Hosts Configuration Guide
+
+## 🎯 **Overview**
+The hosts configuration system provides explicit, declarative control over every VM in your infrastructure. Instead of specifying counts and letting the system assign IPs and IDs sequentially, you define each host individually with full control over its properties.
+
+## 📋 **Configuration Schema**
+
+### **Complete YAML Structure**
+```yaml
+# hosts.yaml - Complete example with all options
+version: "1.0"  # Schema version for future compatibility
+
+# Global defaults (optional, can be overridden per-host)
+defaults:
+  domain: homelab.local
+  dns:
+    - 1.1.1.1
+    - 1.0.0.1
+  storagePool: local-lvm
+  diskFormat: raw
+  
+# Cluster definitions
+clusters:
+  homelab:  # Cluster name
+    # Network configuration (optional if using auto-discovery)
+    network:
+      gateway: 192.168.1.1  # Can be auto-discovered
+      subnet: 192.168.1.0/24  # Can be auto-discovered
+      bridge: vmbr0
+    
+    # Master nodes configuration
+    masters:
+      - name: k8s-master-01
+        vmId: 8001
+        ip: 192.168.1.201
+        cores: 4
+        memory: 8192  # MB
+        disk: 50G
+        tags:
+          - production
+          - primary-master
+          - critical
+        # Optional overrides
+        storagePool: fast-ssd  # Override default
+        
+      - name: k8s-master-02
+        vmId: 8002
+        ip: 192.168.1.202
+        cores: 4
+        memory: 8192
+        disk: 50G
+        tags:
+          - production
+          - secondary-master
+          
+      - name: k8s-master-03
+        vmId: 8003
+        ip: 192.168.1.203
+        cores: 4
+        memory: 8192
+        disk: 50G
+        tags:
+          - production
+          - secondary-master
+    
+    # Worker nodes configuration
+    workers:
+      - name: k8s-worker-01
+        vmId: 8101
+        ip: 192.168.1.211
+        cores: 8
+        memory: 16384
+        disk: 100G
+        tags:
+          - gpu
+          - ml-workloads
+          - high-memory
+        # Custom hardware specs
+        gpu:
+          type: passthrough
+          device: "0000:01:00.0"
+          
+      - name: k8s-worker-02
+        vmId: 8102
+        ip: 192.168.1.212
+        cores: 4
+        memory: 8192
+        disk: 50G
+        tags:
+          - general
+          - web-workloads
+          
+      - name: k8s-worker-03
+        vmId: 8103
+        ip: 192.168.1.213
+        cores: 6
+        memory: 12288
+        disk: 75G
+        tags:
+          - database
+          - persistent-workloads
+        # Custom disk configuration
+        additionalDisks:
+          - size: 200G
+            storagePool: bulk-storage
+            purpose: database-data
+    
+    # Future: Infrastructure VMs (non-Kubernetes)
+    infrastructure:
+      - name: postgres-01
+        vmId: 8201
+        ip: 192.168.1.221
+        cores: 4
+        memory: 16384
+        disk: 50G
+        type: database
+        os: ubuntu-22.04  # Future: different OS templates
+        tags:
+          - database
+          - postgresql
+          - critical
+        
+      - name: monitoring-01
+        vmId: 8202
+        ip: 192.168.1.222
+        cores: 2
+        memory: 4096
+        disk: 30G
+        type: monitoring
+        tags:
+          - monitoring
+          - prometheus
+          - grafana
+
+# Multiple cluster support (future)
+# clusters:
+#   staging:
+#     masters: [...]
+#     workers: [...]
+```
+
+### **Minimal Configuration Example**
+```yaml
+# hosts-minimal.yaml - Minimum required configuration
+clusters:
+  homelab:
+    masters:
+      - name: k8s-master-01
+        vmId: 8001
+        ip: 192.168.1.201
+        # Uses defaults for cores, memory, disk
+    
+    workers:
+      - name: k8s-worker-01
+        vmId: 8101
+        ip: 192.168.1.211
+      
+      - name: k8s-worker-02
+        vmId: 8102
+        ip: 192.168.1.212
+```
+
+## 🔧 **Implementation Patterns**
+
+### **Hosts Configuration Parser Component**
+```typescript
+import * as pulumi from '@pulumi/pulumi';
+import * as yaml from 'js-yaml';
+import * as fs from 'fs';
+import * as Joi from 'joi';
+import { HostsConfig, ClusterConfig, HostDefinition } from '@/types/hosts';
+
+/**
+ * HostsConfigParser - Parses and validates hosts configuration
+ * 
+ * Research:
+ * - https://github.com/nodeca/js-yaml
+ * - https://joi.dev/api/?v=17.7.0
+ * 
+ * Auto-Maintenance:
+ * - Schema version checking with migration support
+ * - Automatic validation with helpful errors
+ * - Default value injection
+ */
+export class HostsConfigParser {
+  private schema: Joi.ObjectSchema;
+  
+  constructor() {
+    this.schema = this.createValidationSchema();
+  }
+  
+  public loadConfig(path: string): HostsConfig {
+    // Read YAML file
+    const content = fs.readFileSync(path, 'utf8');
+    const raw = yaml.load(content) as any;
+    
+    // Validate with schema
+    const { error, value } = this.schema.validate(raw, {
+      abortEarly: false,
+      allowUnknown: false,
+    });
+    
+    if (error) {
+      const details = error.details.map(d => `- ${d.path.join('.')}: ${d.message}`).join('\n');
+      throw new Error(`Invalid hosts configuration:\n${details}`);
+    }
+    
+    return this.applyDefaults(value as HostsConfig);
+  }
+  
+  private createValidationSchema(): Joi.ObjectSchema {
+    const hostSchema = Joi.object({
+      name: Joi.string().required()
+        .pattern(/^[a-z0-9-]+$/)
+        .description('Host name (lowercase, alphanumeric, hyphens)'),
+      vmId: Joi.number().required()
+        .min(100).max(999999)
+        .description('Proxmox VM ID'),
+      ip: Joi.string().required()
+        .ip({ version: ['ipv4'] })
+        .description('Static IP address'),
+      cores: Joi.number().min(1).max(128).default(2),
+      memory: Joi.number().min(512).max(524288).default(4096),
+      disk: Joi.string().pattern(/^\d+[GM]$/).default('20G'),
+      tags: Joi.array().items(Joi.string()).default([]),
+      storagePool: Joi.string(),
+      gpu: Joi.object({
+        type: Joi.string().valid('passthrough', 'virtual'),
+        device: Joi.string(),
+      }),
+      additionalDisks: Joi.array().items(
+        Joi.object({
+          size: Joi.string().pattern(/^\d+[GM]$/),
+          storagePool: Joi.string(),
+          purpose: Joi.string(),
+        })
+      ),
+    });
+    
+    return Joi.object({
+      version: Joi.string().default('1.0'),
+      defaults: Joi.object({
+        domain: Joi.string().default('homelab.local'),
+        dns: Joi.array().items(Joi.string().ip()).default(['1.1.1.1', '1.0.0.1']),
+        storagePool: Joi.string().default('local-lvm'),
+        diskFormat: Joi.string().valid('raw', 'qcow2').default('raw'),
+      }),
+      clusters: Joi.object().pattern(
+        Joi.string(),
+        Joi.object({
+          network: Joi.object({
+            gateway: Joi.string().ip(),
+            subnet: Joi.string().pattern(/^(\d+\.){3}\d+\/\d+$/),
+            bridge: Joi.string().default('vmbr0'),
+          }),
+          masters: Joi.array().items(hostSchema).min(1).required(),
+          workers: Joi.array().items(hostSchema).default([]),
+          infrastructure: Joi.array().items(
+            hostSchema.keys({
+              type: Joi.string(),
+              os: Joi.string(),
+            })
+          ),
+        })
+      ).min(1).required(),
+    });
+  }
+  
+  private applyDefaults(config: HostsConfig): HostsConfig {
+    // Apply global defaults to each host
+    for (const cluster of Object.values(config.clusters)) {
+      const applyToHosts = (hosts: HostDefinition[]) => {
+        for (const host of hosts) {
+          host.cores = host.cores ?? config.defaults?.cores ?? 2;
+          host.memory = host.memory ?? config.defaults?.memory ?? 4096;
+          host.disk = host.disk ?? config.defaults?.disk ?? '20G';
+          host.storagePool = host.storagePool ?? config.defaults?.storagePool ?? 'local-lvm';
+          host.tags = [...(host.tags ?? []), 'infraflux-managed'];
+        }
+      };
+      
+      applyToHosts(cluster.masters);
+      if (cluster.workers) applyToHosts(cluster.workers);
+      if (cluster.infrastructure) applyToHosts(cluster.infrastructure);
+    }
+    
+    return config;
+  }
+}
+```
+
+### **VM Creation from Host Definitions**
+```typescript
+// Pattern for creating VMs from host definitions
+export class HostBasedVMCreator extends pulumi.ComponentResource {
+  constructor(
+    name: string,
+    args: { hostsConfig: HostsConfig, provider: proxmox.Provider },
+    opts?: pulumi.ComponentResourceOptions
+  ) {
+    super('infraflux:hosts:VMCreator', name, {}, opts);
+    
+    // Create all VMs from host definitions
+    for (const [clusterName, cluster] of Object.entries(args.hostsConfig.clusters)) {
+      // Create master VMs
+      for (const master of cluster.masters) {
+        new VM(`${clusterName}-${master.name}`, {
+          provider: args.provider,
+          spec: {
+            name: master.name,
+            vmId: master.vmId,
+            ipAddress: master.ip,
+            cores: master.cores,
+            memory: master.memory,
+            diskSize: master.disk,
+            tags: [...master.tags, 'master', clusterName],
+            storagePool: master.storagePool,
+          },
+          template: masterTemplate,
+        }, { parent: this });
+      }
+      
+      // Create worker VMs
+      for (const worker of cluster.workers || []) {
+        new VM(`${clusterName}-${worker.name}`, {
+          provider: args.provider,
+          spec: {
+            name: worker.name,
+            vmId: worker.vmId,
+            ipAddress: worker.ip,
+            cores: worker.cores,
+            memory: worker.memory,
+            diskSize: worker.disk,
+            tags: [...worker.tags, 'worker', clusterName],
+            storagePool: worker.storagePool,
+          },
+          template: workerTemplate,
+          gpu: worker.gpu,
+          additionalDisks: worker.additionalDisks,
+        }, { parent: this });
+      }
+    }
+  }
+}
+```
+
+## 📝 **Migration Guide**
+
+### **From Environment Variables to Hosts Config**
+
+#### **Current Approach (Count-Based)**
+```env
+K8S_MASTER_COUNT=1
+K8S_WORKER_COUNT=3
+K8S_MASTER_CORES=2
+K8S_MASTER_MEMORY=4096
+K8S_WORKER_CORES=2
+K8S_WORKER_MEMORY=4096
+```
+
+#### **New Approach (Hosts-Based)**
+```yaml
+clusters:
+  homelab:
+    masters:
+      - name: k8s-master-01
+        vmId: 8001
+        ip: 192.168.1.201
+        cores: 2
+        memory: 4096
+        disk: 30G
+    
+    workers:
+      - name: k8s-worker-01
+        vmId: 8101
+        ip: 192.168.1.211
+        cores: 2
+        memory: 4096
+        disk: 50G
+      # ... repeat for each worker
+```
+
+### **Backward Compatibility**
+```typescript
+// Support both approaches during transition
+const hostsConfig = fs.existsSync('./hosts.yaml')
+  ? new HostsConfigParser().loadConfig('./hosts.yaml')
+  : generateHostsFromEnv(); // Convert env vars to hosts format
+
+function generateHostsFromEnv(): HostsConfig {
+  const masterCount = parseInt(process.env.K8S_MASTER_COUNT || '1');
+  const workerCount = parseInt(process.env.K8S_WORKER_COUNT || '3');
+  
+  return {
+    version: '1.0',
+    clusters: {
+      homelab: {
+        masters: Array.from({ length: masterCount }, (_, i) => ({
+          name: `k8s-master-${i + 1}`,
+          vmId: 8000 + i,
+          ip: `${baseIP}.${200 + i}`,
+          cores: parseInt(process.env.K8S_MASTER_CORES || '2'),
+          memory: parseInt(process.env.K8S_MASTER_MEMORY || '4096'),
+          disk: process.env.K8S_MASTER_DISK || '30G',
+          tags: ['master'],
+        })),
+        workers: Array.from({ length: workerCount }, (_, i) => ({
+          name: `k8s-worker-${i + 1}`,
+          vmId: 8100 + i,
+          ip: `${baseIP}.${210 + i}`,
+          cores: parseInt(process.env.K8S_WORKER_CORES || '2'),
+          memory: parseInt(process.env.K8S_WORKER_MEMORY || '4096'),
+          disk: process.env.K8S_WORKER_DISK || '50G',
+          tags: ['worker'],
+        })),
+      },
+    },
+  };
+}
+```
+
+## 🚀 **Best Practices**
+
+### **1. Naming Conventions**
+- Use descriptive names: `k8s-master-01`, `db-postgres-01`
+- Include role in name: `master`, `worker`, `monitoring`
+- Use consistent numbering: `01`, `02`, `03`
+
+### **2. IP Address Management**
+- Reserve IP ranges for different roles
+- Document IP allocations in hosts file comments
+- Use sequential IPs for same role
+- Leave gaps for future expansion
+
+### **3. VM ID Management**
+- Use consistent ranges: 8000s for k8s, 8200s for infrastructure
+- Document ID allocation strategy
+- Avoid Proxmox reserved IDs (100-999)
+- Leave gaps between categories
+
+### **4. Tagging Strategy**
+- Role tags: `master`, `worker`, `infrastructure`
+- Workload tags: `gpu`, `database`, `web`
+- Environment tags: `production`, `staging`
+- Priority tags: `critical`, `non-critical`
+
+### **5. Hardware Allocation**
+- Right-size resources for workloads
+- Use consistent specs for same roles
+- Document special hardware requirements
+- Plan for growth
+
+## 🔍 **Validation and Testing**
+
+### **Configuration Validation Command**
+```bash
+# Add to package.json scripts
+"validate-hosts": "ts-node src/cli/validate-hosts.ts"
+
+# Usage
+npm run validate-hosts -- --file hosts.yaml
+```
+
+### **Validation Implementation**
+```typescript
+// src/cli/validate-hosts.ts
+import { HostsConfigParser } from '@/components/hosts-config-parser';
+
+const parser = new HostsConfigParser();
+
+try {
+  const config = parser.loadConfig(process.argv[3] || './hosts.yaml');
+  console.log('✅ Hosts configuration is valid');
+  
+  // Additional validation
+  validateIPUniqueness(config);
+  validateVMIDUniqueness(config);
+  validateNetworkRanges(config);
+  
+  console.log(`
+Summary:
+- Clusters: ${Object.keys(config.clusters).length}
+- Total Masters: ${countHosts(config, 'masters')}
+- Total Workers: ${countHosts(config, 'workers')}
+- Total Infrastructure: ${countHosts(config, 'infrastructure')}
+  `);
+} catch (error) {
+  console.error('❌ Validation failed:', error.message);
+  process.exit(1);
+}
+```
+
+## 🎯 **Future Enhancements**
+
+### **Multi-Cloud Support**
+```yaml
+providers:
+  proxmox:
+    endpoint: https://192.168.1.100:8006
+    node: pve
+  aws:
+    region: us-east-1
+    vpc: vpc-12345
+
+clusters:
+  hybrid:
+    provider: proxmox
+    masters: [...]
+    
+  cloud:
+    provider: aws
+    masters: [...]
+```
+
+### **Template Selection**
+```yaml
+templates:
+  talos-master:
+    id: 9010
+    schematic: ec83aa8b...
+  talos-worker:
+    id: 9011
+    schematic: ec83aa8b...
+  ubuntu-22:
+    id: 9020
+    source: cloud-image
+
+clusters:
+  homelab:
+    masters:
+      - name: k8s-master-01
+        template: talos-master  # Explicit template selection
+```
+
+### **Advanced Networking**
+```yaml
+clusters:
+  homelab:
+    networks:
+      management:
+        vlan: 10
+        subnet: 192.168.10.0/24
+      storage:
+        vlan: 20
+        subnet: 192.168.20.0/24
+    
+    masters:
+      - name: k8s-master-01
+        networks:
+          - interface: eth0
+            network: management
+            ip: 192.168.10.201
+          - interface: eth1
+            network: storage
+            ip: 192.168.20.201
+```
+
+This hosts configuration system provides the flexibility and control needed for complex infrastructure while maintaining the simplicity and declarative nature of InfraFlux.

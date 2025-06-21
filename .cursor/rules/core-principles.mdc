@@ -35,6 +35,13 @@ After each task completion, store:
 - **Auto-maintenance** features implemented
 - **Blockers** and next steps identified
 
+### **Hosts-Based Configuration Philosophy**
+- **EXPLICIT** host definitions over count-based configuration
+- **INDIVIDUAL** control per VM (name, IP, specs, tags)
+- **HETEROGENEOUS** hardware support within same cluster
+- **EXTENSIBLE** design for future non-Kubernetes VMs
+- **DECLARATIVE** YAML/JSON configuration files
+
 ## 🏗️ **COMPONENT PATTERNS**
 
 ### **Standard Component Template**
@@ -103,10 +110,11 @@ const schema = Joi.object({
 - **VMs**: `local-lvm` storage (faster/SSD)
 - **Organization**: Separate pools for better management
 
-### **ID Ranges (Auto-Managed)**
-- **Masters**: 8000-8099
-- **Workers**: 8100-8199
+### **ID Ranges (Host-Defined)**
+- **Masters**: Explicitly defined in hosts config
+- **Workers**: Explicitly defined in hosts config
 - **Templates**: 9010+ (avoid conflicts)
+- **Infrastructure VMs**: User-defined ranges
 
 ### **Network Auto-Discovery**
 - Empty `NETWORK_GATEWAY` + `NETWORK_SUBNET` = auto-discover from Proxmox bridge

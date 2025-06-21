@@ -16,8 +16,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "validate-config": "ts-node src/cli/validate-config.ts",
-    "config-template": "ts-node src/cli/validate-config.ts --template",
+    "validate-config": "ts-node -r tsconfig-paths/register src/cli/validate-config.ts",
+    "config-template": "ts-node -r tsconfig-paths/register src/cli/validate-config.ts --template",
     "preview": "pulumi preview",
     "up": "pulumi up",
     "destroy": "pulumi destroy",
@@ -52,6 +52,7 @@
     "lint-staged": "^15.2.0",
     "prettier": "^3.2.4",
     "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
   "lint-staged": {

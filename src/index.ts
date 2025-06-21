@@ -75,6 +75,7 @@ let gitops: GitOps | undefined;
 
 if (config.kubernetes.masterNodes > 0) {
   logger.info('Deploying Talos Kubernetes cluster from templates...');
+  logger.info('Using static IP assignment - no network discovery needed');
 
   cluster = new TalosCluster(
     'homelab-k8s',
@@ -82,7 +83,7 @@ if (config.kubernetes.masterNodes > 0) {
       provider: proxmoxProvider,
       templateManager, // Pass the template manager
       startingIP: 200, // Start IPs at 192.168.1.200+
-      enableNetworkDiscovery: true, // Enable native QEMU Guest Agent network discovery
+      // Removed enableNetworkDiscovery - using static IPs only
     },
     {
       dependsOn: [templateManager], // Wait for templates to be ready
@@ -148,8 +149,19 @@ export const kubernetes = cluster
       cluster: cluster.output,
       talosConfig: cluster.talosConfig,
       gitopsReady: gitops?.ready,
-      networkDiscovery: cluster.networkDiscovery?.discoveredVMs,
-      networkReady: cluster.networkDiscovery?.ready,
+      // Network discovery removed - using static IP assignment
+      staticIPs: {
+        masters: Array.from(
+          { length: config.kubernetes.masterNodes },
+          (_, i) =>
+            `${config.network.gateway.split('.').slice(0, 3).join('.')}.${200 + i}`
+        ),
+        workers: Array.from(
+          { length: config.kubernetes.workerNodes },
+          (_, i) =>
+            `${config.network.gateway.split('.').slice(0, 3).join('.')}.${200 + config.kubernetes.masterNodes + i}`
+        ),
+      },
     }
   : undefined;
 
@@ -217,7 +229,7 @@ export const instructions = pulumi
       instructions += `  • Master Template: ID 9010 (optimized for control plane)\n`;
       instructions += `  • Worker Template: ID 9011 (optimized for workloads)\n`;
       instructions += `  • Extensions: QEMU Guest Agent + CloudFlare Tunnel\n`;
-      instructions += `  • Network: ${networkDiscovery ? 'Auto-discovered from Proxmox bridge' : 'Manual configuration'}\n`;
+      instructions += `  • Network: Static IP assignment starting at ${config.network.gateway.split('.').slice(0, 3).join('.')}.200\n`;
     }
 
     if (apiEndpoint) {
@@ -255,10 +267,17 @@ export const instructions = pulumi
    - FluxCD will automatically deploy them
 
 4. Use included extensions:
-   - QEMU Guest Agent: Automatic IP detection in Proxmox
+   - QEMU Guest Agent: Automatic IP validation in Proxmox
    - CloudFlare Tunnel: Ready for secure external access
 
-5. Verify QEMU Guest Agent is working:
+5. Static IP Configuration:
+   - Master nodes: ${config.network.gateway.split('.').slice(0, 3).join('.')}.200+
+   - Worker nodes: ${config.network.gateway.split('.').slice(0, 3).join('.')}.${200 + config.kubernetes.masterNodes}+
+   - Gateway: ${config.network.gateway}
+   - DNS: ${config.network.dnsServers.join(', ')}
+   - Network managed via DHCP reservation or static assignment
+
+6. Verify QEMU Guest Agent is working:
    - Check agent status: qm agent <vm-id> ping
    - View VM info: qm agent <vm-id> get-fsinfo
    - Get network info: qm agent <vm-id> network-get-interfaces
@@ -280,7 +299,7 @@ export const instructions = pulumi
 - VM ID Ranges: 8000+ (masters), 8100+ (workers), 9010+ (templates)
 - Storage: ISOs on ${config.vm.defaults.isoStoragePool}, VMs on ${config.vm.defaults.storagePool}
 - All resources tagged as 'infraflux-managed'
-- Network: ${networkDiscovery ? 'Auto-discovered from Proxmox bridge' : 'Manual configuration'}
+- Network: Static IP assignment (no auto-discovery)
 
 🔄 GitOps-Managed Services:
 - Monitoring: Prometheus + Grafana (deployed via FluxCD)
